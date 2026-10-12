@@ -1,7 +1,7 @@
 // App-shell cache. The portal's own page and scripts open instantly from this device (even on a slow
 // network) and quietly update in the background. API calls are NEVER handled here - live data always
 // comes from the server (the in-app data cache, src/cache.js, deals with that).
-const VERSION = 'sp-shell-v1';
+const VERSION = 'sp-shell-v2';
 const MAX_ASSETS = 60; // hashed build files from old deploys are trimmed past this
 
 self.addEventListener('install', (e) => {

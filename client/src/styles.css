@@ -35,7 +35,7 @@ h1,h2,h3{margin:0;letter-spacing:-.015em}
 .backbtn{display:none;margin-left:-8px}
 .who{display:flex;align-items:center;gap:8px;position:relative;flex:none}
 .who .meta{text-align:right;line-height:1.2;font-size:13px}.who .meta small{display:block;color:var(--mute);font-size:11.5px}
-.avatar{display:inline-grid;place-items:center;flex:none;line-height:1;padding:0;text-align:center;width:34px;height:34px;border-radius:50%;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:var(--soft);color:var(--accent);font-weight:700;font-size:12.5px}
+.avatar{display:inline-flex;align-items:center;justify-content:center;flex:none;line-height:1;padding:0;margin:0;text-align:center;box-sizing:border-box;width:34px;height:34px;border-radius:50%;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:var(--soft);color:var(--accent);font-weight:700;font-size:12.5px}
 .pinbtn.on{color:var(--accent);background:var(--soft)}
 .scrim{position:fixed;inset:0;z-index:19}
 .menu{position:absolute;right:0;top:42px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.35);padding:5px;min-width:190px;z-index:20}
@@ -59,7 +59,7 @@ h1,h2,h3{margin:0;letter-spacing:-.015em}
 .mod:hover{border-color:color-mix(in srgb,var(--c) 55%,var(--line))}.mod:active{transform:scale(.99)}
 .mod>svg{color:var(--mute);flex:none}
 .mt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.mt b{font-size:14.5px}.mt span{color:var(--mute);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.mt b{font-size:15px}.mt span{color:var(--mute);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
 
 /* generic */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
@@ -267,7 +267,7 @@ details summary{cursor:pointer}.days{margin-top:10px}
 .vtime{flex:none;min-width:78px;font-weight:700;font-size:14px;color:var(--accent);background:var(--soft);border-radius:9px;padding:6px 8px;text-align:center}
 
 /* ===== communication ===== */
-.avatar.sm{width:38px;height:38px;font-size:13px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--soft);color:var(--accent);font-weight:700}
+.avatar.sm{width:38px;height:38px;font-size:13px;flex:none;display:inline-flex;align-items:center;justify-content:center;line-height:1;border-radius:50%;background:var(--soft);color:var(--accent);font-weight:700}
 .ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .notice-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:8px}

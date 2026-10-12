@@ -168,7 +168,7 @@ export default function App() {
   const ModTile = ({ m }) => { const u = MODULE_UI[m.key]; return (
     <button className="mod" style={{ '--c': u.color }} onClick={() => go(m.key)} onPointerEnter={() => warmModule(me, m.key)} onTouchStart={() => warmModule(me, m.key)}>
       <span className="ic"><Icon name={u.icon} size={22} /></span>
-      <span className="mt"><b>{u.label}</b><span>{u.desc}</span></span>
+      <span className="mt"><b>{u.label}</b></span>
       <Icon name="chevron" size={16} />
     </button>); };
 
