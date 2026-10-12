@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useData } from '../cache.js';
 import { fetchers } from '../fetchers.js';
-import { Icon, Empty, Modal, toast } from '../ui.jsx';
+import { Icon, Empty, Modal, toast, Loading } from '../ui.jsx';
 
 const MODULES = {
   auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', fees: 'Fees',
@@ -104,7 +104,7 @@ export function AuditLogs({ me }) {
       </div>
 
       {err && <div className="err">{err}</div>}
-      {!rows ? <Empty>Loading...</Empty> : rows.length === 0 && !err ? <Empty>No log entries match.</Empty> : (
+      {!rows ? <Loading /> : rows.length === 0 && !err ? <Empty>No log entries match.</Empty> : (
         <div className="card scrollx" style={{ padding: 0 }}>
           <table className="rt audit">
             <thead><tr><th>When</th>{sup && <th>School</th>}<th>Who</th><th>What</th><th>Module</th><th>Result</th></tr></thead>

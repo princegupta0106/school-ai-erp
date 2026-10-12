@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { useData } from '../cache.js';
-import { Icon, Modal, Empty, toast } from '../ui.jsx';
+import { useData, useApi } from '../cache.js';
+import { Icon, Modal, Empty, toast, Loading } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const ST = {
@@ -26,17 +26,10 @@ const scopeQ = (me, sid) => (sup(me) ? { school_id: sid } : {});
 const get = (me, sid, path, params = {}) => api.get(`/attendance${path}${qs({ ...scopeQ(me, sid), ...params })}`);
 const send = (method, me, sid, path, body = {}) => api[method](`/attendance${path}`, { ...body, ...scopeQ(me, sid) });
 
+// cached report read: same params show the last result at once and refresh behind it
 function useGet(me, sid, path, params, enabled = true) {
-  const [st, setSt] = useState({ data: null, error: '', loading: enabled });
-  const key = JSON.stringify([sid, path, params, enabled]);
-  useEffect(() => {
-    if (!enabled) { setSt({ data: null, error: '', loading: false }); return undefined; }
-    let live = true;
-    setSt((s) => ({ ...s, loading: true, error: '' }));
-    get(me, sid, path, params).then((d) => live && setSt({ data: d, error: '', loading: false })).catch((e) => live && setSt({ data: null, error: e.message, loading: false }));
-    return () => { live = false; };
-  }, [key]); // eslint-disable-line
-  return st;
+  const { data, error, loading } = useApi(`/attendance${path}${qs({ ...scopeQ(me, sid), ...params })}`, enabled, { keepPrevious: true });
+  return { data: data ?? null, error: error || '', loading };
 }
 
 // the class list (with "marked today?" state) is cached, so tabs open instantly
@@ -107,7 +100,7 @@ export const TakeAttendance = scoped(function Take({ me, sid, go }) {
       goRolls={me.features.includes('manage_roll_numbers') ? () => go('rolls') : null} />;
   }
   if (error) return <div className="err">{error}</div>;
-  if (!data) return <Empty>Loading...</Empty>;
+  if (!data) return <Loading />;
   const marked = data.classes.filter((c) => c.state === 'marked').length;
   const isToday = data.date === data.today;
   return (
@@ -178,7 +171,7 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
   };
 
   if (err && !sh) return <><button className="btn" onClick={onBack}><Icon name="back" size={16} />Back</button><div className="err">{err}</div></>;
-  if (!sh) return <Empty>Loading...</Empty>;
+  if (!sh) return <Loading />;
 
   const st = sh.status; const noRoll = students.filter((s) => !s.roll_no).length;
   const isToday = sh.date === today;
@@ -247,7 +240,7 @@ function RangeBar({ today, value, shown, shownDefault, onChange }) {
   const same = (a, b) => a.from === b.from && a.to === b.to;
   return (
     <div className="row">
-      <div className="pills">{presets.map(([l, v]) => <button key={l} className={`pill ${same(value, v) ? 'on' : ''}`} onClick={() => onChange(v)}>{l}</button>)}</div>
+      <div className="pills scroll">{presets.map(([l, v]) => <button key={l} className={`pill ${same(value, v) ? 'on' : ''}`} onClick={() => onChange(v)}>{l}</button>)}</div>
       <input type="date" aria-label="From date" style={{ width: 'auto' }} max={today} value={value.from || shown?.from || ''} onChange={(e) => onChange({ from: e.target.value, to: value.to || shown?.to || today })} />
       <span style={{ color: 'var(--mute)' }}>to</span>
       <input type="date" aria-label="To date" style={{ width: 'auto' }} max={today} value={value.to || shown?.to || today} onChange={(e) => onChange({ from: value.from || shown?.from || '', to: e.target.value })} />
@@ -267,7 +260,7 @@ function DailyReport({ me, sid, today, onOpen }) {
   return (<>
     <div className="row"><input type="date" style={{ width: 'auto' }} max={today} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Date" />{date !== today && <button className="btn" onClick={() => setDate(today)}>Today</button>}</div>
     {error && <div className="err">{error}</div>}
-    {!data ? (loading && <Empty>Loading...</Empty>) : (<>
+    {!data ? (loading && <Loading />) : (<>
       <div className="asum"><Tile n={`${data.totals.classes_marked}/${data.totals.classes}`} label="Classes marked" /><Tile tone="present" n={data.totals.present} label="Present" /><Tile tone="absent" n={data.totals.absent} label="Absent" /><Tile tone="late" n={data.totals.late} label="Late" /></div>
       {data.classes.length === 0 ? <Empty>No classes to show.</Empty> : (
         <div className="card" style={{ padding: 0 }}>{data.classes.map((c) => { const s = statusLine(c); return (
@@ -292,7 +285,7 @@ function ClassReport({ me, sid, today, classes, onStudent }) {
     <div className="row"><ClassSelect classes={classes} value={classId} onChange={setClassId} /></div>
     <RangeBar today={today} value={range} shown={data?.range} onChange={setRange} />
     {error && <div className="err">{error}</div>}
-    {!data ? (loading && <Empty>Loading...</Empty>) : (<>
+    {!data ? (loading && <Loading />) : (<>
       <div className="asum"><Tile n={data.working_days} label="Days marked" /><Tile n={data.summary.percent === null ? '-' : `${data.summary.percent}%`} label="Class average" tone="present" /><Tile n={data.students.filter((s) => s.percent !== null && s.percent < 75).length} label="Below 75%" tone="absent" onClick={() => setBelow(!below)} on={below} /></div>
       <div className="row sp"><small style={{ color: 'var(--mute)' }}>{fmtDate(data.range.from)} to {fmtDate(data.range.to)}</small><button className="btn" onClick={download} disabled={!data.students.length}><Icon name="download" size={16} />Download CSV</button></div>
       {rows.length === 0 ? <Empty>{below ? 'Nobody is below 75%.' : 'No students.'}</Empty> : (
@@ -323,7 +316,7 @@ function StudentReport({ me, sid, today, picked, setPicked }) {
     <div className="row"><button className="btn" onClick={() => setPicked(null)}><Icon name="back" size={16} />Students</button><b style={{ fontSize: 17 }}>{picked.full_name}</b></div>
     <RangeBar today={today} value={range} shown={data?.range} onChange={setRange} />
     {error && <div className="err">{error}</div>}
-    {!data ? (loading && <Empty>Loading...</Empty>) : <StudentSummary data={data} />}
+    {!data ? (loading && <Loading />) : <StudentSummary data={data} />}
   </>);
 }
 
@@ -347,7 +340,7 @@ function LowReport({ me, sid, today, classes, onStudent }) {
       <label className="row" style={{ gap: 6 }}><span className="muted">Below</span><input type="number" min="1" max="100" style={{ width: 80 }} value={limit} onChange={(e) => setLimit(e.target.value)} aria-label="Attendance limit in percent" /><span className="muted">%</span></label></div>
     <RangeBar today={today} value={range} shown={data?.range} onChange={setRange} />
     {error && <div className="err">{error}</div>}
-    {!data ? (loading && <Empty>Loading...</Empty>) : data.students.length === 0 ? <Empty>Nobody is below {data.threshold}% in this period.</Empty> : (<>
+    {!data ? (loading && <Loading />) : data.students.length === 0 ? <Empty>Nobody is below {data.threshold}% in this period.</Empty> : (<>
       <div className="row sp"><small className="muted">{data.students.length} student{data.students.length === 1 ? '' : 's'} below {data.threshold}%</small>
         <button className="btn" onClick={() => csv(`low-attendance-${data.range.from}-to-${data.range.to}.csv`, [['Class', 'Roll no', 'Name', 'Present', 'Absent', 'Late', 'Leave', 'Attendance %'], ...data.students.map((s) => [s.class_label, s.roll_no ?? '', s.full_name, s.present, s.absent, s.late, s.leave, s.percent])])}><Icon name="download" size={16} />Download CSV</button></div>
       <div className="card" style={{ padding: 0 }}>{data.students.map((s) => <button key={`${s.student_id}${s.class_id}`} className="drow" onClick={() => onStudent(s)}><span className="roll sm">{s.roll_no ?? '-'}</span><div style={{ flex: 1 }}><b>{s.full_name}</b><small>Class {s.class_label} - {s.absent} absent of {s.total} days</small></div><Pct v={s.percent} /></button>)}</div>
@@ -358,11 +351,11 @@ function LowReport({ me, sid, today, classes, onStudent }) {
 export const AttendanceReports = scoped(function Reports({ me, sid, go }) {
   const [tab, setTab] = useState('daily'); const [picked, setPicked] = useState(null);
   const { data } = useClasses(me, sid);
-  if (!data) return <Empty>Loading...</Empty>;
+  if (!data) return <Loading />;
   const openStudent = (s) => { setPicked({ student_id: s.student_id, full_name: s.full_name }); setTab('student'); };
   const openClass = (class_id, date) => { jump = { class_id, date: date === data.today ? '' : date }; go('take'); };
   return (<>
-    <div className="pills">{[['daily', 'Daily overview'], ['class', 'Class report'], ['student', 'Student report'], ['low', 'Low attendance']].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
+    <div className="pills scroll">{[['daily', 'Daily overview'], ['class', 'Class report'], ['student', 'Student report'], ['low', 'Low attendance']].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
     {tab === 'daily' && <DailyReport me={me} sid={sid} today={data.today} onOpen={openClass} />}
     {tab === 'class' && <ClassReport me={me} sid={sid} today={data.today} classes={data.classes} onStudent={openStudent} />}
     {tab === 'student' && <StudentReport me={me} sid={sid} today={data.today} picked={picked} setPicked={setPicked} />}
@@ -397,13 +390,13 @@ export const RollNumbers = scoped(function Rolls({ me, sid }) {
   };
   const pickClass = (id) => { if (dirty && !confirm('Discard your unsaved edits?')) return; setClassId(id); };
 
-  if (!cl) return <Empty>Loading...</Empty>;
+  if (!cl) return <Loading />;
   if (!cl.classes.length) return <Empty>No classes available.</Empty>;
   return (<>
     <div className="row"><ClassSelect classes={cl.classes} value={classId} onChange={pickClass} /></div>
     <small className="muted">Roll numbers are 1 to 100 and unique inside one class (Roll 1 can exist in 1A and in 1B). They are cleared at year-end promotion, so assign them again for the new class.</small>
     {err && <div className="err">{err}</div>}
-    {!d ? <Empty>{err ? '' : 'Loading...'}</Empty> : d.students.length === 0 ? <Empty>No active students in this class.</Empty> : (<>
+    {!d ? (err ? null : <Loading rows={3} />) : d.students.length === 0 ? <Empty>No active students in this class.</Empty> : (<>
       <div className="row"><button className="btn" disabled={busy} onClick={() => auto('fill')}>Fill missing numbers</button><button className="btn" disabled={busy} onClick={() => auto('name')}>Number all A-Z</button></div>
       <div className="card" style={{ padding: 0 }}>{[...d.students].sort((a, b) => (Number(vals[a.student_id]) || 1e9) - (Number(vals[b.student_id]) || 1e9) || a.full_name.localeCompare(b.full_name)).map((s) => {
         const v = vals[s.student_id]; const flagged = bad(v) || (v !== '' && dups.has(String(v)));
@@ -446,11 +439,10 @@ function AssignModal({ me, sid, cls, teachers, onClose, onSaved }) {
 }
 
 export const ClassTeachers = scoped(function Teachers({ me, sid }) {
-  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [edit, setEdit] = useState(null);
-  const reload = useCallback(() => get(me, sid, '/teachers').then(setD).catch((e) => setErr(e.message)), [me, sid]);
-  useEffect(() => { reload(); }, [reload]);
+  const [edit, setEdit] = useState(null);
+  const { data: d, error: err, refresh: reload } = useApi(`/attendance/teachers${qs(scopeQ(me, sid))}`);
   if (err) return <div className="err">{err}</div>;
-  if (!d) return <Empty>Loading...</Empty>;
+  if (!d) return <Loading />;
   return (<>
     <small className="muted">Teachers only see the classes assigned to them in Take attendance. Staff with "Access every class" see all classes.</small>
     {d.classes.length === 0 ? <Empty>No classes yet. Add them under Users &gt; Classes.</Empty> : (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api.js';
-import { useData } from '../cache.js';
-import { Modal, Field, Badge, Empty, toast } from '../ui.jsx';
+import { useData, useApi as useCachedApi } from '../cache.js';
+import { Modal, Field, Badge, Empty, toast, Loading } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -9,7 +9,7 @@ const fmt = (d) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { day: '
 const monthName = (p) => new Date(`${p.slice(0, 7)}-01T00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 const span = (x) => (x.start_date === x.end_date ? fmt(x.start_date) : `${fmt(x.start_date)} to ${fmt(x.end_date)}`);
 const prevMonth = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
-const TONE = { pending: '', approved: 'ok', rejected: 'off', cancelled: 'off', draft: '', finalized: '', paid: 'ok' };
+const TONE = { pending: 'warn', approved: 'ok', rejected: 'off', cancelled: 'mute', draft: 'mute', finalized: 'info', paid: 'ok' };
 const S = ({ s }) => <Badge tone={TONE[s]}>{s}</Badge>;
 const dim = { color: 'var(--mute)', fontSize: 13 };
 const balTone = (n) => (n < 0 ? 'var(--bad)' : 'var(--ink)');
@@ -24,12 +24,10 @@ function useSchoolId(me) {
   return { sid, picker, qs: sup ? `school_id=${sid}` : '' };
 }
 const withQs = (url, qs) => (qs ? `${url}${url.includes('?') ? '&' : '?'}${qs}` : url);
-// tiny loader: refetch on demand
-function useApi(url, deps = []) {
-  const [data, setData] = useState(null); const [error, setError] = useState('');
-  const reload = useCallback(() => (url ? api.get(url).then((d) => { setData(d); setError(''); }).catch((e) => setError(e.message)) : Promise.resolve()), [url]); // eslint-disable-line
-  useEffect(() => { setData(null); reload(); }, [url, ...deps]); // eslint-disable-line
-  return { data, error, reload };
+// cached GET: shows the last copy straight away, refreshes in the background; reload() forces a fresh fetch
+function useApi(url) {
+  const r = useCachedApi(url, !!url);
+  return { data: r.data, error: r.error || '', reload: r.refresh };
 }
 const useRun = (reload) => {
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
@@ -78,30 +76,31 @@ function ApplyForm({ types, mode, onDone, sid, qs, onBehalfList }) {
   );
 }
 
-export function MyLeave({ me }) {
+export function MyLeave({ me, action }) {
   const { sid, picker, qs } = useSchoolId(me);
   const { data, error, reload } = useApi(sid ? withQs('/payroll/me', qs) : null);
-  const [slip, setSlip] = useState(null); const [apply, setApply] = useState(false); const [tab, setTab] = useState('leave');
+  const [slip, setSlip] = useState(null); const [apply, setApply] = useState(action === 'apply'); const [tab, setTab] = useState('leave');
   const { run } = useRun(reload);
+  useEffect(() => { if (action === 'apply') history.replaceState(null, '', '#payroll/my'); }, []); // eslint-disable-line
   if (!me.school_id) return <Empty>Self-service is for school employees. Sign in as a staff member to use it.</Empty>;
   if (error) return <div className="err">{error}</div>;
-  if (!data) return <Empty>Loading...</Empty>;
+  if (!data) return <Loading />;
   return (
     <div className="stack">
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))' }}>
+      <div className="grid stats">
         {data.balances.length === 0 && <Empty>No leave types set up yet.</Empty>}
         {data.balances.map((b) => (
-          <div key={b.type_id} className="card"><div style={dim}>{b.name} balance</div>
+          <div key={b.type_id} className={`card stat ${b.balance < 0 ? 'bad' : b.balance === 0 ? 'warn' : 'ok'}`}><div style={dim}>{b.name} balance</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: balTone(b.balance) }}>{b.balance}</div>
             <div style={dim}>{b.balance < 0 ? 'Over by ' + Math.abs(b.balance) + ' day(s): extra days are cut from salary' : 'days available'}{b.pending ? ` · ${b.pending} pending` : ''}</div></div>))}
       </div>
-      <div className="row sp"><div className="pills">{[['leave', 'Leave history'], ['pay', 'Salary & payslips'], ['book', 'Balance history']].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
+      <div className="row sp"><div className="pills scroll">{[['leave', 'Leave history'], ['pay', 'Salary & payslips'], ['book', 'Balance history']].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
         <button className="btn primary" onClick={() => setApply(true)}><span>Apply for leave</span></button></div>
 
       {tab === 'leave' && <div className="card stack" style={{ gap: 0 }}>
         {data.requests.length === 0 && <Empty>No leave applied yet.</Empty>}
         {data.requests.map((q) => (
-          <div key={q.id} className="doc"><div style={{ flex: 1 }}><b>{span(q)}</b> · {q.days} day(s){q.half_day ? ' (half)' : ''} · {data.types.find((t) => t.id === q.leave_type_id)?.name || 'Leave'}
+          <div key={q.id} className={`doc st-${q.status}`}><div style={{ flex: 1 }}><b>{span(q)}</b> · {q.days} day(s){q.half_day ? ' (half)' : ''} · {data.types.find((t) => t.id === q.leave_type_id)?.name || 'Leave'}
             <div style={dim}>{q.reason}{q.decision_note ? ` · Note: ${q.decision_note}` : ''}{q.auto_approved ? ' · auto-approved' : ''}</div></div>
             <S s={q.status} />
             {(q.status === 'pending' || (q.status === 'approved' && q.start_date >= new Date().toLocaleDateString('en-CA'))) && <button className="btn" onClick={run(() => api.post(withQs(`/payroll/leave/${q.id}/cancel`, qs)), 'Cancelled')}>Cancel</button>}
@@ -141,13 +140,13 @@ export function LeaveRequests({ me }) {
   if (!sid) return <Empty>Create a school first.</Empty>;
   return (
     <div className="stack">
-      <div className="row sp">{picker}<div className="pills">{['pending', 'approved', 'rejected', 'cancelled', ''].map((s) => <button key={s} className={`pill ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s || 'all'}</button>)}</div>
+      <div className="row sp">{picker}<div className="pills scroll">{['pending', 'approved', 'rejected', 'cancelled', ''].map((s) => <button key={s} className={`pill t-${s || 'all'} ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s || 'all'}</button>)}</div>
         {can && st && <button className="btn" onClick={() => setRec(true)}>Record leave for someone</button>}</div>
       {st && <div style={dim}>Approval mode: <b>{st.settings.approval_mode === 'auto' ? 'automatic (requests are approved instantly)' : 'manual (needs an approver)'}</b></div>}
       {error && <div className="err">{error}</div>}
-      {!data ? <Empty>Loading...</Empty> : data.length === 0 ? <Empty>No requests here.</Empty> : (
+      {!data ? <Loading /> : data.length === 0 ? <Empty>No requests here.</Empty> : (
         <div className="card stack" style={{ gap: 0 }}>{data.map((q) => (
-          <div key={q.id} className="doc" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div key={q.id} className={`doc st-${q.status}`} style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 260px' }}><b>{q.employee?.full_name}</b> · {span(q)} · {q.days} day(s){q.half_day ? ' (half)' : ''}
               <div style={dim}>{st?.types.find((t) => t.id === q.leave_type_id)?.name} · {q.reason || 'no reason given'}</div>
               {q.decision_note && <div style={dim}>Note: {q.decision_note}{q.decider ? ` (${q.decider.full_name})` : ''}</div>}</div>
@@ -178,7 +177,7 @@ export function Balances({ me }) {
     <div className="stack">
       <div className="row sp">{picker}{canGrant && <button className="btn primary" onClick={() => setGrant(true)}>Grant / allot leave</button>}</div>
       {error && <div className="err">{error}</div>}
-      {!data || !st ? <Empty>Loading...</Empty> : (
+      {!data || !st ? <Loading /> : (
         <div className="card" style={{ overflowX: 'auto' }}><table><thead><tr><th>Employee</th>{types.map((t) => <th key={t.id}>{t.name}</th>)}<th /></tr></thead><tbody>
           {data.map((e) => <tr key={e.user_id}><td><b>{e.full_name}</b><div style={dim}>{e.designation || e.login_id}</div></td>
             {types.map((t) => { const b = e.balances.find((x) => x.type_id === t.id); return <td key={t.id} style={{ color: balTone(b?.balance || 0), fontWeight: 600 }}>{b?.balance ?? 0}{b?.pending ? <span style={dim}> (+{b.pending} pending)</span> : null}</td>; })}
@@ -242,12 +241,12 @@ export function Payroll({ me }) {
           <button className="btn primary" disabled={busy || !nFin} onClick={() => setPay({ all: true })}>Mark all paid</button></>}</div></div>
       {data && !data.can_generate && <div style={dim}>{monthName(`${month}-01`)} hasn't ended. Payroll for a month is prepared after it finishes. You can still add bonuses or deductions now.</div>}
       {error && <div className="err">{error}</div>}
-      {data && rows.length > 0 && <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))' }}>
+      {data && rows.length > 0 && <div className="grid stats">
         <div className="card"><div style={dim}>Gross salaries</div><b>{money(sum('base_salary'))}</b></div>
         <div className="card"><div style={dim}>Leave cuts</div><b style={{ color: 'var(--bad)' }}>-{money(sum('leave_deduction'))}</b></div>
         <div className="card"><div style={dim}>Bonuses</div><b style={{ color: 'var(--ok)' }}>+{money(sum('bonus_total'))}</b></div>
         <div className="card"><div style={dim}>Net to pay</div><b>{money(sum('net_pay'))}</b></div></div>}
-      {!data ? <Empty>Loading...</Empty> : (
+      {!data ? <Loading /> : (
         <div className="card" style={{ overflowX: 'auto' }}><table><thead><tr><th>Employee</th><th>Salary</th><th>Unpaid days</th><th>Leave cut</th><th>Bonus</th><th>Other cut</th><th>Net</th><th>Status</th></tr></thead><tbody>
           {rows.map((x) => <tr key={x.id} className="click" onClick={() => setOpen(x)}><td><b>{x.employee?.full_name}</b></td><td>{money(x.base_salary)}</td><td>{x.unpaid_days}</td><td>{money(x.leave_deduction)}</td><td>{money(x.bonus_total)}</td><td>{money(x.other_deduction_total)}</td><td><b>{money(x.net_pay)}</b></td><td><S s={x.status} /></td></tr>)}
         </tbody></table>
@@ -304,7 +303,7 @@ export function PaySettings({ me }) {
   const { run } = useRun(reload);
   if (!sid) return <Empty>Create a school first.</Empty>;
   if (error) return <div className="err">{error}</div>;
-  if (!data || !f) return <Empty>Loading...</Empty>;
+  if (!data || !f) return <Loading />;
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   return (
     <div className="stack" style={{ maxWidth: 760 }}>

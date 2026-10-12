@@ -9,14 +9,16 @@ import { setAudit } from '../audit.js';
 const r = Router();
 
 async function mePayload(user) {
-  let school = null;
-  if (user.school_id) {
-    const { data } = await db.from('schools').select('id,name,code,is_active').eq('id', user.school_id).maybeSingle();
-    school = data;
-  }
   const { profile, ...u } = user;
   const { documents, extra, ...profileLite } = profile;
-  return { ...u, school, profile: profileLite, modules: modulesFor(user.features), catalog: catalog() };
+  // the two lookups don't depend on each other, so run them together (one round trip to Supabase instead of two)
+  const [schoolRes, prefsRes] = await Promise.all([
+    user.school_id ? db.from('schools').select('id,name,code,is_active').eq('id', user.school_id).maybeSingle() : Promise.resolve({ data: null }),
+    // saved home-screen layout (null until the person customises it; also null if the column isn't added yet)
+    db.from('users').select('ui_prefs').eq('user_id', user.user_id).maybeSingle(),
+  ]);
+  const school = schoolRes.data; const pr = prefsRes.data;
+  return { ...u, school, profile: profileLite, ui_prefs: pr?.ui_prefs ?? null, modules: modulesFor(user.features), catalog: catalog() };
 }
 
 r.post('/login', rateLimit({ windowMs: 5 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }),
@@ -62,6 +64,22 @@ r.post('/change-password', authenticate, asyncH(async (req, res) => {
   const { error } = await db.from('users').update({ password_hash: await bcrypt.hash(String(new_password), 10) }).eq('user_id', req.user.user_id);
   check(error);
   res.json({ ok: true });
+}));
+
+// keep only plain short strings, so nobody can store junk (or a huge blob) here
+const strList = (v, max) => (Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string' && x.length <= 60))].slice(0, max) : []);
+
+// the person's own home-screen layout: which module cards to show, their order, and pinned shortcuts
+r.put('/prefs', authenticate, asyncH(async (req, res) => {
+  const b = req.body || {};
+  const prefs = {
+    hidden: strList(b.hidden, 50),
+    order: strList(b.order, 50),
+    shortcuts: b.shortcuts === null || b.shortcuts === undefined ? null : strList(b.shortcuts, 30), // null = use the defaults
+  };
+  const { error } = await db.from('users').update({ ui_prefs: prefs }).eq('user_id', req.user.user_id);
+  check(error);
+  res.json({ ok: true, ui_prefs: prefs });
 }));
 
 export default r;

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { Icon, Modal, Field, Empty, toast, initials } from '../ui.jsx';
+import { useApi } from '../cache.js';
+import { Icon, Modal, Field, Empty, toast, initials, Loading } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const base = '/communication';
@@ -34,7 +35,7 @@ function NoticeForm({ me, sid, edit, onClose, onSaved }) {
   return (
     <Modal title={edit ? 'Edit notice' : 'New notice'} onClose={onClose}>
       <form className="stack" style={{ gap: 14 }} onSubmit={save}>
-        {!edit && canSchool && canClass && <div className="pills"><button type="button" className={`pill ${f.audience === 'school' ? 'on' : ''}`} onClick={() => setF({ ...f, audience: 'school' })}>Whole school</button><button type="button" className={`pill ${f.audience === 'class' ? 'on' : ''}`} onClick={() => setF({ ...f, audience: 'class' })}>Selected classes</button></div>}
+        {!edit && canSchool && canClass && <div className="pills scroll"><button type="button" className={`pill ${f.audience === 'school' ? 'on' : ''}`} onClick={() => setF({ ...f, audience: 'school' })}>Whole school</button><button type="button" className={`pill ${f.audience === 'class' ? 'on' : ''}`} onClick={() => setF({ ...f, audience: 'class' })}>Selected classes</button></div>}
         {!edit && f.audience === 'class' && (
           <Field label="Classes (students, parents and teachers of these classes will see it)">
             {classes.length === 0 ? <span className="muted">No classes available to you.</span> : <div className="pills">{classes.map((c) => <button type="button" key={c.id} className={`pill ${f.class_ids.includes(c.id) ? 'on' : ''}`} onClick={() => toggle(c.id)}>{clsName(c)}</button>)}</div>}
@@ -75,17 +76,16 @@ function Notice({ n, me, sid, onChanged, onEdit }) {
 }
 
 export const NoticeBoard = scoped(function NoticeBoard({ me, sid }) {
-  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [form, setForm] = useState(null); const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState(null); const [busy, setBusy] = useState(false);
   const canPost = me.features.includes('post_announcement') || me.features.includes('post_school_announcement');
-  const load = useCallback(() => api.get(`${base}/announcements${qs(sq(me, sid))}`).then((x) => { setD(x); setErr(''); }).catch((e) => setErr(e.message)), [me, sid]);
-  useEffect(() => { load(); }, [load]);
+  const { data: d, error: err, refresh: load, set: setD } = useApi(`${base}/announcements${qs(sq(me, sid))}`);
   const older = async () => {
     setBusy(true);
     try { const last = d.items.at(-1); const x = await api.get(`${base}/announcements${qs({ ...sq(me, sid), before: last.created_at })}`); setD({ ...d, items: [...d.items, ...x.items], more: x.more }); }
     catch (e) { toast(e.message, true); } finally { setBusy(false); }
   };
   if (err) return <div className="err">{err}</div>;
-  if (!d) return <Empty>Loading...</Empty>;
+  if (!d) return <Loading />;
   const all = [...d.pinned, ...d.items];
   return (
     <div className="stack" style={{ maxWidth: 760 }}>
@@ -172,13 +172,13 @@ function Thread({ conv, onBack, onActivity }) {
 }
 
 export function Messages({ me }) {
-  const [list, setList] = useState(null); const [err, setErr] = useState('');
   const [active, setActive] = useState(null); const [picking, setPicking] = useState(false);
-  const reload = useCallback(() => api.get(`${base}/conversations`).then((d) => { setList(d); setErr(''); }).catch((e) => setErr(e.message)), []);
-  useEffect(() => { if (!me.school_id) return undefined; reload(); const t = setInterval(() => !document.hidden && reload(), 15000); return () => clearInterval(t); }, [reload, me.school_id]);
+  const { data: list, error: err, refresh: reload } = useApi(`${base}/conversations`, !!me.school_id);
+  // the first load comes from the cache; this keeps the list fresh while the screen stays open
+  useEffect(() => { if (!me.school_id) return undefined; const t = setInterval(() => !document.hidden && reload(), 15000); return () => clearInterval(t); }, [reload, me.school_id]);
   if (!me.school_id) return <Empty>Messages are for school accounts. Sign in as a school user to chat.</Empty>;
   if (err) return <div className="err">{err}</div>;
-  if (!list) return <Empty>Loading...</Empty>;
+  if (!list) return <Loading />;
 
   const open = (c) => setActive({ id: c.id, other: c.other });
   const start = async (c) => {

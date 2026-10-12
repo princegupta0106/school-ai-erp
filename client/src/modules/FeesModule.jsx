@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
-import { Icon, Modal, Empty, Field, toast } from '../ui.jsx';
+import { useApi } from '../cache.js';
+import { Icon, Modal, Empty, Field, toast, Loading } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 // ---------------------------------------------------------------- helpers
@@ -80,15 +81,14 @@ function CopyModal({ data, me, sid, onClose, onDone }) {
 
 export const FeeStructure = scoped(function FeeStructure({ me, sid }) {
   const [sessionId, setSessionId] = useState('');
-  const [data, setData] = useState(null); const [err, setErr] = useState('');
+
   const [clsName, setClsName] = useState('');
   const [modal, setModal] = useState(null);
-  const load = useCallback(() => api.get(`/fees/structure${qs({ ...scopeQ(me, sid), session_id: sessionId })}`).then((d) => { setData(d); setErr(''); }).catch((e) => setErr(e.message)), [me, sid, sessionId]);
-  useEffect(() => { setData(null); load(); }, [load]);
+  const { data, error: err, refresh: load } = useApi(`/fees/structure${qs({ ...scopeQ(me, sid), session_id: sessionId })}`);
   useEffect(() => { if (data && !data.classes.some((c) => c.name === clsName)) setClsName(data.classes[0]?.name || ''); }, [data]); // eslint-disable-line
 
   if (err) return <div className="err">{err}</div>;
-  if (!data) return <Empty>Loading...</Empty>;
+  if (!data) return <Loading />;
   const cls = data.classes.find((c) => c.name === clsName);
   const body = (it) => ({ ...it, class_name: cls.name, session_id: data.session.id, ...scopeQ(me, sid) });
   const del = async (it) => {
@@ -108,7 +108,7 @@ export const FeeStructure = scoped(function FeeStructure({ me, sid }) {
       </div>
 
       {data.classes.length === 0 ? <Empty>No classes yet. Add classes under Users &gt; Classes first.</Empty> : (<>
-        <div className="pills">{data.classes.map((c) => <button key={c.name} className={`pill ${c.name === clsName ? 'on' : ''}`} onClick={() => setClsName(c.name)}>Class {c.name}{c.items.length === 0 && <span className="dot" title="No fees set" />}</button>)}</div>
+        <div className="pills scroll">{data.classes.map((c) => <button key={c.name} className={`pill ${c.name === clsName ? 'on' : ''}`} onClick={() => setClsName(c.name)}>Class {c.name}{c.items.length === 0 && <span className="dot" title="No fees set" />}</button>)}</div>
         {cls && (
           <div className="card stack" style={{ gap: 12 }}>
             <div className="row sp">
@@ -205,11 +205,10 @@ function AdjustModal({ d, me, sid, onClose, onDone }) {
 
 function Account({ me, sid, studentId, family, onBack, backLabel }) {
   const [sessionId, setSessionId] = useState('');
-  const [d, setD] = useState(null); const [err, setErr] = useState('');
   const [modal, setModal] = useState(null); const [last, setLast] = useState(null);
   const url = family ? `/fees/my/${studentId}` : `/fees/students/${studentId}`;
-  const load = useCallback(() => api.get(`${url}${qs({ ...(family ? {} : scopeQ(me, sid)), session_id: sessionId })}`).then((x) => { setD(x); setErr(''); }).catch((e) => setErr(e.message)), [url, me, sid, sessionId, family]);
-  useEffect(() => { setD(null); load(); }, [load]);
+  // set() writes the server's updated account (returned by pay / adjust / cancel) straight into the cache
+  const { data: d, error: err, set: setD } = useApi(`${url}${qs({ ...(family ? {} : scopeQ(me, sid)), session_id: sessionId })}`);
 
   const has = (f) => me.features.includes(f);
   const receipt = async (p) => { try { await api.download(`/fees/payments/${p.id}/receipt${family ? '' : qs(scopeQ(me, sid))}`, `${p.receipt_no}.pdf`); } catch (x) { toast(x.message, true); } };
@@ -217,7 +216,7 @@ function Account({ me, sid, studentId, family, onBack, backLabel }) {
 
   const header = <div className="row">{onBack && <button className="btn" onClick={onBack}><Icon name="back" size={16} />{backLabel}</button>}</div>;
   if (err) return <>{header}<div className="err">{err}</div></>;
-  if (!d) return <>{header}<Empty>Loading...</Empty></>;
+  if (!d) return <>{header}<Loading /></>;
   const t = d.ledger.totals; const s = d.student;
   const other = d.sessions.filter((x) => x.id !== d.session.id && x.pending > 0);
   const canPay = !family && has('collect_fees') && t.pending > 0;
@@ -315,15 +314,8 @@ export const StudentFees = scoped(function StudentFees({ me, sid }) {
   const [picked, setPicked] = useState(null);
   const [q, setQ] = useState(''); const dq = useDebounced(q);
   const [classId, setClassId] = useState('');
-  const [list, setList] = useState(null); const [err, setErr] = useState('');
-  const [classes, setClasses] = useState([]);
-  useEffect(() => { api.get(`/fees/classes${qs(scopeQ(me, sid))}`).then(setClasses).catch(() => {}); }, [me, sid]);
-  useEffect(() => {
-    if (picked) return undefined;
-    let live = true;
-    api.get(`/fees/students${qs({ ...scopeQ(me, sid), q: dq, class_id: classId })}`).then((x) => { if (live) { setList(x); setErr(''); } }).catch((e) => live && setErr(e.message));
-    return () => { live = false; };
-  }, [picked, dq, classId, me, sid]);
+  const { data: classes = [] } = useApi(`/fees/classes${qs(scopeQ(me, sid))}`);
+  const { data: list, error: err } = useApi(`/fees/students${qs({ ...scopeQ(me, sid), q: dq, class_id: classId })}`, !picked, { keepPrevious: true });
 
   if (picked) return <Account me={me} sid={sid} studentId={picked.student_id} onBack={() => setPicked(null)} backLabel="Students" />;
   return (
@@ -333,7 +325,7 @@ export const StudentFees = scoped(function StudentFees({ me, sid }) {
         <select aria-label="Class" style={{ width: 'auto' }} value={classId} onChange={(e) => setClassId(e.target.value)}><option value="">All classes</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
       </div>
       {err && <div className="err">{err}</div>}
-      {!list ? <Empty>Loading...</Empty> : list.length === 0 ? <Empty>No student found.</Empty> : (
+      {!list ? <Loading /> : list.length === 0 ? <Empty>No student found.</Empty> : (
         <div className="card" style={{ padding: 0 }}>{list.map((s) => (
           <button key={s.student_id} className="drow" onClick={() => setPicked(s)}>
             <span className="roll sm">{s.roll_no ?? '-'}</span>
@@ -347,13 +339,12 @@ export const StudentFees = scoped(function StudentFees({ me, sid }) {
 
 /* ===================================================================== MY FEES (parent / student, read only) */
 export function MyFees({ me }) {
-  const [kids, setKids] = useState(null); const [err, setErr] = useState(''); const [open, setOpen] = useState(null);
-  useEffect(() => { api.get('/fees/my').then(setKids).catch((e) => setErr(e.message)); }, []);
+  const { data: kids, error: err } = useApi('/fees/my'); const [open, setOpen] = useState(null);
   const single = kids?.length === 1;
   useEffect(() => { if (single) setOpen(kids[0].student_id); }, [single]); // eslint-disable-line
 
   if (err) return <div className="err">{err}</div>;
-  if (!kids) return <Empty>Loading...</Empty>;
+  if (!kids) return <Loading />;
   if (kids.length === 0) return <Empty>No student is linked to your account yet. Ask the school office.</Empty>;
   if (open) return <Account me={me} family studentId={open} onBack={single ? null : () => setOpen(null)} backLabel="My children" />;
   return (

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
-import { useData } from '../cache.js';
-import { Icon, Modal, Empty, Field, toast } from '../ui.jsx';
+import { useData, useApi } from '../cache.js';
+import { Icon, Modal, Empty, Field, toast, Loading } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 /* ------------------------------------------------------------------ helpers */
@@ -43,15 +43,10 @@ function SessionSelect({ meta, value, onChange }) {
 export function StudentAcademics({ me, sid, studentId, mode, onBack }) {
   const [session, setSession] = useState('');
   const [tab, setTab] = useState('overview');
-  const [d, setD] = useState(null); const [err, setErr] = useState('');
-  useEffect(() => {
-    let live = true; setErr('');
-    const p = mode === 'my' ? api.get(`/academics/my${qs({ student_id: studentId, session_id: session })}`) : aget(me, sid, `/reports/student/${studentId}`, { session_id: session });
-    p.then((x) => live && setD(x)).catch((e) => live && setErr(e.message));
-    return () => { live = false; };
-  }, [studentId, session, mode, sid]); // eslint-disable-line
+  const url = mode === 'my' ? `/academics/my${qs({ student_id: studentId, session_id: session })}` : `/academics/reports/student/${studentId}${qs({ ...scopeQ(me, sid), session_id: session })}`;
+  const { data: d, error: err } = useApi(url, true, { keepPrevious: true });
   if (err) return <div className="stack">{onBack && <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={onBack}><Icon name="back" />Back</button>}<div className="err">{err}</div></div>;
-  if (!d) return <Empty>Loading...</Empty>;
+  if (!d) return <Loading />;
   const s = d.summary;
   const meta = { sessions: d.sessions };
   return (
@@ -69,7 +64,7 @@ export function StudentAcademics({ me, sid, studentId, mode, onBack }) {
         <div className="tile"><b><Pct v={s.exams.pct} /></b><span>Exams ({s.exams.count})</span></div>
         <div className="tile"><b>{d.subjects.length}</b><span>Subjects</span></div>
       </div>
-      <nav className="pills">{[['overview', 'Overview'], ['subjects', 'Subjects'], ['tests', `Tests (${d.tests.length})`], ['exams', `Exams (${d.exams.length})`]].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</nav>
+      <nav className="pills scroll">{[['overview', 'Overview'], ['subjects', 'Subjects'], ['tests', `Tests (${d.tests.length})`], ['exams', `Exams (${d.exams.length})`]].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</nav>
       {tab === 'overview' && <Overview d={d} setTab={setTab} />}
       {tab === 'subjects' && <Subjects d={d} />}
       {tab === 'tests' && <Tests d={d} />}
@@ -149,17 +144,16 @@ function Exams({ d }) {
 /* ================================================================== MY MARKS (student / parent) */
 export function MyMarks({ me }) {
   const isParent = me.role === 'parent';
-  const [kids, setKids] = useState(null); const [pick, setPick] = useState('');
-  useEffect(() => {
-    if (!isParent) return;
-    api.get('/users/my-children').then((k) => { setKids(k); if (k.length) setPick(k[0].user_id); }).catch(() => setKids([]));
-  }, [isParent]);
+  const [pickRaw, setPick] = useState('');
+  const { data: kidsData, error: kidsErr } = useApi('/users/my-children', isParent);
+  const kids = isParent ? (kidsData ?? (kidsErr ? [] : null)) : null;
+  const pick = pickRaw || kids?.[0]?.user_id || ''; // first child is selected by default
   if (!isParent) return <StudentAcademics me={me} studentId={me.user_id} mode="my" />;
-  if (!kids) return <Empty>Loading...</Empty>;
+  if (!kids) return <Loading />;
   if (!kids.length) return <Empty>No student is linked to your account yet. Ask the school office.</Empty>;
   return (
     <div className="stack" style={{ maxWidth: 900 }}>
-      {kids.length > 1 && <div className="pills">{kids.map((k) => <button key={k.user_id} className={`pill ${pick === k.user_id ? 'on' : ''}`} onClick={() => setPick(k.user_id)}>{k.profile?.full_name || k.login_id}</button>)}</div>}
+      {kids.length > 1 && <div className="pills scroll">{kids.map((k) => <button key={k.user_id} className={`pill ${pick === k.user_id ? 'on' : ''}`} onClick={() => setPick(k.user_id)}>{k.profile?.full_name || k.login_id}</button>)}</div>}
       {pick && <StudentAcademics key={pick} me={me} studentId={pick} mode="my" />}
     </div>
   );
@@ -169,15 +163,13 @@ export function MyMarks({ me }) {
 export const TestsAndMarks = scoped(function TestsAndMarks({ me, sid }) {
   const { data: meta, error, refresh } = useMeta(me, sid);
   const [f, setF] = useState({ class_id: '', subject_id: '', kind: '', session_id: '' });
-  const [list, setList] = useState(null); const [err, setErr] = useState('');
   const [open, setOpen] = useState(null); const [creating, setCreating] = useState(false);
   const canMake = me.features.includes('manage_assessments');
 
-  const reload = useCallback(() => aget(me, sid, '/assessments', f).then((x) => { setList(x); setErr(''); }).catch((e) => setErr(e.message)), [me, sid, f]);
-  useEffect(() => { if (meta) reload(); }, [meta, reload]);
+  const { data: list, error: err, refresh: reload } = useApi(`/academics/assessments${qs({ ...scopeQ(me, sid), ...f })}`, !!meta, { keepPrevious: true });
 
   if (error) return <div className="err">{error}</div>;
-  if (!meta) return <Empty>Loading...</Empty>;
+  if (!meta) return <Loading />;
   if (open) return <MarksSheet me={me} sid={sid} meta={meta} id={open} onBack={() => { setOpen(null); reload(); }} />;
   if (!meta.classes.length) return <Empty>{me.features.includes('academics_all_classes') ? 'This school has no classes yet. Add them under Users > Classes.' : 'No class is assigned to you yet. Ask your school admin to assign you under Attendance > Class teachers.'}</Empty>;
 
@@ -193,7 +185,7 @@ export const TestsAndMarks = scoped(function TestsAndMarks({ me, sid }) {
         {canMake && <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" />New test / exam paper</button>}
       </div>
       {err && <div className="err">{err}</div>}
-      {!list ? <Empty>Loading...</Empty> : list.length === 0 ? <Empty>Nothing here yet.{canMake && meta.subjects.length === 0 ? ' Ask your admin to add subjects first (Academics > Subjects).' : ''}</Empty> : (
+      {!list ? <Loading /> : list.length === 0 ? <Empty>Nothing here yet.{canMake && meta.subjects.length === 0 ? ' Ask your admin to add subjects first (Academics > Subjects).' : ''}</Empty> : (
         <div className="card" style={{ padding: 0 }}>{list.map((a) => (
           <button key={a.id} className="drow" onClick={() => setOpen(a.id)}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -252,7 +244,7 @@ function MarksSheet({ me, sid, meta, id, onBack }) {
   useEffect(() => { if (!dirty) return undefined; const h = (e) => { e.preventDefault(); e.returnValue = ''; }; window.addEventListener('beforeunload', h); return () => window.removeEventListener('beforeunload', h); }, [dirty]);
 
   if (err) return <div className="stack"><button className="btn" style={{ alignSelf: 'flex-start' }} onClick={onBack}><Icon name="back" />Back</button><div className="err">{err}</div></div>;
-  if (!sh) return <Empty>Loading...</Empty>;
+  if (!sh) return <Loading />;
   const a = sh.assessment; const max = a.max_marks;
   const bad = (v) => v.marks !== '' && !v.absent && (!Number.isFinite(Number(v.marks)) || Number(v.marks) < 0 || Number(v.marks) > max);
   const invalid = sh.students.filter((s) => bad(vals[s.student_id])).length;
@@ -345,7 +337,7 @@ export const AcademicReports = scoped(function AcademicReports({ me, sid }) {
   }, [f.class_id, f.session_id, f.scope, sid]); // eslint-disable-line
 
   if (error) return <div className="err">{error}</div>;
-  if (!meta) return <Empty>Loading...</Empty>;
+  if (!meta) return <Loading />;
   if (student) return <StudentAcademics me={me} sid={sid} studentId={student} mode="staff" onBack={() => setStudent(null)} />;
   if (!meta.classes.length) return <Empty>No class available. Ask your school admin to assign you under Attendance &gt; Class teachers.</Empty>;
   const sessionExams = meta.exams.filter((e) => (f.session_id === 'all' ? true : e.session_id === (f.session_id || meta.current_session_id)));
@@ -394,7 +386,7 @@ export const SubjectManager = scoped(function SubjectManager({ me, sid }) {
   const { data: meta, error, refresh } = useMeta(me, sid);
   const [f, setF] = useState({ name: '', code: '' }); const [busy, setBusy] = useState(false); const [edit, setEdit] = useState(null);
   if (error) return <div className="err">{error}</div>;
-  if (!meta) return <Empty>Loading...</Empty>;
+  if (!meta) return <Loading />;
   const add = async (e) => {
     e.preventDefault(); setBusy(true);
     try { await asend('post', me, sid, '/subjects', f); setF({ name: '', code: '' }); await refresh(); toast('Subject added'); } catch (x) { toast(x.message, true); } finally { setBusy(false); }
@@ -435,7 +427,7 @@ export const ExamManager = scoped(function ExamManager({ me, sid }) {
   const { data: meta, error, refresh } = useMeta(me, sid);
   const [edit, setEdit] = useState(null);
   if (error) return <div className="err">{error}</div>;
-  if (!meta) return <Empty>Loading...</Empty>;
+  if (!meta) return <Loading />;
   const sessName = (id) => meta.sessions.find((s) => s.id === id)?.name || 'No session';
   const del = async (x) => { if (!confirm(`Delete exam "${x.name}"?`)) return; try { await adel(me, sid, `/exams/${x.id}`); await refresh(); toast('Deleted'); } catch (e) { toast(e.message, true); } };
   const groups = [...new Set(meta.exams.map((e) => e.session_id))];

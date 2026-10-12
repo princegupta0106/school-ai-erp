@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { useData, setCached } from '../cache.js';
-import { Icon, Modal, Empty, Field, Badge, toast } from '../ui.jsx';
+import { useData, useApi, setCached } from '../cache.js';
+import { Icon, Modal, Empty, Field, Badge, toast, Loading } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 import { DESIGNS, designOf, TYPES, TYPE_LIST, PLACEHOLDERS, buildHTML, printHTML, defaultFields, resolveTemplate, sampleContent, fmtDate } from '../docRender.js';
 
@@ -49,7 +49,7 @@ function DocViewer({ me, sid, id, onClose, onChanged }) {
   return (
     <Modal wide title={row ? `${row.title} - ${row.subject_name}` : 'Document'} onClose={onClose}>
       {err && <div className="err">{err}</div>}
-      {!row && !err && <Empty>Loading...</Empty>}
+      {!row && !err && <Loading />}
       {row && (<>
         <div className="row sp">
           <div className="muted">No. <b>{row.serial_no}</b> - issued {fmtStamp(row.issued_at)}{row.issued_by_name ? ` by ${row.issued_by_name}` : ''} {row.status === 'cancelled' && <Badge tone="off">Cancelled</Badge>}</div>
@@ -195,7 +195,7 @@ export const IssueDocument = scoped(function IssueDocument({ me, sid, go }) {
   };
 
   if (error) return <div className="err">{error}</div>;
-  if (!meta) return <Empty>Loading...</Empty>;
+  if (!meta) return <Loading />;
 
   // ---- done
   if (done) return (
@@ -294,12 +294,8 @@ export const IssueDocument = scoped(function IssueDocument({ me, sid, go }) {
 /* ===================================================================== REGISTER */
 export const IssuedList = scoped(function IssuedList({ me, sid }) {
   const [type, setType] = useState(''); const [status, setStatus] = useState(''); const [q, setQ] = useState(''); const [page, setPage] = useState(0);
-  const dq = useDebounced(q); const [res, setRes] = useState(null); const [err, setErr] = useState(''); const [open, setOpen] = useState(null);
-  const load = useCallback(() => {
-    setErr('');
-    api.get(`/documents/issued${qs({ ...scopeQ(me, sid), type, status, q: dq.trim(), page })}`).then(setRes).catch((e) => setErr(e.message));
-  }, [type, status, dq, page, sid]); // eslint-disable-line
-  useEffect(() => { load(); }, [load]);
+  const dq = useDebounced(q); const [open, setOpen] = useState(null);
+  const { data: res, error: err, refresh: load } = useApi(`/documents/issued${qs({ ...scopeQ(me, sid), type, status, q: dq.trim(), page })}`, true, { keepPrevious: true });
   useEffect(() => { setPage(0); }, [type, status, dq]);
   return (
     <div className="stack">
@@ -309,7 +305,7 @@ export const IssuedList = scoped(function IssuedList({ me, sid }) {
         <select style={{ width: 'auto' }} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Issued &amp; cancelled</option><option value="issued">Issued</option><option value="cancelled">Cancelled</option></select>
       </div>
       {err && <div className="err">{err}</div>}
-      {!res && !err && <Empty>Loading...</Empty>}
+      {!res && !err && <Loading />}
       {res && !res.rows.length && <Empty>No documents yet.</Empty>}
       {res && res.rows.length > 0 && (
         <div className="card scrollx" style={{ padding: 0 }}>
@@ -331,7 +327,7 @@ export function MyDocuments({ me }) {
   const { data, error } = useData('docs:my', () => api.get('/documents/my'));
   const [open, setOpen] = useState(null);
   if (error) return <div className="err">{error}</div>;
-  if (!data) return <Empty>Loading...</Empty>;
+  if (!data) return <Loading />;
   const other = data.some((d) => !d.mine);
   return (
     <div className="stack">
@@ -397,7 +393,7 @@ export const Templates = scoped(function Templates({ me, sid }) {
     setTimeout(() => { ta?.focus(); ta?.setSelectionRange(a + tok.length, a + tok.length); }, 0);
   };
   if (error) return <div className="err">{error}</div>;
-  if (!meta || !t) return <Empty>Loading...</Empty>;
+  if (!meta || !t) return <Loading />;
   const free = T.layout !== 'tc' && T.layout !== 'report';
   return (
     <div className="stack">
@@ -466,7 +462,7 @@ export const Letterhead = scoped(function Letterhead({ me, sid }) {
     try { setCached(metaKey(sid), await api.put(`/documents/settings${qs(scopeQ(me, sid))}`, f)); toast('Letterhead saved'); } catch (x) { toast(x.message, true); } finally { setBusy(false); }
   };
   if (error) return <div className="err">{error}</div>;
-  if (!meta || !f) return <Empty>Loading...</Empty>;
+  if (!meta || !f) return <Loading />;
   return (
     <div className="docgrid">
       <form className="stack" style={{ minWidth: 0 }} onSubmit={save}>

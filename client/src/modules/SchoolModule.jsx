@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../api.js';
 import { useData, load } from '../cache.js';
-import { Icon, Modal, Field, Badge, Empty, toast } from '../ui.jsx';
+import { Icon, Modal, Field, Badge, Empty, toast, Loading } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const refreshSchools = () => load('schools', fetchers.schools);
@@ -36,7 +36,7 @@ export function SchoolList({ me }) {
   const { data, error } = useData('schools', fetchers.schools);
   const [open, setOpen] = useState(null);
   if (error) return <div className="err">{error}</div>;
-  if (!data) return <Empty>Loading...</Empty>;
+  if (!data) return <Loading />;
   if (!data.length) return <Empty>No schools yet.</Empty>;
   return (
     <>
@@ -108,7 +108,7 @@ export function Calendar({ me }) {
   const [nh, setNh] = useState({ title: '', start_date: '', end_date: '', type: 'holiday' });
   const [err, setErr] = useState('');
   if (!sid) return <Empty>Create a school first.</Empty>;
-  if (!sessions || !holidays) return <Empty>Loading...</Empty>;
+  if (!sessions || !holidays) return <Loading />;
 
   const current = sessions.find((s) => s.is_current);
   const active = sel ?? current?.id ?? '';
@@ -173,7 +173,7 @@ export function Promotion({ me }) {
   }, [current?.id]); // eslint-disable-line
 
   if (!sid) return <Empty>Create a school first.</Empty>;
-  if (!sessions) return <Empty>Loading...</Empty>;
+  if (!sessions) return <Loading />;
   if (!current) return <Empty>Set a current session in "Sessions & holidays" first.</Empty>;
 
   const call = async (dry) => {

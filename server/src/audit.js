@@ -46,6 +46,7 @@ const RULES = [
   // ---- sign-in & account
   R('POST', '/auth/login', 'auth.login', 'Signed in', { kind: 'auth', onlyIfSet: true }),
   R('POST', '/auth/logout', 'auth.logout', 'Signed out', { kind: 'auth' }),
+  R('PUT', '/auth/prefs', 'auth.prefs', 'Updated own home-screen settings', { kind: 'auth' }),
   R('POST', '/auth/change-password', 'auth.password_change', 'Changed own password', { kind: 'auth' }),
 
   // ---- school

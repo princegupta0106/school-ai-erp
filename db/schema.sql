@@ -904,3 +904,6 @@ alter table doc_settings      enable row level security;
 alter table doc_templates     enable row level security;
 alter table doc_counters      enable row level security;
 alter table issued_documents  enable row level security;
+
+-- home-screen customisation (visible cards, order, shortcuts) saved per user so it follows them across devices
+alter table users add column if not exists ui_prefs jsonb;

@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, load } from '../cache.js';
-import { Icon, Modal, Field, Badge, Empty, toast, initials, ROLE_LABEL } from '../ui.jsx';
+import { Icon, Modal, Field, Badge, Empty, toast, initials, ROLE_LABEL, Loading } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const ROLES = ['school_admin', 'staff', 'parent', 'student', 'other'];
@@ -188,7 +188,7 @@ export function UserList({ me }) {
     </>);
   }
   if (error) return <div className="err">{error}</div>;
-  if (!users) return <Empty>Loading...</Empty>;
+  if (!users) return <Loading />;
   const name = (u) => u.profile.full_name || u.login_id;
   return (
     <div className="stack">
@@ -196,7 +196,7 @@ export function UserList({ me }) {
         <div style={{ position: 'relative', flex: '1 1 220px' }}><input placeholder="Search name, ID or phone" value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 36 }} /><span style={{ position: 'absolute', left: 11, top: 10, color: 'var(--mute)' }}><Icon name="search" size={18} /></span></div>
         {me.role === 'super_admin' && schools && <select style={{ width: 'auto' }} value={school} onChange={(e) => setSchool(e.target.value)}><option value="">All schools</option>{schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
       </div>
-      <div className="pills">{['', 'school_admin', 'staff', 'parent', 'student', 'other'].map((r) => <button key={r} className={`pill ${role === r ? 'on' : ''}`} onClick={() => setRole(r)}>{r ? ROLE_LABEL[r] : 'All'}</button>)}</div>
+      <div className="pills scroll">{['', 'school_admin', 'staff', 'parent', 'student', 'other'].map((r) => <button key={r} className={`pill ${role === r ? 'on' : ''}`} onClick={() => setRole(r)}>{r ? ROLE_LABEL[r] : 'All'}</button>)}</div>
       {rows.length === 0 ? <Empty>No users match.</Empty> : (<>
         <div className="card utable" style={{ padding: 0, overflow: 'hidden' }}><table><thead><tr><th>Name</th><th>ID</th><th>Role</th><th>Phone</th><th>Status</th></tr></thead><tbody>
           {rows.map((u) => (<tr key={u.user_id} className="click" onClick={() => setOpen(u)}>
@@ -268,7 +268,7 @@ export function ClassManager({ me }) {
         {err && <div className="err">{err}</div>}
       </form>
       <small style={{ color: 'var(--mute)' }}>Order decides promotion: at year end, students in order 5 move to order 6. Classes without an order are skipped.</small>
-      {!classes ? <Empty>Loading...</Empty> : classes.length === 0 ? <Empty>No classes yet. Add the first one above.</Empty> :
+      {!classes ? <Loading /> : classes.length === 0 ? <Empty>No classes yet. Add the first one above.</Empty> :
         <div className="card" style={{ padding: 0 }}>{classes.map((c) => (<div key={c.id} className="doc" style={{ padding: '10px 16px' }}><b style={{ flex: 1 }}>Class {c.name} {c.section}</b><input type="number" min="1" style={{ width: 90 }} defaultValue={c.level ?? ''} placeholder="Order" aria-label="Class order" onBlur={async (e) => { if (String(c.level ?? '') !== e.target.value) { try { await api.patch(`/classes/${c.id}`, { level: e.target.value }); await load('classes', fetchers.classes); } catch (x) { toast(x.message, true); } } }} />{me.role === 'super_admin' && <span style={{ color: 'var(--mute)' }}>{sName(c.school_id)}</span>}<button className="icon-btn" onClick={() => del(c.id)} aria-label="Delete class"><Icon name="trash" /></button></div>))}</div>}
     </div>
   );

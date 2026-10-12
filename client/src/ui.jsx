@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { onNetActivity } from './api.js';
 
 const P = {
   home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
@@ -30,6 +31,13 @@ const P = {
   shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
   sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z',
   edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  chevron: 'm9 18 6-6-6-6',
+  up: 'm18 15-6-6-6 6',
+  down: 'm6 9 6 6 6-6',
+  bolt: 'M13 2 3 14h9l-1 8 10-12h-9z',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
 };
 export const Icon = ({ name, size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={P[name]} /></svg>
@@ -56,6 +64,30 @@ export const Field = ({ label, children, hint }) => (
 );
 
 export const Empty = ({ children }) => <div className="empty">{children}</div>;
+
+// Placeholder shown while a page's data is on its way. It stays invisible for the first ~120ms,
+// so quick loads never flash a skeleton - the content just fades in.
+export const Loading = ({ rows = 4 }) => (
+  <div className="skel" role="status" aria-label="Loading">
+    {Array.from({ length: rows }, (_, i) => <div key={i} className="skel-row" style={{ animationDelay: `${i * 90}ms` }} />)}
+  </div>
+);
+
+// Full-screen placeholder used only while the very first sign-in check is running.
+export const Splash = () => <div className="center"><div className="splash"><div className="logo"><Icon name="school" /></div></div></div>;
+
+// Thin bar at the very top of the screen while the app is talking to the server for longer than ~350ms.
+export function NetBar() {
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let t = null;
+    const off = onNetActivity((n) => {
+      if (n > 0) { if (!t) t = setTimeout(() => setBusy(true), 350); } else { clearTimeout(t); t = null; setBusy(false); }
+    });
+    return () => { clearTimeout(t); off(); };
+  }, []);
+  return <div className={`netbar ${busy ? 'on' : ''}`} aria-hidden="true"><i /></div>;
+}
 export const Badge = ({ children, tone }) => <span className={`badge ${tone || ''}`}>{children}</span>;
 
 let toastTimer;

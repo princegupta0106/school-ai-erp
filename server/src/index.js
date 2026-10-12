@@ -26,6 +26,10 @@ import { auditMiddleware } from './audit.js';
 const app = express();
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cors());
+// gzip every response (JSON and the built app) - much smaller downloads on phones / slow networks.
+// Optional: if the package isn't installed yet the server still starts (run `npm install` in /server).
+try { const { default: compression } = await import('compression'); app.use(compression()); }
+catch { console.warn('Tip: run "npm install" in /server to switch on gzip compression (faster loading).'); }
 app.use(express.json({ limit: '1mb' }));
 
 app.use('/api', auditMiddleware); // records every change / sign-in into audit_logs (see audit.js)
@@ -48,8 +52,14 @@ app.use('/mcp', authenticate, mcpRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 if (fs.existsSync(cfg.clientDist)) {
-  app.use(express.static(cfg.clientDist, { maxAge: '1h' }));
-  app.get('*', (req, res) => res.sendFile(path.join(cfg.clientDist, 'index.html')));
+  app.use(express.static(cfg.clientDist, {
+    maxAge: '1h',
+    setHeaders(res, file) {
+      if (file.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // build files carry a content hash in their name
+      else if (/(index\.html|sw\.js)$/.test(file)) res.setHeader('Cache-Control', 'no-cache'); // always re-check the shell and the service worker
+    },
+  }));
+  app.get('*', (req, res) => { res.setHeader('Cache-Control', 'no-cache'); res.sendFile(path.join(cfg.clientDist, 'index.html')); });
 }
 
 // eslint-disable-next-line no-unused-vars
