@@ -146,7 +146,14 @@ export function fillText(text, vars) {
     return PLAIN.has(k) ? esc(vars[k]) : `<b>${esc(vars[k])}</b>`;
   });
 }
-const paragraphs = (text, vars) => String(text || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${fillText(p, vars).replace(/\n/g, '<br>')}</p>`).join('');
+const isMissing = (vars, k) => vars[k] === undefined || vars[k] === null || String(vars[k]).trim() === '';
+const hasMissing = (str, vars) => [...str.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].some((m) => !PLAIN.has(m[1]) && isMissing(vars, m[1]));
+// leave out any detail that is not filled in: "(Admission No. {{x}})" and whole sentences that need a missing value
+function prune(par, vars) {
+  const t = par.replace(/\s*\([^()]*\{\{[^()]*\}\}[^()]*\)/g, (m) => (hasMissing(m, vars) ? '' : m));
+  return t.split(/(?<=[a-z0-9)}][.!?])\s+(?=[A-Z]|\{\{\s*[A-Z])/).filter((x) => !hasMissing(x, vars)).join(' ').trim();
+}
+const paragraphs = (text, vars, dropBlank = false) => String(text || '').split(/\n\s*\n/).map((p) => p.trim()).map((p) => (dropBlank ? prune(p, vars) : p)).filter(Boolean).map((p) => `<p>${fillText(p, vars).replace(/\n/g, '<br>')}</p>`).join('');
 
 // the wording to use: a saved template of the school, else the built-in one
 export function resolveTemplate(type, tpl, kind) {
@@ -191,7 +198,7 @@ function letterheadHTML(sc) {
   const logo = sc.logo_url ? `<div class="lh-logo"><img src="${esc(sc.logo_url)}" alt=""></div>` : '';
   const contact = [sc.address, [sc.phone, sc.email].filter(Boolean).join('  |  ')].filter(Boolean);
   return `<header class="lh">${logo}<div class="lh-text">
-    <h1>${esc(sc.name || 'School name')}</h1>
+    <h1>${esc(sc.name || 'Your School')}</h1>
     ${sc.tagline ? `<div class="tag">${esc(sc.tagline)}</div>` : ''}
     ${contact.map((l) => `<div class="addr">${esc(l)}</div>`).join('')}
     ${sc.reg_line ? `<div class="reg">${esc(sc.reg_line)}</div>` : ''}
@@ -224,7 +231,8 @@ function tcTable(c, v) {
     ['Reason for leaving', f.reason], ['Qualified for promotion to a higher class', f.promotion], ['All fees / dues cleared', f.dues],
     ['General conduct', f.conduct], ['Remarks', f.tc_remarks],
   ];
-  return `<table class="tc">${rows.map((r, i) => row(i + 1, r[0], r[1])).join('')}</table>${paragraphs(c.body, v)}`;
+  const shown = rows.filter((r, i) => i === 0 || String(r[1] ?? '').trim() !== ''); // unfilled details are left out
+  return `<table class="tc">${shown.map((r, i) => row(i + 1, r[0], r[1])).join('')}</table>${paragraphs(c.body, v, true)}`;
 }
 
 function reportHTML(c, v) {
@@ -242,19 +250,19 @@ function reportHTML(c, v) {
     <td><b>${num(R.grand?.obtained)}</b><small>/${num(R.grand?.max)}</small></td><td><b>${R.grand?.pct ?? '-'}%</b></td><td><b>${esc(R.grand?.grade || '-')}</b></td>${R.has_tests_column ? '<td></td>' : ''}</tr>`;
   const att = R.attendance ? `${R.attendance.pct}%` : '-'; const attSub = R.attendance ? `${R.attendance.present} of ${R.attendance.total} days` : '';
   const pass = R.result === 'PASS';
-  return `<div class="rinfo">${info.map(([k, val]) => `<div><span>${esc(k)}</span><b>${val ? esc(val) : '&nbsp;'}</b></div>`).join('')}</div>
+  return `<div class="rinfo">${info.filter(([, val]) => val !== undefined && val !== null && String(val).trim() !== '').map(([k, val]) => `<div><span>${esc(k)}</span><b>${val ? esc(val) : '&nbsp;'}</b></div>`).join('')}</div>
     <table class="marks"><thead>${head}</thead><tbody>${bodyRows}</tbody><tfoot>${foot}</tfoot></table>
     <div class="rsum"><div><span>Result</span><b class="${pass ? 'ok' : 'bad'}">${esc(R.result || '-')}</b></div><div><span>Percentage</span><b>${R.grand?.pct ?? '-'}%</b></div><div><span>Grade</span><b>${esc(R.grand?.grade || '-')}</b></div><div><span>Attendance</span><b>${esc(att)}</b>${attSub ? `<small>${esc(attSub)}</small>` : ''}</div></div>
     ${R.result === 'FAIL' ? `<div class="rnote">Below pass mark in: ${esc(R.failed_subjects.join(', '))}</div>` : ''}
     <div class="rextra">${c.fields.promoted_to ? `<div><span>Promoted to class</span><b>${esc(c.fields.promoted_to)}</b></div>` : ''}${c.fields.reopen_date ? `<div><span>School re-opens on</span><b>${esc(fmtDate(c.fields.reopen_date))}</b></div>` : ''}</div>
-    <div class="remarks"><span>Class teacher's remarks</span><div>${c.fields.remarks ? esc(c.fields.remarks).replace(/\n/g, '<br>') : '&nbsp;'}</div></div>
+    ${c.fields.remarks ? `<div class="remarks"><span>Class teacher's remarks</span><div>${esc(c.fields.remarks).replace(/\n/g, '<br>')}</div></div>` : ''}
     <div class="gnote">${fillText(c.body, v)}</div>`;
 }
 
 function awardHTML(c, v) {
   const s = c.subject;
   const who = s.kind === 'staff' ? [s.designation, s.department].filter(Boolean).join(', ') : s.class_label ? `Class ${s.class_label}` : '';
-  return `<div class="presented">This certificate is proudly presented to</div><div class="recipient">${esc(s.name)}</div>${who ? `<div class="who">${esc(who)}</div>` : ''}${paragraphs(c.body, v)}`;
+  return `<div class="presented">This certificate is proudly presented to</div><div class="recipient">${esc(s.name)}</div>${who ? `<div class="who">${esc(who)}</div>` : ''}${paragraphs(c.body, v, true)}`;
 }
 
 export function buildHTML(c, opts = {}) {
@@ -272,7 +280,7 @@ export function buildHTML(c, opts = {}) {
   if (T.layout === 'tc') main = tcTable(c, v);
   else if (T.layout === 'report') main = reportHTML(c, v);
   else if (T.layout === 'award') main = awardHTML(c, v);
-  else main = paragraphs(c.body, v);
+  else main = paragraphs(c.body, v, c.type !== 'custom');
 
   const meta = T.layout === 'award' ? '' : `<div class="meta"><span>${serial ? `No.: <b>${esc(serial)}</b>` : ''}</span><span>Date: <b>${esc(date)}</b></span></div>`;
   const awardSerial = T.layout === 'award' && serial ? `<div class="aserial">No. ${esc(serial)}</div>` : '';
