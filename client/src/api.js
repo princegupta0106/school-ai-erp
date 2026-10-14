@@ -26,6 +26,7 @@ async function request(method, url, body) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       if (res.status === 401 && !url.startsWith('/auth/login')) onUnauthorized();
+      if (res.status === 404 && /^\/(homework|notifications)/.test(url) && (data.error || 'Not found') === 'Not found') throw new Error('The server is older than this app and does not have this feature yet. Deploy the latest server folder, then try again.');
       throw new Error(data.error || `Request failed (${res.status})`);
     }
     if (method !== 'GET' && !quiet && !url.startsWith('/auth/login')) mutSubs.forEach((f) => f(method, url));

@@ -11,6 +11,10 @@ const parseHash = () => { const [m, v, a] = location.hash.replace(/^#\/?/, '').s
 // The signed-in profile is remembered on this device (tied to the current token), so the app can
 // paint the real home screen immediately on reload and confirm it with the server in the background.
 const ME_KEY = 'sp:me:v1';
+// Safety net for a server older than this app: add what each role gets by default on the current server, so the new
+// screens (Send notification, Homework) still show up. A screen on an old server then reports that the server needs updating.
+const MIRROR = { student: ['view_my_homework'], staff: ['manage_homework'], school_admin: ['manage_homework', 'send_notification', 'send_school_notification'], super_admin: ['manage_homework', 'send_notification', 'send_school_notification'] };
+const withDefaults = (m) => (m ? { ...m, features: [...new Set([...(m.features || []), ...(MIRROR[m.role] || [])])] } : m);
 const tokTag = () => (getToken() || '').slice(-24);
 const readMe = () => {
   try { const c = JSON.parse(localStorage.getItem(ME_KEY) || 'null'); return c && getToken() && c.tok === tokTag() ? c.me : null; } catch { return null; }
@@ -63,7 +67,8 @@ export default function App() {
   const [booting, setBooting] = useState(() => !!getToken() && !readMe());
   const contentRef = useRef(null);
   // one place that changes the signed-in user: keeps the data cache and the saved profile in step
-  const setMe = useCallback((m) => {
+  const setMe = useCallback((m0) => {
+    const m = withDefaults(m0);
     if (m) { setCacheUser(m.user_id); saveMe(m); }
     setMeRaw((cur) => (m && cur && JSON.stringify(cur) === JSON.stringify(m) ? cur : m)); // unchanged: keep identity, no re-render
   }, []);
