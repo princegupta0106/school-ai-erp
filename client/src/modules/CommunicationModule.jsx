@@ -204,3 +204,34 @@ export function Messages({ me }) {
     </div>
   );
 }
+
+/* ===================================================================== SEND NOTIFICATION */
+// A quick push alert + inbox entry (shown in the phone app's bell). Not a notice-board post.
+const WHO = [['all', 'Everyone'], ['students', 'Students'], ['parents', 'Parents'], ['staff', 'Staff']];
+export const SendNotification = scoped(function SendNotification({ me, sid }) {
+  const canSchool = me.features.includes('send_school_notification'); const canClass = me.features.includes('send_notification');
+  const blank = { title: '', body: '', audience: canSchool ? 'school' : 'class', who: 'all', class_ids: [] };
+  const [f, setF] = useState(blank); const [classes, setClasses] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { if (canClass) api.get(`/notifications/classes${qs(sq(me, sid))}`).then(setClasses).catch(() => {}); }, [sid]); // eslint-disable-line
+  const toggle = (id) => setF((x) => ({ ...x, class_ids: x.class_ids.includes(id) ? x.class_ids.filter((c) => c !== id) : [...x.class_ids, id] }));
+  const send = async (e) => {
+    e.preventDefault(); setBusy(true); setErr('');
+    try { const r = await api.post('/notifications/send', { ...f, ...sq(me, sid) }); toast(r.sent ? `Sent to ${r.sent} ${r.sent === 1 ? 'person' : 'people'}` : 'Nobody to send to'); setF(blank); }
+    catch (x) { setErr(x.message); } finally { setBusy(false); }
+  };
+  return (
+    <form className="stack" style={{ gap: 14, maxWidth: 640 }} onSubmit={send}>
+      <p className="muted" style={{ margin: 0 }}>Sends an alert to people's phones and into the notification bell of the phone app. For longer announcements use the Notice board.</p>
+      {canSchool && canClass && <div className="pills scroll"><button type="button" className={`pill ${f.audience === 'school' ? 'on' : ''}`} onClick={() => setF({ ...f, audience: 'school' })}>Whole school</button><button type="button" className={`pill ${f.audience === 'class' ? 'on' : ''}`} onClick={() => setF({ ...f, audience: 'class' })}>Selected classes</button></div>}
+      {f.audience === 'school' && <Field label="Who"><div className="pills">{WHO.map(([k, l]) => <button type="button" key={k} className={`pill ${f.who === k ? 'on' : ''}`} onClick={() => setF({ ...f, who: k })}>{l}</button>)}</div></Field>}
+      {f.audience === 'class' && (
+        <Field label="Classes (students, parents and teachers of these classes)">
+          {classes.length === 0 ? <span className="muted">No classes available to you.</span> : <div className="pills">{classes.map((c) => <button type="button" key={c.id} className={`pill ${f.class_ids.includes(c.id) ? 'on' : ''}`} onClick={() => toggle(c.id)}>{clsName(c)}</button>)}</div>}
+        </Field>)}
+      <Field label="Title"><input required maxLength={100} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. School closed tomorrow" /></Field>
+      <Field label="Message (optional)"><textarea rows={4} maxLength={500} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="A short message..." /></Field>
+      {err && <div className="err">{err}</div>}
+      <button className="btn primary big" disabled={busy || !f.title.trim() || (f.audience === 'class' && f.class_ids.length === 0)} style={{ justifyContent: 'center' }}>{busy ? 'Sending...' : 'Send notification'}</button>
+    </form>
+  );
+});

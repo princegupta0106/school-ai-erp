@@ -23,6 +23,9 @@ export default function AssistantChat({ me }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [conv, setConv] = useState(null);
+  const [files, setFiles] = useState([]);   // attached to this chat: { id, name, kind }
+  const [uploading, setUploading] = useState(false);
+  const pick = useRef(null);
   const end = useRef(null);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy, open]);
 
@@ -34,10 +37,12 @@ export default function AssistantChat({ me }) {
   const fail = (e) => setMsgs((m) => [...m, { role: 'bot', text: e.message, error: true }]);
 
   const send = async (t) => {
-    const message = (t ?? text).trim();
-    if (!message || busy) return;
+    const message = (t ?? text).trim() || (files.length ? 'Please summarise the attached file.' : '');
+    if (!message || busy || uploading) return;
     setText(''); setBusy(true);
-    setMsgs((m) => [...m, { role: 'me', text: message }]);
+    const sent = files.filter((f) => f.kind === 'inline'); // photos / scanned PDFs go with this one message only
+    setFiles((f) => f.filter((x) => x.kind !== 'inline'));
+    setMsgs((m) => [...m, { role: 'me', text: message, files: sent.map((f) => f.name) }]);
     try { absorb(await api.post('/ai/chat', { message, conversation_id: conv })); } catch (e) { fail(e); } finally { setBusy(false); }
   };
 
@@ -47,7 +52,20 @@ export default function AssistantChat({ me }) {
     try { absorb(await api.post('/ai/confirm', { pending_id: pid, approve })); } catch (e) { fail(e); } finally { setBusy(false); }
   };
 
-  const reset = () => { if (conv) api.post('/ai/reset', { conversation_id: conv }).catch(() => {}); setConv(null); setMsgs([]); };
+  const attach = async (e) => {
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) return fail(new Error('That file is over 8 MB'));
+    setUploading(true);
+    try {
+      const fd = new FormData(); fd.append('file', file); if (conv) fd.append('conversation_id', conv);
+      const r = await api.post('/ai/upload', fd);
+      setConv(r.conversation_id); setFiles((f) => [...f, r.file]);
+    } catch (x) { fail(x); } finally { setUploading(false); }
+  };
+  const unattach = (f) => { setFiles((x) => x.filter((y) => y.id !== f.id)); if (conv) api.post('/ai/remove-file', { conversation_id: conv, file_id: f.id }).catch(() => {}); };
+
+  const reset = () => { if (conv) api.post('/ai/reset', { conversation_id: conv }).catch(() => {}); setConv(null); setMsgs([]); setFiles([]); };
   const chips = SUGGEST.filter((s) => me.features.includes(s.need)).slice(0, 5);
 
   return (<>
@@ -57,7 +75,7 @@ export default function AssistantChat({ me }) {
         <div className="ai-head">
           <b><Icon name="sparkle" size={18} /> Assistant</b>
           <div className="row">
-            <button className="btn" onClick={reset} disabled={!msgs.length}>New chat</button>
+            <button className="btn" onClick={reset} disabled={!msgs.length && !files.length}>New chat</button>
             <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close"><Icon name="x" /></button>
           </div>
         </div>
@@ -71,7 +89,7 @@ export default function AssistantChat({ me }) {
           {msgs.map((m, i) => (
             <div key={i} className={`ai-msg ${m.role} ${m.error ? 'err' : ''}`}>
               {m.actions?.length > 0 && <div className="ai-acts">{m.actions.map((a, k) => <span key={k} className={`ai-act ${a.ok ? 'ok' : 'bad'}`} title={a.error || ''}>{a.ok ? '✓' : '✕'} {a.tool}</span>)}</div>}
-              <div className="ai-text">{m.text}</div>
+              <div className="ai-text">{m.text}{m.files?.length > 0 && <div className="ai-files">{m.files.map((n, k) => <span key={k}><Icon name="paperclip" size={12} /> {n}</span>)}</div>}</div>
               {m.pending?.map((p) => (
                 <div key={p.id} className="ai-confirm">
                   <small>Please confirm</small>
@@ -86,9 +104,21 @@ export default function AssistantChat({ me }) {
           {busy && <div className="ai-msg bot"><div className="ai-text ai-dots">Working…</div></div>}
           <div ref={end} />
         </div>
+        {files.length > 0 && (
+          <div className="ai-attached">
+            {files.map((f) => (
+              <span key={f.id} className="chip" title={f.kind === 'text' ? 'Kept as context for this chat' : 'Sent with your next message'}>
+                <Icon name="paperclip" size={12} /> {f.name}
+                <button type="button" aria-label="Remove" onClick={() => unattach(f)}><Icon name="x" size={12} /></button>
+              </span>
+            ))}
+          </div>
+        )}
         <form className="ai-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a request…" maxLength={2000} autoFocus />
-          <button className="btn primary" disabled={busy || !text.trim()} aria-label="Send"><Icon name="send" size={18} /></button>
+          <input ref={pick} type="file" hidden accept=".pdf,.docx,.txt,.csv,.md,.json,image/png,image/jpeg,image/webp" onChange={attach} />
+          <button type="button" className="icon-btn" aria-label="Attach a file" disabled={busy || uploading} onClick={() => pick.current?.click()}><Icon name="paperclip" size={20} /></button>
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={uploading ? 'Reading file…' : files.length ? 'Ask about the file…' : 'Type a request…'} maxLength={2000} />
+          <button className="btn primary" disabled={busy || uploading || (!text.trim() && !files.length)} aria-label="Send"><Icon name="send" size={18} /></button>
         </form>
       </div>
     )}

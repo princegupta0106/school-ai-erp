@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db, httpError, check, asyncH } from '../db.js';
 import { requireFeature, isSuper } from '../auth.js';
+import { notifyLeave } from '../notify.js';
 import * as L from '../payroll-logic.js';
 
 const r = Router();
@@ -135,6 +136,7 @@ async function approve(row, actor, auto, note) {
   try { await postTaken(data, type, actor, -1); }
   catch (e) { await db.from('leave_requests').update({ status: 'pending', decided_by: null, decided_at: null, auto_approved: false }).eq('id', row.id); throw e; }
   await audit(row.school_id, actor, auto ? 'leave_auto_approved' : 'leave_approved', row.user_id, { leave_id: row.id, days: row.days });
+  notifyLeave(row.school_id, auto ? null : actor.user_id, row.user_id, 'approved', note);
   return data;
 }
 
@@ -200,6 +202,7 @@ r.post('/leave/:id/reject', requireFeature('leave_approve'), asyncH(async (req, 
   const { data, error } = await db.from('leave_requests').update({ status: 'rejected', decided_by: req.user.user_id, decided_at: new Date().toISOString(), decision_note: String(req.body.note || '').trim() || null }).eq('id', row.id).eq('status', 'pending').select().maybeSingle();
   check(error); if (!data) throw httpError(409, 'This request was already handled');
   await audit(row.school_id, req.user, 'leave_rejected', row.user_id, { leave_id: row.id });
+  notifyLeave(row.school_id, req.user.user_id, row.user_id, 'rejected', String(req.body.note || '').trim());
   res.json(data);
 }));
 r.post('/leave/:id/cancel', requireFeature('my_leave', 'leave_approve'), asyncH(async (req, res) => {

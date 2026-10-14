@@ -13,6 +13,7 @@
 //   studentDashboard(schoolId, studentId, sessionId)         everything one student sees: summary, subjects, tests, exams
 //   canSeeStudent / assertStudentAccess              who may open a student's results
 import { db, httpError, check } from './db.js';
+import { notifyMarks } from './notify.js';
 import { todayStr, validDate, classRoster } from './attendance.js';
 
 export const PASS_PERCENT = 33;
@@ -304,6 +305,7 @@ export async function updateAssessment(user, schoolId, id, b) {
   const { error } = await db.from('assessments').update(patch).eq('id', id).eq('school_id', schoolId);
   if (error?.code === '23505') throw httpError(409, 'This exam already has a paper for that class and subject');
   check(error);
+  notifyMarks(schoolId, user, assessment, clean.filter((x) => x.marks !== null || x.absent).map((x) => x.student_id));
   return getSheet(user, schoolId, id);
 }
 
@@ -330,7 +332,7 @@ export async function getSheet(user, schoolId, id) {
 }
 
 export async function saveMarks(user, schoolId, id, items) {
-  await loadAssessment(user, schoolId, id);
+  const assessment = await loadAssessment(user, schoolId, id);
   if (!Array.isArray(items) || !items.length) throw httpError(400, 'Nothing to save');
   if (items.length > 500) throw httpError(400, 'Too many students in one save');
   const clean = items.map((x) => {

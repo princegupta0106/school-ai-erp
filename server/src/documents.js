@@ -13,6 +13,7 @@
 import { db, httpError, check } from './db.js';
 import { uploadFile } from './r2.js';
 import { studentDashboard, listSessions, PASS_PERCENT, gradeOf } from './academics.js';
+import { notifyDocument } from './notify.js';
 import { studentReport, todayStr } from './attendance.js';
 
 // kind: who a type is for. student | staff (staff = teachers, staff, school admins)
@@ -329,6 +330,7 @@ export async function issue(user, schoolId, b) {
     class_label: subject.class_label || null, title, content, issued_by: user.user_id, issued_by_name: user.profile?.full_name || user.login_id,
   }).select('*').single();
   check(error);
+  notifyDocument(schoolId, user, person.u.user_id, title);
   return data;
 }
 

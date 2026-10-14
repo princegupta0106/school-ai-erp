@@ -1,0 +1,1 @@
+{ "expo": { "name": "School Portal", "slug": "school-portal-mobile", "version": "1.0.0", "orientation": "portrait", "userInterfaceStyle": "light", "ios": { "supportsTablet": true }, "android": {}, "plugins": ["expo-notifications"] } }

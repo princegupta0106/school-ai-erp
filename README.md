@@ -141,7 +141,7 @@ Sidebar > Audit logs.
 
 
 ## AI assistant (chatbot + MCP server) - first module: Payroll & Leave
-Add `GEMINI_API_KEY=...` (and optionally `GEMINI_MODEL`, default `gemini-2.5-flash`) to `.env`, then run `run.bat` (it rebuilds the UI).
+Add `GEMINI_API_KEY=...` (and optionally `GEMINI_MODEL`, default `gemini-3.8-flash-lite`) to `.env`, then run `run.bat` (it rebuilds the UI).
 No database change is needed. A floating sparkle button appears bottom-right for everyone who holds the `use_assistant` feature
 (staff and other employees get it automatically, school admins always; tick it for anyone else under Users > Feature access).
 
@@ -194,3 +194,44 @@ Confirm cards (money, deletion, bulk, things sent to other people): fee payments
 Super admins pass the school by name (the bot asks if it does not know). Tools that a person's permissions do not allow are not even shown to the model, and the API checks again.
 Not covered by the AI: uploading files / images, downloading receipt PDFs, printing documents (use the portal pages).
 `npm run test:ai` checks tool visibility, defaults, confirm flows and attendance / fee mappings offline.
+
+## Homework & Assignments module
+**Re-run `db/schema.sql` once** (safe to re-run; adds `assignments` and `assignment_submissions`) and restart.
+
+- Teacher (feature `manage_homework`, given to every staff account by default; school admins always have it): Homework > New homework / file. Pick one of your assigned classes, title, instructions, optional last date and up to 5 attached files (10 MB each). Two types: **Assignment** (students must submit) or **Study file** (read only).
+- Each teacher sees only the homework **they posted** (school admins see all). Open one to see every student of the class: Submitted / Not submitted, download their files, add marks + a remark and press *Mark as checked*. The list shows "x/y submitted, n to check".
+- Student (feature `view_my_homework`, automatic): Homework > My homework shows the homework of their own class, with Pending / Submitted / Checked / Overdue. They download the teacher's files, upload their work and an optional note, and can replace it until the teacher has checked it. After checking they see the marks and remark.
+- Files are stored in Cloudflare R2 (same bucket as user documents) under `schools/<school>/homework/...`.
+- Code: `server/src/homework.js`, `server/src/routes/homework.js`, `client/src/modules/HomeworkModule.jsx`.
+
+## AI assistant: lower cost, attachments, full-screen on phones
+- **Cheaper:** default model is now `gemini-3.8-flash-lite` (change with `GEMINI_MODEL` in `.env`). The assistant no longer sends all 81 tools on every call: it loads only the tool groups a message needs (payroll, fees, attendance...), and can load more by itself. Finished turns are kept as plain text only (no tool results resent), long tool results are cut, the prompt is shorter, "thinking" is turned to minimum, replies are capped at 700 tokens and at most 4 tool rounds. Each message logs one line in the server console: `[ai] model calls=.. in=.. (cached ..) out=..` so you can see the real token use.
+- **Attach files** (paperclip next to the message box): PDF, Word (.docx), text / CSV are read on the server and kept as context for that chat (last 2 files, first ~12,000 characters each). Photos and scanned PDFs are sent to Gemini with the next message only. Max 8 MB per file. "New chat" clears them.
+- **Phones:** the assistant opens full screen.
+- Code: `server/src/ai/chat.js`, `server/src/ai/docs.js`, `server/src/ai/registry.js` (tool groups), `client/src/AssistantChat.jsx`. Run `npm install` in `server` (run.bat does it) for the two new packages `pdf-parse` and `mammoth`.
+
+## Push notifications & the notification bell (mobile)
+Every important event now creates a notification for the people it concerns. It shows in the **bell** (top right of the app, with an unread count, and a "Latest updates" preview on Home) and is also pushed to their phones.
+
+| Event | Who is notified |
+| --- | --- |
+| Notice posted | whole school, or the students / parents / teachers of the chosen classes |
+| New 1-to-1 message | the other person |
+| Homework or study file posted | students of that class |
+| Homework checked | that student |
+| Marks entered for a test | the students and their parents (once per test every 6 hours, so re-saving does not spam) |
+| Fee payment recorded | the student and their parents |
+| Document issued | the person (and parents of a student) |
+| Leave approved / rejected | the employee |
+| **Send notification** (Communication > Send notification) | whoever you choose: whole school (everyone / students / parents / staff) or selected classes |
+
+Permissions (Users > feature access, module *Communication*): `send_notification` (to classes you teach) and `send_school_notification` (whole school). School admins have both automatically.
+
+### Setting it up (once)
+1. Run `db/push-notifications.sql` in the Supabase SQL editor (creates `push_tokens` and `notifications`).
+2. Deploy the new `server/` (no new npm packages needed).
+3. In `mobile/` run `run-mobile` again (it installs `expo-notifications` and `expo-device`).
+4. Phone alerts need a real phone. **Expo Go on Android cannot receive remote push** (Expo's rule since SDK 53) - build a development build (`npx eas init`, then `eas build --profile development --platform android`). iPhones and development / production builds work. Without that, the bell still fills up (it refreshes every 45 seconds and when you open the app).
+5. In the app: bell > **Turn on phone alerts** registers the phone and tells you if something is wrong.
+
+Code: `server/src/notify.js`, `server/src/routes/notifications.js`, `mobile/src/push.js`, `mobile/src/screens/Notifications.js`, `mobile/src/screens/SendNotification.js`.

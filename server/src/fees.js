@@ -11,6 +11,7 @@
 //   recordPayment / cancelPayment / addAdjustment / voidAdjustment
 import { db, httpError, check } from './db.js';
 import { todayStr, validDate } from './attendance.js';
+import { notifyFee } from './notify.js';
 import { buildLedger, allocate, toPaise, toRupees, FREQUENCIES, FREQUENCY_KEYS, describeItem } from './feeLedger.js';
 
 export const MODES = ['cash', 'upi', 'cheque', 'bank_transfer', 'card', 'other'];
@@ -220,6 +221,7 @@ export async function recordPayment(school, user, studentId, body) {
     p_paid_on: paid_on, p_by: user.user_id, p_class_label: student.class_label, p_allocation: allocate(ledger, paise),
   });
   check(error);
+  notifyFee(school, user, student.student_id, amount);
   return data;
 }
 

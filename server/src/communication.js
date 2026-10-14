@@ -8,6 +8,7 @@
 //   listConversations / getMessages / sendMessage
 import { db, httpError, check } from './db.js';
 import { accessibleClasses, hasAllClasses } from './attendance.js';
+import { notifyNotice, notifyMessage } from './notify.js';
 
 const one = (x) => (Array.isArray(x) ? x[0] : x);
 const nameOf = (p, loginId) => p?.full_name || loginId || 'Unknown';
@@ -79,6 +80,7 @@ export async function createAnnouncement(user, schoolId, b) {
     const { error: e2 } = await db.from('announcement_classes').insert(classIds.map((class_id) => ({ announcement_id: data.id, class_id, school_id: schoolId })));
     if (e2) { await db.from('announcements').delete().eq('id', data.id); check(e2); }
   }
+  notifyNotice(schoolId, user, { title, body, audience, classIds });
   return { id: data.id };
 }
 
@@ -253,8 +255,9 @@ export async function sendMessage(user, id, body) {
   const text = String(body || '').trim();
   if (!text) throw httpError(400, 'Write a message');
   if (text.length > 2000) throw httpError(400, 'Message is too long (2000 characters max)');
-  await myConversation(user, id);
+  const conv = await myConversation(user, id);
   const { data, error } = await db.rpc('send_message', { p_conv: id, p_sender: user.user_id, p_body: text });
   check(error);
+  notifyMessage(user.school_id, user, conv.user_a === user.user_id ? conv.user_b : conv.user_a, text);
   return { ...data, mine: true };
 }

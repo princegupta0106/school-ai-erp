@@ -19,6 +19,8 @@ import payrollRoutes from './routes/payroll.js';
 import academicsRoutes from './routes/academics.js';
 import auditRoutes from './routes/audit.js';
 import documentsRoutes from './routes/documents.js';
+import homeworkRoutes from './routes/homework.js';
+import notificationRoutes from './routes/notifications.js';
 import aiRoutes from './routes/ai.js';
 import mcpRoutes from './ai/mcp.js';
 import { auditMiddleware } from './audit.js';
@@ -45,6 +47,8 @@ app.use('/api/fees', authenticate, feesRoutes);
 app.use('/api/payroll', authenticate, payrollRoutes);
 app.use('/api/academics', authenticate, academicsRoutes);
 app.use('/api/documents', authenticate, documentsRoutes);
+app.use('/api/homework', authenticate, homeworkRoutes);
+app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/audit', authenticate, auditRoutes);
 app.use('/api/ai', authenticate, aiRoutes);
 // MCP endpoint: same tools as the chatbot, for Claude Desktop / Cursor / any MCP client (see README)

@@ -7,10 +7,11 @@ import { UserList, UserAdd, ClassManager } from './modules/UsersModule.jsx';
 import { TakeAttendance, AttendanceReports, ClassTeachers, RollNumbers } from './modules/AttendanceModule.jsx';
 
 import { AddVisitor, VisitorList } from './modules/VisitorsModule.jsx';
-import { NoticeBoard, Messages } from './modules/CommunicationModule.jsx';
+import { NoticeBoard, Messages, SendNotification } from './modules/CommunicationModule.jsx';
 import { FeeStructure, StudentFees, MyFees } from './modules/FeesModule.jsx';
 import { TestsAndMarks, AcademicReports, SubjectManager, ExamManager, MyMarks } from './modules/AcademicsModule.jsx';
 import { MyLeave, LeaveRequests, Balances, Payroll, PaySettings } from './modules/PayrollModule.jsx';
+import { Homework, MyHomework } from './modules/HomeworkModule.jsx';
 import { AuditLogs } from './modules/AuditModule.jsx';
 import { IssueDocument, IssuedList, MyDocuments, Templates, Letterhead } from './modules/DocumentsModule.jsx';
 import { fetchers } from './fetchers.js';
@@ -83,6 +84,7 @@ export const MODULE_UI = {
     views: [
       { key: 'board', label: 'Notice board', need: ['view_announcements', 'post_announcement', 'post_school_announcement', 'manage_announcements'], component: NoticeBoard, prefetch: (me) => own(me) && prefetchApi('/communication/announcements') },
       { key: 'messages', label: 'Messages', need: ['use_messages'], component: Messages, prefetch: (me) => me.school_id && prefetchApi('/communication/conversations') },
+      { key: 'notify', label: 'Send notification', need: ['send_notification', 'send_school_notification'], component: SendNotification },
     ],
   },
   academics: {
@@ -113,6 +115,13 @@ export const MODULE_UI = {
       { key: 'templates', label: 'Templates & designs', need: ['manage_doc_templates'], component: Templates },
       { key: 'letterhead', label: 'School letterhead', need: ['manage_doc_templates'], component: Letterhead },
       { key: 'my', label: 'My documents', need: ['view_my_documents'], component: MyDocuments, prefetch: () => prefetch('docs:my', () => api.get('/documents/my')) },
+    ],
+  },
+  homework: {
+    label: 'Homework', desc: 'Post homework and study files for a class, students download and submit, teachers check', color: '#c026d3', icon: 'file',
+    views: [
+      { key: 'my', label: 'My homework', need: ['view_my_homework'], roles: ['student'], component: MyHomework, prefetch: () => prefetchApi('/homework/my') },
+      { key: 'manage', label: 'Homework', need: ['manage_homework'], component: Homework, prefetch: (me) => own(me) && prefetchApi('/homework/assignments') },
     ],
   },
   audit: {

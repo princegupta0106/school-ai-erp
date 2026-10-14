@@ -12,17 +12,20 @@ import { payrollExtraTools } from './tools-payroll-extra.js';
 import { makeApi } from './loopback.js';
 import { todayIn } from './tools-leave.js';
 
-export const TOOLS = [
-  ...adminTools,      // schools, users, classes
-  ...schoolTools,     // school settings, calendar, promotion, user management, visitors, audit log
-  ...attendanceTools,
-  ...academicsTools,
-  ...feesTools,
-  ...communicationTools,
-  ...documentTools,
-  ...leaveTools,      // payroll & leave
-  ...payrollExtraTools,
-];
+// Tools are grouped so the assistant only sends Gemini the groups a message needs (a big saving:
+// all tools together are ~11k tokens). `words` = what in a message loads the group; the model can
+// also load a group itself with the enable_tools helper (see chat.js).
+export const GROUPS = {
+  admin:         { about: 'create / edit schools, users (teachers, students, parents), classes', tools: adminTools, words: /school|user|teacher|student|parent|staff|class|account|password|login|admin|shikshak|sikshak|vidyarthi|bachch|kaksha/i },
+  school:        { about: 'school settings, holiday calendar, promotion, activate / deactivate / delete users, visitors, audit log', tools: schoolTools, words: /holiday|calendar|promot|visitor|audit|activity|session|setting|deactivat|activate|delete|remove|graduat|rename|tyohar/i },
+  attendance:    { about: 'student attendance (mark, view, reports)', tools: attendanceTools, words: /attend|present|absent|\blate\b|\broll|hazri|hajri|upasthit/i },
+  academics:     { about: 'subjects, exams, marks, results, timetable', tools: academicsTools, words: /\bmarks?\b|exam|result|grade|subject|timetable|time table|\btest\b|report card|score|percent|pariksha|natija/i },
+  fees:          { about: 'student fees, payments, receipts, discounts', tools: feesTools, words: /\bfees?\b|payment|\bpaid\b|receipt|pending|\bdue\b|discount|balance|collect|cash|upi|cheque|shulk|paisa|rupee|\brs\b/i },
+  communication: { about: 'notices / announcements and messages', tools: communicationTools, words: /notice|announce|message|circular|broadcast|inbox|suchna|soochna|sandesh/i },
+  documents:     { about: 'user documents (certificates, ID proofs, files)', tools: documentTools, words: /document|certificate|\bfile|aadhaar|aadhar|marksheet|id card|upload|download|dastavez|\bpdf/i },
+  payroll:       { about: 'my leave, leave approvals, salary, payroll, payslips', tools: [...leaveTools, ...payrollExtraTools], words: /leave|salary|payroll|payslip|advance|bonus|deduct|chutti|chhutti|tankhwah|tankha|vetan|\bsick\b|\bcasual\b|\bctc\b/i },
+};
+export const TOOLS = Object.entries(GROUPS).flatMap(([group, g]) => g.tools.map((t) => { t.group = group; return t; }));
 
 // safety net for developers: a duplicate name would silently shadow another tool
 const names = TOOLS.map((t) => t.name);

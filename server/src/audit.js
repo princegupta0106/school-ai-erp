@@ -21,7 +21,7 @@ const isUuid = (v) => typeof v === 'string' && UUID.test(v);
 
 export const AUDIT_MODULES = {
   auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors',
-  fees: 'Fees', communication: 'Communication', academics: 'Academics', documents: 'Documents', payroll: 'Payroll & Leave', ai: 'AI assistant', audit: 'Audit logs', system: 'Other',
+  fees: 'Fees', communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', ai: 'AI assistant', audit: 'Audit logs', system: 'Other',
 };
 
 // ---- readable names for the thing that was touched: [table, column that holds its name] ----------
@@ -29,7 +29,7 @@ const NAMED = {
   class: ['classes', 'name'], session: ['academic_sessions', 'name'], holiday: ['holidays', 'title'],
   subject: ['subjects', 'name'], exam: ['exams', 'name'], assessment: ['assessments', 'title'],
   visitor: ['visitors', 'name'], announcement: ['announcements', 'title'], fee_item: ['fee_items', 'name'],
-  leave_type: ['leave_types', 'name'],
+  leave_type: ['leave_types', 'name'], assignment: ['assignments', 'title'],
 };
 
 // ---- rules: how to describe each route -----------------------------------------------------------
@@ -109,6 +109,11 @@ const RULES = [
   R('POST', '/fees/payments/:id/cancel', 'fees.payment.cancel', (c) => `Cancelled a fee payment${c.body.reason ? ` - ${c.body.reason}` : ''}`, { entity: 'fee_payment' }),
   R('GET', '/fees/payments/:id/receipt', 'fees.receipt_download', () => 'Downloaded a fee receipt', { entity: 'fee_payment', kind: 'view' }),
 
+  // ---- homework
+  R('POST', '/homework/assignments', 'homework.assignment.create', (c) => `Posted homework / assignment${q(nm(c))}`, { entity: 'assignment' }),
+  R('DELETE', '/homework/assignments/:id', 'homework.assignment.delete', () => 'Deleted homework / assignment', { entity: 'assignment' }),
+  R('PATCH', '/homework/submissions/:id', 'homework.submission.check', () => 'Checked a submission', { entity: 'submission' }),
+  R('POST', '/homework/my/:id/submit', 'homework.submit', () => 'Submitted an assignment', { entity: 'assignment' }),
   // ---- academics
   R('POST', '/academics/subjects', 'academics.subject.create', (c) => `Added subject${q(nm(c))}`, { entity: 'subject' }),
   R('PATCH', '/academics/subjects/:id', 'academics.subject.update', (c) => `Edited subject${q(nm(c))}`, { entity: 'subject' }),

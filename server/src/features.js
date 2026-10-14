@@ -72,6 +72,8 @@ export const MODULES = {
       manage_announcements: { label: 'Edit / delete any notice (and see all notices)' },
       use_messages: { label: 'Send & receive 1-to-1 messages' },
       message_anyone: { label: 'Start a chat with anyone in the school' },
+      send_notification: { label: 'Send push notifications to classes (students, parents, teachers)' },
+      send_school_notification: { label: 'Send push notifications to the whole school' },
     },
   },
   academics: {
@@ -93,6 +95,13 @@ export const MODULES = {
       view_issued_documents: { label: 'See every issued document' },
       cancel_document: { label: 'Cancel a wrongly issued document', roles: ADMINS },
       view_my_documents: { label: 'See own / own children\'s documents' },
+    },
+  },
+  homework: {
+    label: 'Homework & Assignments',
+    features: {
+      manage_homework: { label: 'Post homework / assignments / study files and check student submissions' },
+      view_my_homework: { label: 'See homework & submit assignments', roles: ['student'] },
     },
   },
   assistant: {
@@ -124,8 +133,8 @@ export const MODULES = {
 // features everyone of a role gets without being ticked (parents / students can read notices, parents and staff can chat)
 export const ROLE_DEFAULTS = {
   parent: ['view_announcements', 'use_messages', 'view_my_fees', 'view_my_academics', 'view_my_documents'],
-  student: ['view_announcements', 'view_my_academics', 'view_my_documents'],
-  staff: ['view_announcements', 'use_messages', 'my_leave', 'view_my_documents', 'use_assistant'],
+  student: ['view_announcements', 'view_my_academics', 'view_my_documents', 'view_my_homework'],
+  staff: ['view_announcements', 'use_messages', 'my_leave', 'view_my_documents', 'use_assistant', 'manage_homework'],
   other: ['my_leave', 'view_my_documents', 'use_assistant'], // every employee gets leave & payslip self-service
 };
 
