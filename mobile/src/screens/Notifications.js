@@ -4,7 +4,7 @@ import { api } from '../api';
 import { C, when } from '../theme';
 import { Icon } from '../icons';
 import { Dim, Empty, Loading, Btn, Sheet, toast } from '../ui';
-import { registerPush } from '../push';
+import { registerPush, enableLocalAlerts } from '../push';
 
 const KIND_ICON = { notice: 'megaphone', message: 'chat', homework: 'file', marks: 'academics', fees: 'rupee', document: 'doc', leave: 'wallet', general: 'bell' };
 const KIND_COLOR = { notice: '#e11d48', message: '#0891b2', homework: '#c026d3', marks: '#2563eb', fees: '#059669', document: '#65a30d', leave: '#d97706', general: C.brand };
@@ -18,7 +18,10 @@ export default function Notifications({ data, reload, onClose, onOpen }) {
     onOpen(n);
   };
   const readAll = async () => { setBusy(true); try { await api.post('/notifications/read', { all: true }); await reload(); } catch (e) { toast(e.message, true); } finally { setBusy(false); } };
-  const enable = async () => { setBusy(true); const r = await registerPush(); setBusy(false); toast(r.ok ? 'Phone alerts are on for this phone.' : r.why, !r.ok); };
+  const enable = async () => { setBusy(true); const r = await registerPush();
+    if (r.ok) toast('Phone alerts are on for this phone.');
+    else { const ok = await enableLocalAlerts(); toast(ok ? 'New notifications will show in your notification bar while the app is running.' : r.why, !ok); }
+    setBusy(false); };
   return (
     <Sheet title="Notifications" onClose={onClose}>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>

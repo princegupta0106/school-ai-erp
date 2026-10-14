@@ -55,9 +55,38 @@ export async function registerPush() {
 
 // on sign-out: this phone stops receiving this person's alerts
 export async function unregisterPush() {
+  try { await AsyncStorage.removeItem('alert.last'); } catch { /* ignore */ }
   try {
     const t = await AsyncStorage.getItem('push.token'); if (!t) return;
     await Promise.race([api.post('/notifications/push-token/remove', { token: t }), new Promise((r) => setTimeout(r, 1500))]);
     await AsyncStorage.removeItem('push.token');
   } catch { /* ignore */ }
+}
+
+// ---- No Firebase needed: show new notifications in the phone's notification bar as local alerts.
+// The app checks for new notifications every 45 seconds while it is open or recently in the background; each new one is shown
+// in the notification bar. (When the app is fully closed only real push - Firebase - can wake the phone.)
+async function localPermission(n) {
+  try {
+    if (Platform.OS === 'android') await n.setNotificationChannelAsync('default', { name: 'School updates', importance: n.AndroidImportance.MAX, vibrationPattern: [0, 250, 250, 250], lightColor: '#15663f' });
+    let { status } = await n.getPermissionsAsync();
+    if (status !== 'granted') ({ status } = await n.requestPermissionsAsync());
+    return status === 'granted';
+  } catch { return false; }
+}
+export async function enableLocalAlerts() { const n = await lib(); return n ? localPermission(n) : false; }
+
+export async function alertNew(items) {
+  try {
+    const n = await lib(); if (!n || !items?.length) return;
+    const newest = items.reduce((m, x) => (x.created_at > m ? x.created_at : m), '');
+    const last = await AsyncStorage.getItem('alert.last');
+    if (!last || (await AsyncStorage.getItem('push.token'))) { await AsyncStorage.setItem('alert.last', newest); return; } // first run: remember where we are. Real push active: it already alerts
+    const fresh = items.filter((x) => !x.read_at && x.created_at > last).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+    if (newest > last) await AsyncStorage.setItem('alert.last', newest);
+    if (!fresh.length || !(await localPermission(n))) return;
+    const show = (title, body, data) => n.scheduleNotificationAsync({ content: { title, body: body || '', data, sound: 'default' }, trigger: null });
+    if (fresh.length > 3) await show(`${fresh.length} new notifications`, fresh.slice(-3).map((x) => x.title).join(' · '), {});
+    else for (const x of fresh) await show(x.title, x.body, { module: x.module, view: x.view, kind: x.kind });
+  } catch { /* an alert problem must never break the app */ }
 }

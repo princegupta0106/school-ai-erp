@@ -11,7 +11,7 @@ import AssistantChat from './src/AssistantChat';
 import { initCache, clearCache, prefetch } from './src/cache';
 import { usePrefs } from './src/prefs';
 import { useApi } from './src/useApi';
-import { setupPush, registerPush, unregisterPush } from './src/push';
+import { setupPush, registerPush, unregisterPush, alertNew, enableLocalAlerts } from './src/push';
 import Notifications from './src/screens/Notifications';
 import Login from './src/screens/Login';
 import Customize from './src/screens/Customize';
@@ -125,9 +125,10 @@ function Shell({ me, logout }) {
       onReceive: () => reloadNotes(),
       onTap: (d) => { reloadNotes(); if (d?.module && MODULE_UI[d.module]) goRef.current(`${d.module}${d.view ? `/${d.view}` : ''}`); else setInbox(true); },
     }).then((o) => { off = o; });
-    registerPush().catch(() => {});
+    registerPush().then((r) => { if (!r.ok) enableLocalAlerts(); }).catch(() => {});
     return () => { clearInterval(t); sub.remove(); off(); };
   }, []); // eslint-disable-line
+  useEffect(() => { if (nd?.items) alertNew(nd.items); }, [nd]);
   const openNote = (n) => { setInbox(false); if (n.module && MODULE_UI[n.module] && viewsFor(me, n.module).length) go(`${n.module}${n.view ? `/${n.view}` : ''}`); };
   // warm every live screen's data one by one in the background, so first opens are instant
   useEffect(() => {

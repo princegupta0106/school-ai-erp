@@ -231,7 +231,7 @@ Permissions (Users > feature access, module *Communication*): `send_notification
 1. Run `db/push-notifications.sql` in the Supabase SQL editor (creates `push_tokens` and `notifications`).
 2. Deploy the new `server/` (no new npm packages needed).
 3. In `mobile/` run `run-mobile` again (it installs `expo-notifications` and `expo-device`).
-4. Phone alerts need a real phone. **Expo Go on Android cannot receive remote push** (Expo's rule since SDK 53) - build a development build (`npx eas init`, then `eas build --profile development --platform android`). iPhones and development / production builds work. Without that, the bell still fills up (it refreshes every 45 seconds and when you open the app).
+4. Phone alerts need a real phone and an APK/development build - see `mobile/BUILD-APK.md` for the step-by-step.
 5. In the app: bell > **Turn on phone alerts** registers the phone and tells you if something is wrong.
 
 Code: `server/src/notify.js`, `server/src/routes/notifications.js`, `mobile/src/push.js`, `mobile/src/screens/Notifications.js`, `mobile/src/screens/SendNotification.js`.
