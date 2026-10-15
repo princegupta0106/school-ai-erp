@@ -29,7 +29,8 @@ export const cfg = {
     publicUrl: (process.env.R2_PUBLIC_URL || '').replace(/\/$/, ''),
   },
   // the Python AI service (ai-server/). The portal forwards /api/ai/* to it; it listens on this machine only.
-  // On Render (RENDER is set automatically) the AI service is a separate service reached at AI_URL; on your PC it is local.
-  ai: { url: ((process.env.RENDER && process.env.AI_URL) || `http://127.0.0.1:${process.env.AI_PORT || 8001}`).replace(/\/$/, '') },
+  // The AI service. On Render it is the separate service below (hardcoded, nothing to configure); on your own PC it is local.
+  // AI_URL in the environment overrides both, if you ever move the service.
+  ai: { url: (process.env.AI_URL || (process.env.RENDER ? 'https://school-ai-erp-1.onrender.com' : `http://127.0.0.1:${process.env.AI_PORT || 8001}`)).replace(/\/$/, '') },
   clientDist: path.resolve(here, '../../client/dist'),
 };

@@ -33,8 +33,9 @@ UUID_RE = re.compile(r"^[0-9a-fA-F-]{36}$")
 def init(env):
     g = lambda k, d="": os.environ.get(k) or env.get(k) or d
     CFG.update(
-        # On Render the portal is a separate service (NODE_URL); on your PC it is local.
-        node=((os.environ.get("RENDER") and g("NODE_URL")) or f"http://127.0.0.1:{g('PORT', '3000')}").rstrip("/"),
+        # The portal. On Render it is the service below (hardcoded, nothing to configure); on your PC it is local.
+        # NODE_URL in the environment overrides both.
+        node=(g("NODE_URL") or ("https://school-ai-erp.onrender.com" if os.environ.get("RENDER") else f"http://127.0.0.1:{g('PORT', '3000')}")).rstrip("/"),
         provider=g("AI_PROVIDER", "").lower(),
         anthropic_key=g("ANTHROPIC_API_KEY"),
         gemini_key=g("VELONA_API_KEY"),       # "gemini" provider = Gemini through the Velona gateway
