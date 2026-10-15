@@ -7,15 +7,16 @@ import { C, initials, ROLE_LABEL, greeting } from './src/theme';
 import { Icon } from './src/icons';
 import { MODULE_UI, viewsFor, allTargets, effectiveShortcuts, prefetchUrls, visibleModules, dockModules, withClientDefaults } from './src/modules';
 import { Press, Pane } from './src/ui';
-import AssistantChat from './src/AssistantChat';
 import { initCache, clearCache, prefetch } from './src/cache';
 import { usePrefs } from './src/prefs';
 import { useApi } from './src/useApi';
 import { setupPush, registerPush, unregisterPush, alertNew, enableLocalAlerts } from './src/push';
 import Notifications from './src/screens/Notifications';
+import { startBackgroundChecks, stopBackgroundChecks, askBackgroundPermission } from './src/background';
 import Login from './src/screens/Login';
 import Customize from './src/screens/Customize';
 import ChangePassword from './src/screens/ChangePassword';
+import Assistant from './src/screens/Assistant';
 
 const tint = (c) => `${c}22`;
 
@@ -66,7 +67,7 @@ const sec = { fontSize: 12, fontWeight: '700', color: C.mute, textTransform: 'up
 
 export default function App() {
   const [me, setMe] = useState(null); const [booting, setBooting] = useState(true);
-  const logout = useCallback(async () => { await unregisterPush(); await setToken(null); await clearCache(); setMe(null); }, []);
+  const logout = useCallback(async () => { await unregisterPush(); await stopBackgroundChecks(); await setToken(null); await clearCache(); setMe(null); }, []);
   const signedIn = useCallback(async (m) => { await initCache(m.user_id); setMe(withClientDefaults(m)); }, []);
   useEffect(() => {
     setUnauthorizedHandler(logout);
@@ -81,7 +82,7 @@ function Shell({ me, logout }) {
   const [visited, setVisited] = useState([]); // tabs opened in this module stay mounted, so switching is instant and keeps their state
   const [more, setMore] = useState(false); const [cz, setCz] = useState(false); const [pw, setPw] = useState(false);
   const [prefs, updatePrefs] = usePrefs(me);
-  const [inbox, setInbox] = useState(false);
+  const [inbox, setInbox] = useState(false); const [ai, setAi] = useState(false);
   const { data: nd, reload: reloadNotes } = useApi('/notifications?limit=30');
   const unread = nd?.unread || 0;
 
@@ -125,7 +126,7 @@ function Shell({ me, logout }) {
       onReceive: () => reloadNotes(),
       onTap: (d) => { reloadNotes(); if (d?.module && MODULE_UI[d.module]) goRef.current(`${d.module}${d.view ? `/${d.view}` : ''}`); else setInbox(true); },
     }).then((o) => { off = o; });
-    registerPush().then((r) => { if (!r.ok) enableLocalAlerts(); }).catch(() => {});
+    registerPush().then((r) => { if (!r.ok) return enableLocalAlerts().then((ok) => ok && startBackgroundChecks().then(askBackgroundPermission)); startBackgroundChecks(); }).catch(() => {});
     return () => { clearInterval(t); sub.remove(); off(); };
   }, []); // eslint-disable-line
   useEffect(() => { if (nd?.items) alertNew(nd.items); }, [nd]);
@@ -211,7 +212,12 @@ function Shell({ me, logout }) {
           </Pressable>
         </Pressable>
       </Modal>
-      {me.features.includes('use_assistant') && <AssistantChat me={me} hidden={more || here === 'communication/messages'} />}
+      {me.features.includes('use_assistant') && !ai && (
+        <Pressable onPress={() => setAi(true)} accessibilityLabel="Open AI assistant" style={{ position: 'absolute', right: 14, bottom: 76, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.brand, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 12, elevation: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } }}>
+          <Icon name="sparkle" size={18} color="#fff" /><Text style={{ color: '#fff', fontWeight: '800' }}>Ask AI</Text>
+        </Pressable>
+      )}
+      {ai && <Assistant me={me} onClose={() => setAi(false)} />}
       {inbox && <Notifications data={nd} reload={reloadNotes} onClose={() => setInbox(false)} onOpen={openNote} />}
       {cz && <Customize me={me} prefs={prefs} update={updatePrefs} onClose={() => setCz(false)} />}
       {pw && <ChangePassword onClose={() => setPw(false)} />}

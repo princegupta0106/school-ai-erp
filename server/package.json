@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "test:ai": "node test/ai-smoke.mjs"
+    "dev": "node --watch src/index.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
@@ -19,9 +18,7 @@
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mammoth": "^1.13.0",
     "multer": "^1.4.5-lts.1",
-    "pdf-parse": "^1.1.1",
     "pdfkit": "^0.15.2"
   }
 }

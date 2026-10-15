@@ -22,7 +22,6 @@ import documentsRoutes from './routes/documents.js';
 import homeworkRoutes from './routes/homework.js';
 import notificationRoutes from './routes/notifications.js';
 import aiRoutes from './routes/ai.js';
-import mcpRoutes from './ai/mcp.js';
 import { auditMiddleware } from './audit.js';
 
 const app = express();
@@ -51,8 +50,6 @@ app.use('/api/homework', authenticate, homeworkRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/audit', authenticate, auditRoutes);
 app.use('/api/ai', authenticate, aiRoutes);
-// MCP endpoint: same tools as the chatbot, for Claude Desktop / Cursor / any MCP client (see README)
-app.use('/mcp', authenticate, mcpRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 if (fs.existsSync(cfg.clientDist)) {

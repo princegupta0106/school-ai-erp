@@ -158,7 +158,8 @@ const RULES = [
 
   // ---- AI assistant (what it asked the portal to do is logged as the normal action, tagged "via AI assistant")
   R('POST', '/ai/chat', 'ai.chat', () => 'Sent a message to the AI assistant'),
-  R('POST', '/ai/confirm', 'ai.confirm', (c) => (c.body.approve === true ? 'Confirmed an action proposed by the AI assistant' : 'Cancelled an action proposed by the AI assistant')),
+  R('POST', '/ai/confirm', 'ai.confirm', (c) => 'Confirmed an action proposed by the AI assistant'),
+  R('POST', '/ai/cancel', 'ai.cancel', () => 'Cancelled an action proposed by the AI assistant'),
 
   // ---- audit logs themselves (only exporting is recorded; browsing the log is not)
   R('POST', '/audit/navigate', 'audit.navigate', () => 'Opened a page', { kind: 'view' }),
@@ -176,7 +177,7 @@ export function sanitize(v, { path = '', depth = 0, key = '' } = {}) {
   if (v === null || v === undefined) return v;
   if (SECRET_KEY.test(key)) return '[hidden]';
   if (key === 'salary') return '[hidden]';
-  if (TEXT_KEY.test(key) && (path.includes('/communication/conversations') || path.startsWith('/ai/'))) return '[message text not stored]';
+  if (TEXT_KEY.test(key) && ((path.includes('/communication/conversations') || path.startsWith('/ai/')))) return '[message text not stored]';
   if (typeof v === 'string') return v.length > 300 ? `${v.slice(0, 300)}...` : v;
   if (typeof v !== 'object') return v;
   if (depth >= 4) return '[...]';

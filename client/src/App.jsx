@@ -3,8 +3,8 @@ import { api, getToken, setToken, setUnauthorizedHandler } from './api.js';
 import { clearCache, setCacheUser } from './cache.js';
 import { Icon, Modal, Field, toast, initials, ROLE_LABEL, ErrorBoundary, NetBar, Splash } from './ui.jsx';
 import { MODULE_UI } from './registry.js';
-import AssistantChat from './AssistantChat.jsx';
 import Customize from './Customize.jsx';
+import AssistantChat from './AssistantChat.jsx';
 import { usePrefs, allTargets, effectiveShortcuts, orderedModules } from './prefs.js';
 
 const parseHash = () => { const [m, v, a] = location.hash.replace(/^#\/?/, '').split('/'); return { m: m || '', v: v || '', a: a || '' }; };
@@ -255,9 +255,9 @@ export default function App() {
         </div>
       )}
 
+      {me.features.includes('use_assistant') && <AssistantChat me={me} />}
       {pw && <ChangePassword onClose={() => setPw(false)} />}
       {cz && <Customize me={me} prefs={prefs} update={updatePrefs} onClose={() => setCz(false)} />}
-      {me.features.includes('use_assistant') && <AssistantChat me={me} />}
     </div>
   );
 }

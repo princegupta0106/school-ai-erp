@@ -140,60 +140,20 @@ Sidebar > Audit logs.
 - The older Payroll "audit" tab still works; the same actions are now also in the central log.
 
 
-## AI assistant (chatbot + MCP server) - first module: Payroll & Leave
-Add `GEMINI_API_KEY=...` (and optionally `GEMINI_MODEL`, default `gemini-3.8-flash-lite`) to `.env`, then run `run.bat` (it rebuilds the UI).
-No database change is needed. A floating sparkle button appears bottom-right for everyone who holds the `use_assistant` feature
-(staff and other employees get it automatically, school admins always; tick it for anyone else under Users > Feature access).
+## AI assistant (Users module first) - copied from the wholesale ERP
+A floating **Ask AI** button (bottom-right) for everyone who holds the `use_assistant` permission (staff and other employees by default, school admins and super admins always). Type or speak (English / Hindi / Hinglish):
+`how many teachers do we have`, `create a student Rahul Sharma in class 5 A`, `turn off Ravi Kumar's account`, `reset the password of Sumit`, `make Sumit a parent of Rahul`, `give Priya the create_user permission`.
 
-**Chat + data questions + actions.** Normal chat and general questions work without tools. Data questions ("how many teachers do we have", "who is in class 5 A", "list schools") use read tools. Actions: super admin "create a new school Green Valley, admin Meena Joshi"; admin or anyone with `create_user` "add student Aman Verma, class 5 A"; also create class, turn an account on/off (confirm card). Login id and password are made automatically when not given (the password is shown once). The bot only sends tool name + params; the backend routes decide if the person may do it (`create_school` is super-admin only, school admins stay inside their school). Tools live in `server/src/ai/tools-admin.js`.
+**Setup:** put `VELONA_API_KEY` (Gemini through Velona, default model `google/gemini-3.8-flash`, change with `VELONA_MODEL`) **or** `ANTHROPIC_API_KEY` (Claude) in `.env` (optional: `AI_PROVIDER`, `AI_MODEL`, `SCHOOL_NAME`). `run.bat` starts a second window, **School AI service** (`python ai-server\server.py`, port `AI_PORT`, default 8001), next to the portal. It needs Python 3.8+ and **no pip packages**. Manually: `python ai-server/server.py` (Linux / Mac: use `python3`).
 
-**Try:** "apply leave for today", "leave tomorrow and Friday, sick", "cancel my leave for tomorrow", "what is my leave balance",
-"how much salary will I get this month", and as an approver "show pending leave requests", "approve Anita's leave",
-"give Anita 2 casual days (note: extra duty)", "prepare payroll for last month".
-
-**How the backend stays in control** (`server/src/ai/`)
-- `loopback.js` every tool calls the portal's own `/api/...` routes with the SIGNED-IN person's token. So `authenticate`, `requireFeature`,
-  school scoping and the audit log apply exactly as for a button click. The AI can never do more than the person could do by hand.
-  Audit entries from the assistant are tagged "(via AI assistant)".
-- `tools-leave.js` the tools: name, description, parameters, `features` (who is even told the tool exists), optional `confirm`.
-  Details come from the profile and defaults (user, today in `SCHOOL_TIMEZONE`, leave type, reason), so "apply leave for today" needs no questions.
-- `registry.js` one list of tools + the permission re-check before running. `chat.js` Gemini loop (REST, no SDK), per-user conversations (in memory).
-- **Confirm cards**: money / balance / bulk tools (`grant_leave`, `prepare_payroll`, `finalize_payroll`, `mark_payroll_paid`, `add_payroll_adjustment`)
-  never run straight from the model. The UI shows Confirm / Cancel and only the person's button press runs it (single use, bound to that person).
-- Endpoints: `GET /api/ai/status`, `POST /api/ai/chat`, `POST /api/ai/confirm`, `POST /api/ai/reset`.
-
-**MCP server** - `POST http://localhost:3000/mcp` (stateless Streamable HTTP, JSON-RPC). Same tools, for Claude Desktop / Cursor / any MCP client.
-Authenticate with a portal token: `Authorization: Bearer <token>` where the token is `token` from `POST /api/auth/login` (valid 12 h).
-`tools/list` shows only what that person may use. Confirm-type tools need `"confirmed": true`, which the client should send only after the human agreed.
-Example client config (clients that support custom headers):
-`{ "mcpServers": { "school-portal": { "url": "http://localhost:3000/mcp", "headers": { "Authorization": "Bearer <token>" } } } }`
-
-**Add the next module** (fees, attendance, ...): copy `ai/tools-leave.js` to `ai/tools-fees.js`, write tools that call that module's routes,
-spread the array into `TOOLS` in `ai/registry.js`. Nothing else changes (chat, MCP, permissions, confirm cards all pick it up).
-
-**Test (no Gemini key / database needed):** `cd server && npm run test:ai`. It checks permission-based tool visibility, "apply leave for today"
-defaults, the confirm flow and that other people cannot confirm your action.
-
-Notes: conversations / pending confirmations live in server memory (restart = new chat; use Redis/a table if you run several servers).
-Super admins have no school of their own, so school-level tools ask them to use a school admin account.
-
-## AI assistant - all modules (81 tools)
-The chatbot / MCP server now covers every module. Each file in `server/src/ai/` is one area; each tool is only "endpoint + params", the backend decides if the person may do it.
-| File | What the AI can do |
-|---|---|
-| `tools-admin.js` | list/create schools, create users and classes, find people, user details, turn accounts on/off |
-| `tools-school.js` | edit school, on/off a school, sessions & holidays, preview/run year-end promotion, update users, link parents, change role, reset password, delete user, permissions (feature access), visitors, audit-log search |
-| `tools-attendance.js` | which classes are marked, class roll list, **mark attendance by names / roll numbers**, class & student reports, low attendance, auto roll numbers, parent/student own attendance |
-| `tools-academics.js` | subjects, exams, create tests, **enter marks**, marks sheet, class report (rank/grade), student dashboard |
-| `tools-fees.js` | student fee account, **record payment**, discount / extra charge, cancel payment, fee structure, add fee, parent "my fees" |
-| `tools-communication.js` | read / post / delete notices, find contacts, send and read messages |
-| `tools-documents.js` | document types, **issue certificates / report cards**, issued register, cancel, my documents |
-| `tools-leave.js`, `tools-payroll-extra.js` | leave & salary (self + approvers + payroll), record leave for others, yearly allotment, leave types, approval mode |
-
-Confirm cards (money, deletion, bulk, things sent to other people): fee payments / adjustments / cancel, new fees, deleting users / holidays / visitors / notices, role & permission changes, password reset, promotion, school on/off, posting notices, sending messages, issuing / cancelling documents, payroll finalize / pay, leave grants.
-Super admins pass the school by name (the bot asks if it does not know). Tools that a person's permissions do not allow are not even shown to the model, and the API checks again.
-Not covered by the AI: uploading files / images, downloading receipt PDFs, printing documents (use the portal pages).
-`npm run test:ai` checks tool visibility, defaults, confirm flows and attendance / fee mappings offline.
+**How it behaves** (same engine as the wholesale `agent.py`)
+- People are found by fuzzy search (typos, `sumit` = `sumeet`, phone digits). One clear match is used; if several fit it shows tap buttons and asks.
+- Anything that changes data (create user, edit, turn on/off, reset password, change role, delete, link parent/students, add class, change permissions) shows a **Confirm card first**. Nothing is saved until you press Confirm. A generated password is shown once after confirming. The header has an "auto-confirm" switch; leave it off.
+- The AI calls the portal's own `/api/...` routes **with the signed-in person's token**, so it can never do more than that person could by hand: permissions, school scoping and the audit log apply (entries are tagged "via AI assistant").
+- Flow: browser -> `/api/ai/*` (Node checks `use_assistant`, rate limit 20/min) -> Python AI service -> back to `/api/*` as the same person. Conversations and pending actions live in the Python process memory.
+- Code: `ai-server/agent.py` (engine + tools), `ai-server/server.py`, `server/src/routes/ai.js` (proxy), `client/src/AssistantChat.jsx`. Test: `cd ai-server && python -m unittest test_ai`.
+- Only the Users module is covered so far (create_user, edit_user, set_user_active, reset_password, change_role, delete_user, link_children, create_class, change_features + search/list/details). To add a module: add tool functions + a row in `TOOLS` in `agent.py`. The mobile app has no chat button yet.
+- Hosting: deploy `ai-server/` as a second process next to the Node server and set `AI_URL` for the Node server (default `http://127.0.0.1:8001`) and `NODE_URL` for the AI service if the portal is not on `localhost:PORT`.
 
 ## Homework & Assignments module
 **Re-run `db/schema.sql` once** (safe to re-run; adds `assignments` and `assignment_submissions`) and restart.
@@ -203,12 +163,6 @@ Not covered by the AI: uploading files / images, downloading receipt PDFs, print
 - Student (feature `view_my_homework`, automatic): Homework > My homework shows the homework of their own class, with Pending / Submitted / Checked / Overdue. They download the teacher's files, upload their work and an optional note, and can replace it until the teacher has checked it. After checking they see the marks and remark.
 - Files are stored in Cloudflare R2 (same bucket as user documents) under `schools/<school>/homework/...`.
 - Code: `server/src/homework.js`, `server/src/routes/homework.js`, `client/src/modules/HomeworkModule.jsx`.
-
-## AI assistant: lower cost, attachments, full-screen on phones
-- **Cheaper:** default model is now `gemini-3.8-flash-lite` (change with `GEMINI_MODEL` in `.env`). The assistant no longer sends all 81 tools on every call: it loads only the tool groups a message needs (payroll, fees, attendance...), and can load more by itself. Finished turns are kept as plain text only (no tool results resent), long tool results are cut, the prompt is shorter, "thinking" is turned to minimum, replies are capped at 700 tokens and at most 4 tool rounds. Each message logs one line in the server console: `[ai] model calls=.. in=.. (cached ..) out=..` so you can see the real token use.
-- **Attach files** (paperclip next to the message box): PDF, Word (.docx), text / CSV are read on the server and kept as context for that chat (last 2 files, first ~12,000 characters each). Photos and scanned PDFs are sent to Gemini with the next message only. Max 8 MB per file. "New chat" clears them.
-- **Phones:** the assistant opens full screen.
-- Code: `server/src/ai/chat.js`, `server/src/ai/docs.js`, `server/src/ai/registry.js` (tool groups), `client/src/AssistantChat.jsx`. Run `npm install` in `server` (run.bat does it) for the two new packages `pdf-parse` and `mammoth`.
 
 ## Push notifications & the notification bell (mobile)
 Every important event now creates a notification for the people it concerns. It shows in the **bell** (top right of the app, with an unread count, and a "Latest updates" preview on Home) and is also pushed to their phones.

@@ -5,6 +5,7 @@ import { C, when } from '../theme';
 import { Icon } from '../icons';
 import { Dim, Empty, Loading, Btn, Sheet, toast } from '../ui';
 import { registerPush, enableLocalAlerts } from '../push';
+import { startBackgroundChecks, openBatterySettings } from '../background';
 
 const KIND_ICON = { notice: 'megaphone', message: 'chat', homework: 'file', marks: 'academics', fees: 'rupee', document: 'doc', leave: 'wallet', general: 'bell' };
 const KIND_COLOR = { notice: '#e11d48', message: '#0891b2', homework: '#c026d3', marks: '#2563eb', fees: '#059669', document: '#65a30d', leave: '#d97706', general: C.brand };
@@ -20,7 +21,7 @@ export default function Notifications({ data, reload, onClose, onOpen }) {
   const readAll = async () => { setBusy(true); try { await api.post('/notifications/read', { all: true }); await reload(); } catch (e) { toast(e.message, true); } finally { setBusy(false); } };
   const enable = async () => { setBusy(true); const r = await registerPush();
     if (r.ok) toast('Phone alerts are on for this phone.');
-    else { const ok = await enableLocalAlerts(); toast(ok ? 'New notifications will show in your notification bar while the app is running.' : r.why, !ok); }
+    else { const ok = await enableLocalAlerts(); if (ok) { startBackgroundChecks(); openBatterySettings(); } toast(ok ? 'New notifications will show in your notification bar, also in the background (it can take up to ~15 minutes when the app is closed).' : r.why, !ok); }
     setBusy(false); };
   return (
     <Sheet title="Notifications" onClose={onClose}>

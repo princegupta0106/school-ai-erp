@@ -28,9 +28,8 @@ export const cfg = {
     bucket: process.env.R2_BUCKET_NAME,
     publicUrl: (process.env.R2_PUBLIC_URL || '').replace(/\/$/, ''),
   },
-  gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
-    model: process.env.GEMINI_MODEL || 'gemini-3.8-flash-lite',
-  },
+  // the Python AI service (ai-server/). The portal forwards /api/ai/* to it; it listens on this machine only.
+  // On Render (RENDER is set automatically) the AI service is a separate service reached at AI_URL; on your PC it is local.
+  ai: { url: ((process.env.RENDER && process.env.AI_URL) || `http://127.0.0.1:${process.env.AI_PORT || 8001}`).replace(/\/$/, '') },
   clientDist: path.resolve(here, '../../client/dist'),
 };
