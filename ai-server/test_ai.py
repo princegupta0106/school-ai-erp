@@ -60,7 +60,7 @@ class T(unittest.TestCase):
     def setUpClass(cls):
         cls.srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Portal)
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
-        agent.CFG.update(node=f"http://127.0.0.1:{cls.srv.server_port}", provider="gemini", gemini_key="x", model="m", school="Test School")
+        agent.CFG.update(node=f"http://127.0.0.1:{cls.srv.server_port}", provider="velona", gemini_key="x", model="m", school="Test School")
 
     @classmethod
     def tearDownClass(cls): cls.srv.shutdown()

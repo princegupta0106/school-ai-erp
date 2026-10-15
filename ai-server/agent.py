@@ -38,19 +38,26 @@ def init(env):
         node=(g("NODE_URL") or ("https://school-ai-erp.onrender.com" if os.environ.get("RENDER") else f"http://127.0.0.1:{g('PORT', '3000')}")).rstrip("/"),
         provider=g("AI_PROVIDER", "").lower(),
         anthropic_key=g("ANTHROPIC_API_KEY"),
-        gemini_key=g("VELONA_API_KEY"),       # "gemini" provider = Gemini through the Velona gateway
+        gemini_key=g("VELONA_API_KEY"),       # "velona" provider = Velona gateway: whichever model you pick inside Velona (VELONA_MODEL)
         model=g("AI_MODEL"),
         school=g("SCHOOL_NAME", "the school"),
     )
+    if CFG["provider"] == "gemini":
+        CFG["provider"] = "velona"             # old name for the same thing
     if not CFG["provider"]:
-        CFG["provider"] = "anthropic" if CFG["anthropic_key"] else ("gemini" if CFG["gemini_key"] else "")
-    if not CFG["model"] and CFG["provider"] == "gemini":
+        CFG["provider"] = "velona" if CFG["gemini_key"] else ("anthropic" if CFG["anthropic_key"] else "")
+    # A provider with no key behind it is useless: use whichever key is actually present (stops "x-api-key header is required").
+    if CFG["provider"] == "anthropic" and not CFG["anthropic_key"] and CFG["gemini_key"]:
+        CFG["provider"], CFG["model"] = "velona", g("VELONA_MODEL") or g("GEMINI_MODEL")
+    elif CFG["provider"] == "velona" and not CFG["gemini_key"] and CFG["anthropic_key"]:
+        CFG["provider"], CFG["model"] = "anthropic", g("CLAUDE_MODEL")
+    if not CFG["model"] and CFG["provider"] == "velona":
         CFG["model"] = g("VELONA_MODEL") or g("GEMINI_MODEL")
     if not CFG["model"] and CFG["provider"] == "anthropic":
         CFG["model"] = g("CLAUDE_MODEL")
     if not CFG["model"]:
         # Fast defaults: a small model is plenty for tool-calling over a school portal.
-        CFG["model"] = {"anthropic": "claude-haiku-4-5-20251001", "gemini": "google/gemini-3.8-flash"}.get(CFG["provider"], "")
+        CFG["model"] = {"anthropic": "claude-haiku-4-5-20251001", "velona": "google/gemini-3.8-flash"}.get(CFG["provider"], "")
     # Gemini 3.x thinking level: minimal = fastest. Use low / medium if it ever stops early on multi-step requests.
     CFG["thinking"] = g("GEMINI_THINKING", "minimal").lower()
     threading.Thread(target=prewarm, daemon=True).start()
@@ -58,7 +65,7 @@ def init(env):
 
 def status():
     ok = bool((CFG.get("provider") == "anthropic" and CFG.get("anthropic_key")) or
-              (CFG.get("provider") == "gemini" and CFG.get("gemini_key")))
+              (CFG.get("provider") == "velona" and CFG.get("gemini_key")))
     return {"ok": True, "configured": ok, "provider": CFG.get("provider") or None, "model": CFG.get("model") or None}
 
 
@@ -189,7 +196,7 @@ def http_call(method, url, headers, body=None, timeout=25, safe_retry=True):
 def prewarm():
     """Open the TLS connections now so the first real request is already fast."""
     try:
-        host = {"anthropic": "https://api.anthropic.com", "gemini": "https://velona.in"}.get(CFG.get("provider"))
+        host = {"anthropic": "https://api.anthropic.com", "velona": "https://velona.in"}.get(CFG.get("provider"))
         if host:
             u = urllib.parse.urlsplit(host)
             c = _new_conn(u.scheme, u.netloc, 10)
@@ -1010,8 +1017,8 @@ def _parse_llm_json(t):
     return {"text": t, "calls": []}
 
 
-def _llm_gemini(msgs, schemas, system):
-    """Gemini through Velona: plain text turns in, text out. Tool calls travel as JSON text."""
+def _llm_velona(msgs, schemas, system):
+    """Velona gateway (any model chosen in Velona): plain text turns in, text out. Tool calls travel as JSON text."""
     turns = []
 
     def push(role, content):
@@ -1032,7 +1039,7 @@ def _llm_gemini(msgs, schemas, system):
         turns.insert(0, {"role": "user", "content": "Hello"})
     turns[0]["content"] = "INSTRUCTIONS:\n" + _tool_protocol(schemas, system) + "\n\nCONVERSATION:\n" + turns[0]["content"]
     j = _http_json("https://velona.in/gateway/v1/inference/run",
-                   {"Authorization": "Bearer " + CFG["gemini_key"]},
+                   {"Authorization": "Bearer " + CFG["gemini_key"], "x-api-key": CFG["gemini_key"]},
                    {"model": CFG["model"], "turns": turns})
     out = j.get("data", {}).get("output") if isinstance(j.get("data"), dict) else None
     if isinstance(out, dict):
@@ -1046,10 +1053,12 @@ def _llm_gemini(msgs, schemas, system):
 
 
 def llm(msgs, schemas, system):
+    if not status()["configured"]:
+        raise ErpError("The AI key is missing on the AI service. Add VELONA_API_KEY (or ANTHROPIC_API_KEY) in that service's Environment tab and redeploy.")
     if CFG["provider"] == "anthropic":
         return _llm_anthropic(msgs, schemas, system)
-    if CFG["provider"] == "gemini":
-        return _llm_gemini(msgs, schemas, system)
+    if CFG["provider"] == "velona":
+        return _llm_velona(msgs, schemas, system)
     raise ErpError("AI is not configured. Add ANTHROPIC_API_KEY or VELONA_API_KEY to .env and restart.")
 
 
