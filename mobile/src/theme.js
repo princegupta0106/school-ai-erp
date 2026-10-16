@@ -1,4 +1,6 @@
-export const C = { bg: '#0c1a15', card: '#173126', card2: '#1e3f31', input: '#0f221a', ink: '#f3faf5', mute: '#b4cdbf', line: '#2f5a45', brand: '#1f7a55', accent: '#6ef0b4', gold: '#f2cf7a', danger: '#c2413a', soft: '#245240', ok: '#6ef0b4', bad: '#ff9a90', warn: '#f6d36b', info: '#9bbcff', okBg: '#1f4a37', badBg: '#52292c', warnBg: '#4f4421', infoBg: '#2a3f66' };
+export const C = { bg: '#F4F1EA', card: '#fff', ink: '#141B22', mute: '#5F666B', line: '#E4DFD3', brand: '#0E5A52', soft: '#DFEEE3', ok: '#1E6B3F', bad: '#C23B32', warn: '#B76E0A', info: '#2F58B5', side: '#14202A', sideOn: '#2B363F', blueSoft: '#DCE8F8' };
+// soft card shadow used on every white surface
+export const SH = { shadowColor: '#14202A', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 };
 export const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const pad = (n) => String(n).padStart(2, '0');
 export const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

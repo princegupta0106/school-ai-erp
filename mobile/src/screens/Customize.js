@@ -12,7 +12,7 @@ export default function Customize({ me, prefs, update, onClose }) {
   const Row = ({ label, sub, value, onChange }) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderColor: C.line }}>
       <View style={{ flex: 1 }}><Text style={{ color: C.ink, fontWeight: '600' }}>{label}</Text>{sub ? <Dim>{sub}</Dim> : null}</View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: C.accent }} />
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: C.brand }} />
     </View>
   );
   return (
@@ -24,4 +24,4 @@ export default function Customize({ me, prefs, update, onClose }) {
     </Sheet>
   );
 }
-const h = { fontSize: 12, fontWeight: '700', color: C.mute, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8, marginTop: 4 };
+const h = { fontSize: 14, fontWeight: '700', color: C.ink, marginBottom: 8, marginTop: 4 };

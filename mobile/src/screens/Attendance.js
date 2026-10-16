@@ -2,17 +2,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, BackHandler, Share } from 'react-native';
 import { api } from '../api';
-import { C, ymd, timeStr, monthName } from '../theme';
+import { C, ymd, timeStr, monthName, SH } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Check, DateField, Press, toast, confirmAsk } from '../ui';
 import { useApi } from '../useApi';
 
 /* ---------------------------------------------------------------- shared helpers */
 const ST = {
-  present: { label: 'Present', color: C.ok, bg: C.okBg },
-  absent: { label: 'Absent', color: C.bad, bg: C.badBg },
-  late: { label: 'Late', color: C.warn, bg: C.warnBg },
-  leave: { label: 'Leave', color: C.info, bg: C.infoBg },
+  present: { label: 'Present', color: C.ok, bg: '#dcfce7' },
+  absent: { label: 'Absent', color: C.bad, bg: '#fee2e2' },
+  late: { label: 'Late', color: C.warn, bg: '#fef3c7' },
+  leave: { label: 'Leave', color: C.info, bg: '#dbeafe' },
 };
 const ORDER = ['present', 'absent', 'late', 'leave'];
 const clsName = (c) => `${c.name}${c.section ? ` ${c.section}` : ''}`;
@@ -49,15 +49,15 @@ const Pad = ({ children, reload, loading, hasData }) => (
   <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} keyboardShouldPersistTaps="handled" refreshControl={reload ? <RefreshControl refreshing={!!loading && !!hasData} onRefresh={reload} /> : undefined}>{children}</ScrollView>
 );
 const Notice = ({ tone = 'info', children }) => {
-  const t = { info: ['#e0f2fe', '#075985'], ok: [C.okBg, '#166534'], warn: [C.warnBg, '#92400e'] }[tone];
+  const t = { info: ['#e0f2fe', '#075985'], ok: ['#dcfce7', '#166534'], warn: ['#fef3c7', '#92400e'] }[tone];
   return <View style={{ backgroundColor: t[0], borderRadius: 10, padding: 10, marginBottom: 10 }}><Text style={{ color: t[1], fontSize: 13 }}>{children}</Text></View>;
 };
 const Pct = ({ v, size = 14 }) => <Text style={{ fontWeight: '700', fontSize: size, color: v === null || v === undefined ? C.mute : v >= 90 ? C.ok : v >= 75 ? C.warn : C.bad }}>{v === null || v === undefined ? '-' : `${v}%`}</Text>;
-const Bar = ({ v }) => <View style={{ height: 6, borderRadius: 3, backgroundColor: C.line, overflow: 'hidden', marginTop: 4 }}><View style={{ height: 6, width: `${v || 0}%`, backgroundColor: v >= 90 ? C.ok : v >= 75 ? C.warn : C.bad }} /></View>;
-const Roll = ({ n }) => <View style={{ minWidth: 30, height: 26, borderRadius: 8, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}><Text style={{ color: C.accent, fontWeight: '700', fontSize: 12 }}>{n ?? '-'}</Text></View>;
+const Bar = ({ v }) => <View style={{ height: 6, borderRadius: 3, backgroundColor: '#E4DFD3', overflow: 'hidden', marginTop: 4 }}><View style={{ height: 6, width: `${v || 0}%`, backgroundColor: v >= 90 ? C.ok : v >= 75 ? C.warn : C.bad }} /></View>;
+const Roll = ({ n }) => <View style={{ minWidth: 30, height: 26, borderRadius: 8, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}><Text style={{ color: C.brand, fontWeight: '700', fontSize: 12 }}>{n ?? '-'}</Text></View>;
 function Tile({ n, label, color, on, onPress }) {
   return (
-    <Pressable disabled={!onPress} onPress={onPress} style={{ flex: 1, minWidth: 70, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: C.card, borderWidth: on ? 2 : 1, borderColor: on ? (color || C.accent) : C.line }}>
+    <Pressable disabled={!onPress} onPress={onPress} style={{ flex: 1, minWidth: 70, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff', borderWidth: on ? 2 : 1, borderColor: on ? (color || C.brand) : C.line }}>
       <Text style={{ fontSize: 20, fontWeight: '800', color: color || C.ink }}>{n}</Text>
       <Text style={{ fontSize: 11, color: C.mute }} numberOfLines={1}>{label}</Text>
     </Pressable>
@@ -67,7 +67,7 @@ const Tiles = ({ children }) => <View style={{ flexDirection: 'row', gap: 8, mar
 const Row = ({ onPress, children, last }) => (
   <Pressable disabled={!onPress} onPress={onPress} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: last ? 0 : 1, borderColor: C.line }, pressed && onPress && { backgroundColor: C.soft }]}>{children}</Pressable>
 );
-const List = ({ children }) => <View style={{ backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.line, marginBottom: 12, overflow: 'hidden' }}>{children}</View>;
+const List = ({ children }) => <View style={{ backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: C.line, ...SH, marginBottom: 12, overflow: 'hidden' }}>{children}</View>;
 
 async function shareCsv(title, rows) {
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -85,10 +85,10 @@ function statusLine(c) {
 function ClassCard({ c, onOpen }) {
   const s = statusLine(c);
   return (
-    <Press onPress={() => onOpen(c.id)} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line, borderLeftWidth: 4, borderLeftColor: s.tone, marginBottom: 10 }}>
+    <Press onPress={() => onOpen(c.id)} style={{ backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line, ...SH, borderLeftWidth: 4, borderLeftColor: s.tone, marginBottom: 10 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ fontWeight: '800', fontSize: 17, color: C.ink }}>Class {clsName(c)}</Text>
-        {c.is_class_teacher && <Text style={{ fontSize: 11, color: C.accent, backgroundColor: C.soft, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden', fontWeight: '600' }}>Class teacher</Text>}
+        {c.is_class_teacher && <Text style={{ fontSize: 11, color: C.brand, backgroundColor: C.soft, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden', fontWeight: '600' }}>Class teacher</Text>}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 }}><Icon name={c.state === 'marked' ? 'check' : 'attendance'} size={14} color={s.tone} /><Text style={{ color: s.tone, fontSize: 13, flex: 1 }}>{s.text}</Text></View>
       <Text style={{ marginTop: 6, fontSize: 13 }}>
@@ -155,7 +155,7 @@ function MarkSheet({ me, sc, classId, date, today, active, onBack, onSaved, goRo
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <Pressable onPress={back} hitSlop={8} style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' }}><Icon name="back" size={20} color={C.ink} /></Pressable>
+          <Pressable onPress={back} hitSlop={8} style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}><Icon name="back" size={20} color={C.ink} /></Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 18, fontWeight: '800', color: C.ink }}>Class {clsName(sh.class)}</Text>
             <Dim>{isToday ? 'Today · ' : ''}{fmtDate(sh.date)}{sh.teachers.length ? ` · ${sh.teachers.map((t) => t.name).join(', ')}` : ''}</Dim>
@@ -183,7 +183,7 @@ function MarkSheet({ me, sc, classId, date, today, active, onBack, onSaved, goRo
             {rows.map((s, i) => {
               const id = s.student_id; const cur = marks[id]; const t = ST[cur];
               return (
-                <View key={id} style={{ borderBottomWidth: i === rows.length - 1 ? 0 : 1, borderColor: C.line, backgroundColor: cur === 'present' ? C.card : t.bg + '88' }}>
+                <View key={id} style={{ borderBottomWidth: i === rows.length - 1 ? 0 : 1, borderColor: C.line, backgroundColor: cur === 'present' ? '#fff' : t.bg + '88' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Pressable disabled={!can} onPress={() => toggle(id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingLeft: 12 }}>
                       <Roll n={s.roll_no} />
@@ -201,7 +201,7 @@ function MarkSheet({ me, sc, classId, date, today, active, onBack, onSaved, goRo
       </ScrollView>
 
       {can && students.length > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderColor: C.line }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: C.ink }}><Text style={{ fontWeight: '800' }}>{counts.present + counts.late + counts.leave}</Text> / {students.length} here</Text>
             <Text style={{ color: counts.absent ? C.bad : C.mute, fontSize: 12 }}>{counts.absent} absent{dirty ? ' · unsaved changes' : ''}</Text>
@@ -467,13 +467,13 @@ export const RollNumbers = scoped(function Rolls({ sc }) {
             return (
               <Row key={s.student_id} last={i === sorted.length - 1}>
                 <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: C.ink }} numberOfLines={1}>{s.full_name}</Text><Dim>{s.admission_no ? `Adm. ${s.admission_no}` : s.login_id}</Dim></View>
-                <View style={{ width: 76 }}><Input keyboardType="number-pad" maxLength={3} placeholder="-" value={String(v)} onChangeText={(t) => setVals({ ...vals, [s.student_id]: t.replace(/[^0-9]/g, '') })} style={[{ textAlign: 'center' }, flagged && { borderColor: C.bad, backgroundColor: C.badBg }]} /></View>
+                <View style={{ width: 76 }}><Input keyboardType="number-pad" maxLength={3} placeholder="-" value={String(v)} onChangeText={(t) => setVals({ ...vals, [s.student_id]: t.replace(/[^0-9]/g, '') })} style={[{ textAlign: 'center' }, flagged && { borderColor: C.bad, backgroundColor: '#fee2e2' }]} /></View>
               </Row>);
           })}</List>
         </>)}
       </Pad>
       {d && d.students.length > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderColor: C.line }}>
           <Text style={{ flex: 1, color: dups.size > 0 || invalid ? C.bad : C.mute }}>{dups.size > 0 ? 'Duplicate roll numbers' : invalid ? 'Use whole numbers 1-100' : dirty ? 'Unsaved changes' : 'All saved'}</Text>
           <View style={{ minWidth: 150 }}><Btn title={busy ? 'Saving...' : 'Save roll numbers'} disabled={busy || !dirty || invalid} onPress={save} /></View>
         </View>
@@ -523,7 +523,7 @@ export const ClassTeachers = scoped(function Teachers({ sc }) {
             <Text style={{ fontWeight: '800', fontSize: 16, color: C.ink }}>Class {clsName(c)}</Text>
             <Btn small kind="ghost" title="Edit" onPress={() => setEdit(c)} />
           </View>
-          {c.teachers.length === 0 ? <Dim>No teacher assigned</Dim> : <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{c.teachers.map((t) => <Text key={t.user_id} style={{ fontSize: 12, color: t.is_class_teacher ? C.accent : C.ink, backgroundColor: t.is_class_teacher ? C.soft : C.card2, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden', fontWeight: t.is_class_teacher ? '700' : '400' }}>{t.is_class_teacher ? '★ ' : ''}{t.full_name}</Text>)}</View>}
+          {c.teachers.length === 0 ? <Dim>No teacher assigned</Dim> : <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{c.teachers.map((t) => <Text key={t.user_id} style={{ fontSize: 12, color: t.is_class_teacher ? C.brand : C.ink, backgroundColor: t.is_class_teacher ? C.soft : '#F4F1EA', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden', fontWeight: t.is_class_teacher ? '700' : '400' }}>{t.is_class_teacher ? '★ ' : ''}{t.full_name}</Text>)}</View>}
         </Card>))}
       {edit && <Sheet title={`Teachers of class ${clsName(edit)}`} onClose={() => setEdit(null)}><AssignForm sc={sc} cls={edit} teachers={d.teachers} onSaved={async () => { await reload(); setEdit(null); }} /></Sheet>}
     </Pad>
