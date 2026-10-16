@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Switch } from 'react-native';
-import { C } from '../theme';
+import { C, live } from '../theme';
 import { Dim, Sheet, Card } from '../ui';
 import { MODULE_UI, allTargets, effectiveShortcuts, visibleModules } from '../modules';
 
@@ -12,7 +12,7 @@ export default function Customize({ me, prefs, update, onClose }) {
   const Row = ({ label, sub, value, onChange }) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderColor: C.line }}>
       <View style={{ flex: 1 }}><Text style={{ color: C.ink, fontWeight: '600' }}>{label}</Text>{sub ? <Dim>{sub}</Dim> : null}</View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: C.brand }} />
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: C.brand, false: C.line }} />
     </View>
   );
   return (
@@ -24,4 +24,4 @@ export default function Customize({ me, prefs, update, onClose }) {
     </Sheet>
   );
 }
-const h = { fontSize: 14, fontWeight: '700', color: C.ink, marginBottom: 8, marginTop: 4 };
+const h = live(() => ({ fontSize: 14, fontWeight: '700', color: C.ink, marginBottom: 8, marginTop: 4 }));

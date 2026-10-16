@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, Linking } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../api';
-import { C, fmt, ymd, dateTime } from '../theme';
+import { C, fmt, ymd, dateTime, live } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Field, DateField, toast, confirmAsk } from '../ui';
 import { useApi } from '../useApi';
@@ -13,7 +13,7 @@ const base = '/homework';
 const clsName = (c) => (c ? `${c.name}${c.section ? ` ${c.section}` : ''}` : '');
 const size = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const TONE = { ok: [C.ok, '#dcfce7'], warn: [C.warn, '#fef3c7'], info: [C.info, '#dbeafe'], off: [C.mute, '#EFEBE2'], bad: [C.bad, '#fee2e2'], brand: [C.brand, C.soft] };
+const TONE = live(() => ({ ok: [C.ok, C.okBg], warn: [C.warn, C.warnBg], info: [C.info, C.infoBg], off: [C.mute, C.muteBg], bad: [C.bad, C.badBg], brand: [C.brand, C.soft] }));
 const Chip = ({ children, tone = 'off' }) => <Text style={{ fontSize: 11, fontWeight: '700', color: TONE[tone][0], backgroundColor: TONE[tone][1], paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
 const Chips = ({ children }) => <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>{children}</View>;
 
@@ -47,7 +47,7 @@ function FilePick({ files, setFiles }) {
   return (
     <View style={{ gap: 8 }}>
       {files.map((f, i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
           <Icon name="file" size={16} color={C.mute} /><Text style={{ flex: 1, color: C.ink }} numberOfLines={1}>{f.name} <Text style={{ color: C.mute, fontSize: 12 }}>({size(f.size)})</Text></Text>
           <Pressable hitSlop={8} onPress={() => setFiles(files.filter((_, j) => j !== i))}><Icon name="x" size={16} color={C.bad} /></Pressable>
         </View>))}
@@ -214,9 +214,9 @@ function AssignmentView({ id, onClose, onSaved }) {
               <Files list={my.files} />
             </>}
             {locked && (
-              <View style={{ backgroundColor: '#dcfce7', borderRadius: 10, padding: 10 }}>
-                <Text style={{ fontWeight: '700', color: '#166534' }}>Checked{my.marks ? ` - ${my.marks}` : ''}</Text>
-                {my.feedback ? <Text style={{ color: '#166534', marginTop: 4 }}>{my.feedback}</Text> : null}
+              <View style={{ backgroundColor: C.okBg, borderRadius: 10, padding: 10 }}>
+                <Text style={{ fontWeight: '700', color: C.ok }}>Checked{my.marks ? ` - ${my.marks}` : ''}</Text>
+                {my.feedback ? <Text style={{ color: C.ok, marginTop: 4 }}>{my.feedback}</Text> : null}
               </View>)}
             {!locked && (<>
               <Field label={my ? 'Submit again (replaces your earlier submission)' : 'Upload your work'}><FilePick files={files} setFiles={setFiles} /></Field>

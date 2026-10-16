@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, RefreshControl } from 'react-native';
 import { api, withQs } from '../api';
-import { C } from '../theme';
+import { C, live } from '../theme';
 import { Card, Dim, Empty, Loading, ErrorBox, Badge, Btn, Sheet, Choice, Chips, Field, Input, Check, useRun } from '../ui';
 import { useApi } from '../useApi';
 import { useSchoolId } from '../useSchool';
@@ -60,4 +60,4 @@ export default function PaySettings({ me }) {
     </ScrollView>
   );
 }
-const sec = { fontSize: 14, fontWeight: '700', color: C.ink, marginBottom: 10 };
+const sec = live(() => ({ fontSize: 14, fontWeight: '700', color: C.ink, marginBottom: 10 }));

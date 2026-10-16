@@ -23,7 +23,7 @@ function TimeField({ value, onChange }) {
   if (Platform.OS === 'ios') return <View style={{ alignItems: 'flex-start' }}><DateTimePicker value={d} mode="time" display="compact" onChange={change} /></View>;
   return (
     <>
-      <Pressable onPress={() => setShow(true)} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}><Text style={{ color: C.ink, fontSize: 15 }}>{value ? fmtTime(value) : 'Pick a time'}</Text></Pressable>
+      <Pressable onPress={() => setShow(true)} style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}><Text style={{ color: C.ink, fontSize: 15 }}>{value ? fmtTime(value) : 'Pick a time'}</Text></Pressable>
       {show && <DateTimePicker value={d} mode="time" onChange={change} />}
     </>
   );
