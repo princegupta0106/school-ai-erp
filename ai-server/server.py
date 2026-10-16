@@ -24,6 +24,13 @@ def load_env():
     return env
 
 
+PING_HTML = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>School ERP AI - online</title>
+<body style="font:16px system-ui;display:grid;place-items:center;height:100vh;margin:0;background:#0b1020;color:#e8ecff">
+<div style="text-align:center"><div style="font-size:42px">&#9989;</div><b>School ERP AI is running</b></div>
+</body>"""
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"          # keep-alive between the Node server and this one
     timeout = 120
@@ -37,9 +44,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _ping_page(self, head=False):
+        raw = PING_HTML.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if not head:
+            self.wfile.write(raw)
+
     def do_GET(self):
-        if self.path.split("?")[0] == "/api/health":
+        p = self.path.split("?")[0]
+        if p in ("/", "/ping", "/health"):          # uptime-monitor target (tiny, no AI call, no login)
+            return self._ping_page()
+        if p == "/api/health":
             return self._json(200, agent.status())
+        self.send_error(404)
+
+    def do_HEAD(self):                               # UptimeRobot & co. use HEAD by default
+        p = self.path.split("?")[0]
+        if p in ("/", "/ping", "/health"):
+            return self._ping_page(head=True)
         self.send_error(404)
 
     def do_POST(self):
