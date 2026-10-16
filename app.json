@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "School Portal",
+    "slug": "school-portal-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.schoolportal.mobile"
+    },
+    "android": {
+      "package": "com.schoolportal.mobile",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "VIBRATE",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-status-bar",
+      "expo-asset",
+      "expo-sharing",
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      "expo-background-task"
+    ]
+  }
+}

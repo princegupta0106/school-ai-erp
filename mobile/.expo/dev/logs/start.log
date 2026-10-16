@@ -52,3 +52,18 @@
 {"_e":"metro:bundling:progress","_t":1792066174435,"id":"3","progress":0.8708592174925011,"total":494,"current":461}
 {"_e":"metro:bundling:progress","_t":1792066174548,"id":"3","progress":0.9178876170655567,"total":620,"current":594}
 {"_e":"metro:bundling:done","_t":1792066174690,"id":"3","total":620,"ms":560.7692}
+{"_e":"root:init","_t":1792132796268,"format":"v0-jsonl","version":"57.0.31"}
+{"_e":"env:mode","_t":1792132796270,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1792132796276,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://school-ai-erp.onrender.com"}}
+{"_e":"devserver:start","_t":1792132797379,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1792132798376,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1792132798997,"plugins":[]}
+{"_e":"metro:instantiate","_t":1792132805930,"atlas":false,"workers":10,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1792132808190,"id":"1","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792132808191,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1792132808203,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:failed","_t":1792132808211,"id":"1","message":"Cannot read properties of undefined (reading 'transformFile')","importStack":null,"filename":null,"targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:started","_t":1792132816212,"id":"2","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792132816212,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1792132816217,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:failed","_t":1792132816221,"id":"2","message":"Cannot read properties of undefined (reading 'transformFile')","importStack":null,"filename":null,"targetModuleName":null,"originModulePath":null}
