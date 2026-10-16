@@ -73,9 +73,9 @@ export default function App() {
     setMeRaw((cur) => (m && cur && JSON.stringify(cur) === JSON.stringify(m) ? cur : m)); // unchanged: keep identity, no re-render
   }, []);
   const [route, setRoute] = useState(parseHash());
-  const THEMES = ['forest', 'dark', 'light'];
-  const THEME_LABEL = { forest: 'Forest', dark: 'Dark', light: 'Light' };
-  const [theme, setTheme] = useState(document.documentElement.dataset.theme || 'forest');
+  const THEMES = ['light', 'dark'];
+  const THEME_LABEL = { dark: 'Dark', light: 'Light' };
+  const [theme, setTheme] = useState(document.documentElement.dataset.theme || 'light');
   const [menu, setMenu] = useState(false);
   const [pw, setPw] = useState(false);
   const [more, setMore] = useState(false);
@@ -167,7 +167,7 @@ export default function App() {
   if (active && !dock.some((m) => m.key === active.key)) dock[2] = active;
 
   const Actions = () => (<>
-    <button className="nav" onClick={toggleTheme}><Icon name={theme === 'light' ? 'sun' : 'moon'} />Theme: {THEME_LABEL[theme]}</button>
+    <button className="nav" onClick={toggleTheme}><Icon name={theme === 'light' ? 'sun' : 'moon'} />{theme === 'light' ? 'Switch to dark' : 'Switch to light'}</button>
     <button className="nav" onClick={() => { setMenu(false); setMore(false); setCz(true); }}><Icon name="sliders" />Customize home</button>
     <button className="nav" onClick={() => { setMenu(false); setMore(false); setPw(true); }}><Icon name="key" />Change password</button>
     <button className="nav" onClick={signOut}><Icon name="logout" />Sign out</button>

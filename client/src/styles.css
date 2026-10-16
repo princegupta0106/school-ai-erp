@@ -1,9 +1,13 @@
-/* ===== themes: light | dark (green on black) | forest (default: mid-tone green-charcoal) ===== */
-:root{--bg:#f1f5f2;--card:#fff;--card2:#f7faf8;--ink:#0c1a12;--mute:#5a7064;--line:#dfe8e2;--accent:#15663f;--accent-ink:#fff;--soft:#e2f1e8;--bad:#c62828;--ok:#15803d;--shadow:0 1px 2px rgba(8,30,18,.05),0 3px 10px rgba(8,30,18,.04);--r:12px;
-  --side:#07110c;--side-ink:#cfe3d7;--side-mute:#7d9a8a;--side-on:#123222;--hero:linear-gradient(135deg,#0c2a1b 0%,#0a1d14 55%,#07110c 100%);
-  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
-:root[data-theme=dark]{--bad:#f87171;--bg:#060b08;--card:#0d1511;--card2:#111c16;--ink:#e6f1ea;--mute:#8aa497;--line:#1a2a22;--accent:#3ecf8e;--accent-ink:#04140c;--soft:#10261a;--shadow:none;
-  --side:#050906;--side-on:#0f2418;--hero:linear-gradient(135deg,#0f3a25 0%,#0a2217 55%,#08130d 100%)}
+/* ===== themes: light (default, warm paper) | dark (night navy) ===== */
+:root{--bg:#F4F1EA;--card:#fff;--card2:#FAF8F3;--ink:#141B22;--mute:#5F666B;--line:#E4DFD3;--line2:#D6D0C1;
+  --accent:#0E5A52;--accent-ink:#fff;--btn:#0E5A52;--btn-ink:#fff;--soft:#DFEEE3;--bad:#C23B32;--ok:#1E6B3F;
+  --shadow:0 1px 2px rgba(20,27,34,.04),0 4px 14px rgba(20,27,34,.05);--shadow-lg:0 2px 4px rgba(20,27,34,.05),0 16px 40px rgba(20,27,34,.12);--r:14px;
+  --side:#14202A;--side-ink:#E8EEF1;--side-mute:#93A1AB;--side-on:#2B363F;
+  font-family:Geist,Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
+:root[data-theme=dark]{--bg:#11181E;--card:#182129;--card2:#1E2933;--ink:#E8EEF1;--mute:#93A1AB;--line:#26333D;--line2:#34444F;
+  --accent:#5FD3A8;--accent-ink:#06231A;--btn:#1B8A70;--btn-ink:#fff;--soft:#173B31;--bad:#F28B82;--ok:#6FD39B;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 4px 16px rgba(0,0,0,.28);--shadow-lg:0 18px 48px rgba(0,0,0,.55);
+  --side:#0B1116;--side-on:#1E2A33}
 *{box-sizing:border-box}html,body,#root{height:100%}
 html{font-size:14px;-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-size:1rem;line-height:1.45;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
@@ -101,9 +105,6 @@ td{padding:9px 10px;border-top:1px solid var(--line)}tr.click{cursor:pointer}tr.
 .doc{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}.doc a{color:var(--accent);font-weight:600;text-decoration:none;flex:1;word-break:break-all}
 
 /* ===== login ===== */
-.center.auth{background:radial-gradient(900px 500px at 50% -10%,#0f3a25 0%,transparent 60%),#050906}
-.center.auth .login{background:#0b1410;border-color:#1a2a22;color:#e6f1ea;box-shadow:0 20px 60px rgba(0,0,0,.5);--card:#0b1410;--card2:#111c16;--ink:#e6f1ea;--mute:#8aa497;--line:#1a2a22;--accent:#3ecf8e;--accent-ink:#04140c;--soft:#10261a}
-.center.auth .brand{padding-bottom:6px}.center.auth .brand b{color:#eaf5ee}
 
 /* ===== customize ===== */
 .cz{display:flex;flex-direction:column;gap:8px}
@@ -174,8 +175,8 @@ td{padding:9px 10px;border-top:1px solid var(--line)}tr.click{cursor:pointer}tr.
 @media (max-width:360px){.sc-grid{grid-template-columns:repeat(3,1fr)}}
 
 /* ===== attendance ===== */
-:root{--p:#15803d;--p-bg:#dcfce7;--a:#c62828;--a-bg:#fde8e8;--l:#b45309;--l-bg:#fef3c7;--v:#1d4ed8;--v-bg:#dbeafe}
-:root[data-theme=dark]{--p:#4ade80;--p-bg:#102a1c;--a:#f87171;--a-bg:#3a1a1c;--l:#fbbf24;--l-bg:#33290f;--v:#7aa2ff;--v-bg:#14213a}
+:root{--p:#1E6B3F;--p-bg:#DDEEE2;--a:#B3362D;--a-bg:#F9E3E0;--l:#9A5B0B;--l-bg:#FBEBCB;--v:#2F58B5;--v-bg:#DCE8F8}
+:root[data-theme=dark]{--p:#6FD39B;--p-bg:#14301F;--a:#F28B82;--a-bg:#3A1D1F;--l:#F2C35B;--l-bg:#352B14;--v:#8FB4FF;--v-bg:#18284A}
 .muted{color:var(--mute)}
 .linkbtn{border:0;background:none;color:var(--accent);font-weight:600;padding:0;text-decoration:underline}
 .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
@@ -210,7 +211,7 @@ button.tile{cursor:pointer}.tile b{font-size:22px;line-height:1.1}.tile span{fon
 .seg .s .fl{display:none}
 .seg .s.on.present{background:var(--p);border-color:var(--p);color:#fff}.seg .s.on.absent{background:var(--a);border-color:var(--a);color:#fff}
 .seg .s.on.late{background:var(--l);border-color:var(--l);color:#fff}.seg .s.on.leave{background:var(--v);border-color:var(--v);color:#fff}
-:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on{color:#04140c!important}
+:root:is([data-theme=dark]) .seg .s.on{color:#04140c!important}
 .seg .s:disabled{opacity:.7;cursor:default}
 .asave{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;box-shadow:0 -6px 24px rgba(16,24,40,.12)}
 .asave .sum{font-size:15px}.asave .a{color:var(--a)}
@@ -486,7 +487,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 
 /* ===== subtle controls: pills, tabs, segmented buttons, chips, date/inputs =====
    Quiet by default: a hairline outline when idle, a soft tint (not a solid fill) when selected. */
-:root[data-theme=dark],:root[data-theme=forest]{color-scheme:dark}
+:root[data-theme=dark]{color-scheme:dark}
 .pill{background:transparent;border:1px solid var(--line);color:var(--mute);padding:5px 13px;font-weight:500}
 .pill:hover{background:color-mix(in srgb,var(--ink) 4%,transparent);color:var(--ink)}
 .pill.on,.pill.on:hover{background:var(--soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 28%,transparent);box-shadow:none;font-weight:600}
@@ -527,15 +528,11 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:.8}
    Everything that used to be a solid green block is now the same green at low opacity,
    with green text. Tweak the three numbers below to make the whole site softer / stronger. */
 :root{--tint:color-mix(in srgb,var(--accent) 13%,var(--card));--tint-hi:color-mix(in srgb,var(--accent) 20%,var(--card));--tint-line:color-mix(in srgb,var(--accent) 30%,transparent)}
-.btn.primary{background:var(--tint);border-color:var(--tint-line);color:var(--accent)}
-.btn.primary:hover{background:var(--tint-hi);filter:none;border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
 .pill.on,.pill.on:hover{background:var(--tint);border-color:var(--tint-line);color:var(--accent)}
 .tabs .pill.on,.tabs .pill.on:hover{background:transparent}
 .seg2 button.on{background:var(--tint);color:var(--accent)}
 .chip.head{background:var(--tint);color:var(--accent)}
-.unread{background:var(--tint-hi);color:var(--accent)}
 .bub.mine{background:var(--tint);border-color:var(--tint-line);color:var(--ink)}
-.switch.on{background:color-mix(in srgb,var(--accent) 70%,var(--card))}
 .tile.on,.typecard.on{box-shadow:0 0 0 1px var(--accent) inset}
 /* attendance P / A / L / Lv buttons and other status buttons: tinted instead of solid */
 .seg .s.on.present,.seg .s.on.absent,.seg .s.on.late,.seg .s.on.leave{font-weight:800}
@@ -543,13 +540,13 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:.8}
 .seg .s.on.absent{background:color-mix(in srgb,var(--a) 16%,var(--card));border-color:color-mix(in srgb,var(--a) 55%,transparent);color:var(--a)}
 .seg .s.on.late{background:color-mix(in srgb,var(--l) 18%,var(--card));border-color:color-mix(in srgb,var(--l) 55%,transparent);color:var(--l)}
 .seg .s.on.leave{background:color-mix(in srgb,var(--v) 16%,var(--card));border-color:color-mix(in srgb,var(--v) 55%,transparent);color:var(--v)}
-:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.present{color:var(--p)!important}:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.absent{color:var(--a)!important}
-:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.late{color:var(--l)!important}:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.leave{color:var(--v)!important}
+:root:is([data-theme=dark]) .seg .s.on.present{color:var(--p)!important}:root:is([data-theme=dark]) .seg .s.on.absent{color:var(--a)!important}
+:root:is([data-theme=dark]) .seg .s.on.late{color:var(--l)!important}:root:is([data-theme=dark]) .seg .s.on.leave{color:var(--v)!important}
 .abtn.on{background:color-mix(in srgb,var(--a) 16%,var(--card));border-color:color-mix(in srgb,var(--a) 55%,transparent);color:var(--a)}
 
 
 /* ===== AI assistant ("Ask AI" chat, same look as the wholesale ERP) ===== */
-.ai-fab{position:fixed;right:1.1rem;bottom:1.1rem;z-index:60;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:.75rem 1.1rem;font-weight:600;box-shadow:0 6px 24px rgba(8,30,18,.35)}
+.ai-fab{position:fixed;right:1.1rem;bottom:1.1rem;z-index:60;background:var(--btn);color:var(--btn-ink);border:0;border-radius:999px;padding:.75rem 1.1rem;font-weight:600;box-shadow:0 6px 24px rgba(8,30,18,.35)}
 .ai-panel{position:fixed;right:1.1rem;bottom:1.1rem;z-index:61;width:min(400px,calc(100vw - 1.5rem));height:min(620px,calc(100vh - 2rem));background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 20px 60px rgba(8,30,18,.35);display:flex;flex-direction:column;overflow:hidden}
 .ai-h{background:var(--side);color:#fff;padding:.7rem .9rem;display:flex;align-items:center;gap:.6rem}
 .ai-h b{flex:1}.ai-h label{margin:0;color:var(--side-ink);font-size:.78rem;display:flex;align-items:center;gap:.3rem;cursor:pointer}
@@ -595,41 +592,103 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:.8}
 }
 @media print{.ai-fab,.ai-panel{display:none!important}}
 
+/* ===== refined surfaces (final layer) =====
+   Warm paper background, white cards with a hairline border and a soft shadow, near-black text,
+   one deep-green action colour and light-green highlights. Change the tokens at the top to re-tint. */
+html{font-size:14.5px}
+@media (min-width:821px){.shell{grid-template-columns:248px 1fr}}
+.side{background:var(--side);border-right:0;padding:18px 12px;gap:3px}
+.brand{padding:2px 8px 18px;gap:11px}
+.logo{width:36px;height:36px;border-radius:11px;background:#1E8E73;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.brand b{font-size:16px;font-weight:650}
+.nav{padding:10px 12px;border-radius:10px;font-size:14px;font-weight:500}
+.side .nav:hover{background:rgba(255,255,255,.06);color:var(--side-ink)}
+.side .nav.on{background:var(--side-on);color:#fff;box-shadow:none;font-weight:600}
+.side .nav.on svg{color:#7FD8B6}
+.nav-label{margin:18px 12px 6px;font-size:12px;letter-spacing:0;text-transform:none;font-weight:600;opacity:.85}
+.menu .nav:hover{background:var(--soft)}
 
-/* ===== FOREST theme (default) =====
-   Deep pine page, clearly lighter emerald cards with visible edges, bright text, mint accent + brass gold.
-   Strong contrast on purpose: page < card < raised, text is near-white. Tweak the variables to re-tint. */
-:root[data-theme=forest]{
-  --bg:#0c1a15;--card:#173126;--card2:#1e3f31;--ink:#f3faf5;--mute:#b4cdbf;--line:#2f5a45;
-  --accent:#6ef0b4;--accent-ink:#06150e;--soft:#245240;--bad:#ff9a90;--ok:#6ef0b4;
-  --gold:#f2cf7a;--gold-bg:#443c1f;
-  --shadow:0 1px 0 rgba(255,255,255,.07) inset,0 8px 22px rgba(0,0,0,.35);
-  --side:linear-gradient(180deg,#0a1511 0%,#070e0b 100%);--side-ink:#e2f1e8;--side-mute:#9bbbaa;--side-on:#1f4733;
-  --p:#6ef0b4;--p-bg:#1f4a37;--a:#ff9a90;--a-bg:#52292c;--l:#f6d36b;--l-bg:#4f4421;--v:#9bbcff;--v-bg:#2a3f66;
-  --grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.5'/></svg>");
+.top h1{font-weight:700;letter-spacing:-.025em}
+.top p{font-size:13.5px;margin-top:3px}
+@media (min-width:821px){.top{padding:26px 32px 10px}.top h1{font-size:26px}.content{padding:14px 32px 48px}}
+.who{gap:10px}
+.who .avatar{width:38px;height:38px;background:var(--v-bg);border-color:transparent;color:var(--v);font-size:13px}
+.icon-btn.pinbtn{width:38px;height:38px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);border-radius:50%}
+.menu{border-radius:14px;box-shadow:var(--shadow-lg);padding:6px}
+
+/* cards & surfaces */
+.card,.ccard,.notice-card,.mydoc,.thread,.cz-list,.ucard,.tile,.typecard,.thumb{border-color:var(--line);box-shadow:var(--shadow)}
+.tile{border-radius:14px}
+.sc,.mod{border-radius:16px;box-shadow:var(--shadow)}
+.sc:hover,.mod:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.sc.add{box-shadow:none;border-color:var(--line2)}
+.ic{border-radius:12px}
+:root[data-theme=dark] .ic,:root[data-theme=dark] .cz-ic{color:color-mix(in srgb,var(--c) 60%,#fff)}
+@media (min-width:821px){.card{padding:18px}}
+
+/* headings: sentence case, no tracking */
+.sec-h h2{font-size:15px;text-transform:none;letter-spacing:-.01em;color:var(--ink);font-weight:650}
+.sec,.cz-sub{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:650}
+th{text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;padding:10px 12px}
+td{padding:12px}
+
+/* buttons */
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 14px;font-weight:600;box-shadow:0 1px 2px rgba(20,27,34,.05)}
+.btn:hover{border-color:var(--line2);background:var(--card)}
+.btn.primary{background:var(--btn);border-color:var(--btn);color:var(--btn-ink);box-shadow:0 1px 2px rgba(14,90,82,.30),0 4px 10px rgba(14,90,82,.16)}
+.btn.primary:hover{background:color-mix(in srgb,var(--btn) 88%,#000);border-color:color-mix(in srgb,var(--btn) 88%,#000);filter:none}
+.btn.danger{background:var(--card)}
+.icon-btn{border-radius:10px}
+
+/* inputs */
+input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 1px 1px rgba(20,27,34,.03)}
+:root[data-theme=dark] input,:root[data-theme=dark] select,:root[data-theme=dark] textarea{background:var(--card2)}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.field{font-size:13px;color:var(--mute);font-weight:550}
+
+/* chips, pills, switches */
+.pill{background:var(--card);border:1px solid var(--line);color:var(--ink);font-weight:500;padding:6px 14px;box-shadow:0 1px 2px rgba(20,27,34,.04)}
+.pill:hover{background:var(--card);border-color:var(--line2);color:var(--ink)}
+.pill.on,.pill.on:hover{background:var(--soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent);font-weight:600}
+.tabs .pill,.tabs .pill:hover{background:transparent;box-shadow:none;border:0;border-bottom:2px solid transparent;color:var(--mute)}
+.tabs .pill.on,.tabs .pill.on:hover{background:transparent;color:var(--accent);border-bottom-color:var(--accent)}
+.seg2{border-color:var(--line);background:var(--card)}
+.unread{background:var(--btn);color:var(--btn-ink)}
+.switch.on{background:var(--btn)}
+.badge{padding:3px 10px}
+
+/* sheets, dialogs, toasts */
+.overlay{background:rgba(20,32,42,.46)}
+.sheet{box-shadow:var(--shadow-lg)}
+.sheet-head{padding:16px 20px}
+.sheet-head h2{font-size:17px;font-weight:650}
+#toast{background:var(--side);color:#fff;border-radius:12px;box-shadow:var(--shadow-lg)}
+
+/* sign in */
+.center.auth{background:var(--bg)}
+.center.auth .login{padding:28px;gap:16px;box-shadow:var(--shadow-lg);border-radius:20px}
+.center.auth .logo{width:44px;height:44px;border-radius:13px}
+.center.auth .brand{padding:0 0 8px}
+.center.auth .brand b{color:var(--ink);font-size:18px}
+.center.auth .brand small{color:var(--mute)}
+
+/* AI assistant */
+.ai-fab{background:var(--btn);color:var(--btn-ink);box-shadow:0 8px 24px rgba(14,90,82,.35)}
+.ai-b.u{background:var(--btn);color:var(--btn-ink)}
+.ai-b.a{box-shadow:var(--shadow)}
+.ai-card{box-shadow:var(--shadow);border-radius:12px}
+@media (min-width:821px){.ai-panel{border-radius:18px;box-shadow:var(--shadow-lg)}}
+
+@media (max-width:820px){
+  .top{padding:14px 14px 6px}.top h1{font-size:21px}
+  .icon-btn.pinbtn,.who .avatar{width:36px;height:36px}
+  .bottom{background:var(--card);backdrop-filter:none;border-top:1px solid var(--line);box-shadow:0 -4px 20px rgba(20,27,34,.07);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+  .bottom button{position:relative;color:var(--mute);font-weight:500;padding:8px 2px 5px}
+  .bottom button.on{color:var(--accent);font-weight:650}
+  .bottom button.on::before{content:"";position:absolute;top:-7px;left:50%;width:24px;height:3px;margin-left:-12px;border-radius:0 0 3px 3px;background:var(--accent)}
+  .bottom button.on svg{filter:none}
+  .bsheet{border-radius:22px 22px 0 0;box-shadow:var(--shadow-lg);border:0}
+  .bs-grid button{box-shadow:var(--shadow);background:var(--card)}
+  .center.auth .login{padding:22px}
 }
-:root[data-theme=forest] body{
-  background-color:var(--bg);
-  background-image:
-    radial-gradient(900px 520px at 5% -10%,rgba(110,240,180,.14),transparent 62%),
-    radial-gradient(700px 460px at 105% 105%,rgba(242,207,122,.08),transparent 60%),
-    linear-gradient(165deg,#10231c 0%,#0c1a15 60%,#09130f 100%);
-  background-attachment:fixed}
-:root[data-theme=forest] .side{background:var(--side);border-right-color:#1d3a2d}
-:root[data-theme=forest] .logo{background:linear-gradient(135deg,#f2cf7a,#6ef0b4);color:#06150e}
-:root[data-theme=forest] .side .nav:hover{background:rgba(110,240,180,.09);color:#fff}
-:root[data-theme=forest] .side .nav.on{background:linear-gradient(90deg,rgba(110,240,180,.22),rgba(110,240,180,.05));color:#fff;box-shadow:inset 3px 0 0 var(--gold)}
-:root[data-theme=forest] .card,
-:root[data-theme=forest] .ccard,
-:root[data-theme=forest] .asave{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 55%),var(--card);border-color:var(--line)}
-:root[data-theme=forest] .nav:not(.side .nav){color:var(--mute)}
-:root[data-theme=forest] .nav.on{color:var(--ink)}
-:root[data-theme=forest] .tile.on,:root[data-theme=forest] .typecard.on{box-shadow:0 0 0 1px var(--accent) inset}
-:root[data-theme=forest] .btn{background:var(--card2);border-color:var(--line);color:var(--ink)}
-:root[data-theme=forest] .btn.primary{background:linear-gradient(180deg,#2f7a58,#1f5c42);border-color:#4fbf8e;color:#fff}
-:root[data-theme=forest] .btn.primary:hover{background:linear-gradient(180deg,#378a65,#256b4c)}
-:root[data-theme=forest] input,:root[data-theme=forest] select,:root[data-theme=forest] textarea{background-color:#0f221a;border-color:var(--line);color:var(--ink)}
-:root[data-theme=forest] ::selection{background:rgba(242,207,122,.35);color:#fff}
-:root[data-theme=forest] .ai-fab{background:linear-gradient(135deg,var(--gold),var(--accent));color:var(--accent-ink)}
-:root[data-theme=forest] .ai-h{background:#0a1511}
-:root[data-theme=forest] .center.auth{background:radial-gradient(900px 500px at 50% -10%,#1f5a40 0%,transparent 62%),#0a1511}
+@media (prefers-reduced-motion:reduce){.sc:hover,.mod:hover{transform:none}}

@@ -2,10 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="theme-color" content="#0c1a15" />
+  <meta name="theme-color" content="#F4F1EA" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>School Portal</title>
-  <script>try{var t=localStorage.theme;document.documentElement.dataset.theme=(t==='light'||t==='dark'||t==='forest')?t:'forest'}catch{document.documentElement.dataset.theme='forest'}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" />
+  <script>try{var t=localStorage.theme;var d=(t==='dark')?'dark':'light';document.documentElement.dataset.theme=d;document.querySelector('meta[name=theme-color]').content=d==='dark'?'#11181E':'#F4F1EA'}catch{document.documentElement.dataset.theme='light'}</script>
 </head>
 <body><div id="root"></div><script type="module" src="/src/main.jsx"></script></body>
 </html>

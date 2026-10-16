@@ -60,4 +60,4 @@ export default function PaySettings({ me }) {
     </ScrollView>
   );
 }
-const sec = { fontSize: 12, fontWeight: '700', color: C.mute, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 };
+const sec = { fontSize: 14, fontWeight: '700', color: C.ink, marginBottom: 10 };
