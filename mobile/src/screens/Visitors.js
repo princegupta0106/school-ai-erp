@@ -23,7 +23,7 @@ function TimeField({ value, onChange }) {
   if (Platform.OS === 'ios') return <View style={{ alignItems: 'flex-start' }}><DateTimePicker value={d} mode="time" display="compact" onChange={change} /></View>;
   return (
     <>
-      <Pressable onPress={() => setShow(true)} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}><Text style={{ color: C.ink, fontSize: 15 }}>{value ? fmtTime(value) : 'Pick a time'}</Text></Pressable>
+      <Pressable onPress={() => setShow(true)} style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}><Text style={{ color: C.ink, fontSize: 15 }}>{value ? fmtTime(value) : 'Pick a time'}</Text></Pressable>
       {show && <DateTimePicker value={d} mode="time" onChange={change} />}
     </>
   );
@@ -88,7 +88,7 @@ export const VisitorList = scoped(function VisitorList({ me, sc }) {
       {rows.length === 0 ? <Empty>{d.visitors.length ? 'No match.' : `No visitors ${isToday ? 'yet today' : 'on this day'}.`}</Empty> : (
         <List>{rows.map((v, i) => (
           <View key={v.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderBottomWidth: i === rows.length - 1 ? 0 : 1, borderColor: C.line }}>
-            <Text style={{ width: 70, color: C.brand, fontWeight: '700', fontSize: 13 }}>{fmtTime(v.visit_time)}</Text>
+            <Text style={{ width: 70, color: C.accent, fontWeight: '700', fontSize: 13 }}>{fmtTime(v.visit_time)}</Text>
             <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: C.ink }}>{v.name}</Text><Dim>{v.purpose || 'No purpose given'}</Dim></View>
             {canDel && <Pressable hitSlop={8} onPress={() => del(v)} style={{ padding: 6 }}><Icon name="trash" size={19} color={C.bad} /></Pressable>}
           </View>))}</List>)}

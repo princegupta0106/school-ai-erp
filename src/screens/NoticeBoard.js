@@ -39,28 +39,28 @@ function NoticeForm({ me, qs, sid, edit, onClose, onSaved }) {
   );
 }
 
-const Chip = ({ children, head }) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: head ? C.soft : '#eef2ef', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>{children}</View>;
+const Chip = ({ children, head }) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: head ? C.soft : C.card2, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>{children}</View>;
 
 function Notice({ n, qs, onChanged, onEdit }) {
   const [open, setOpen] = useState(false);
   const long = n.body.length > 280 || n.body.split('\n').length > 5;
   const act = async (fn, ok) => { try { await fn(); if (ok) toast(ok); onChanged(); } catch (x) { toast(x.message, true); } };
   return (
-    <Card style={n.is_pinned ? { borderColor: C.brand, borderWidth: 1.5 } : undefined}>
+    <Card style={n.is_pinned ? { borderColor: C.accent, borderWidth: 1.5 } : undefined}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          {n.is_pinned && <Chip head><Icon name="pin" size={12} color={C.brand} /><Text style={{ color: C.brand, fontSize: 12, fontWeight: '700' }}>Pinned</Text></Chip>}
+          {n.is_pinned && <Chip head><Icon name="pin" size={12} color={C.accent} /><Text style={{ color: C.accent, fontSize: 12, fontWeight: '700' }}>Pinned</Text></Chip>}
           {n.audience === 'school' ? <Chip><Text style={chipTxt}>Whole school</Text></Chip> : n.classes.map((c) => <Chip key={c.id}><Text style={chipTxt}>Class {clsName(c)}</Text></Chip>)}
         </View>
         {n.can_edit && <View style={{ flexDirection: 'row', gap: 14, marginLeft: 8 }}>
-          <Pressable hitSlop={8} onPress={() => act(() => api.patch(withQs(`${base}/announcements/${n.id}`, qs), { is_pinned: !n.is_pinned }), n.is_pinned ? 'Unpinned' : 'Pinned')}><Icon name="pin" size={18} color={n.is_pinned ? C.brand : C.mute} /></Pressable>
+          <Pressable hitSlop={8} onPress={() => act(() => api.patch(withQs(`${base}/announcements/${n.id}`, qs), { is_pinned: !n.is_pinned }), n.is_pinned ? 'Unpinned' : 'Pinned')}><Icon name="pin" size={18} color={n.is_pinned ? C.accent : C.mute} /></Pressable>
           <Pressable hitSlop={8} onPress={() => onEdit(n)}><Icon name="edit" size={18} color={C.mute} /></Pressable>
           <Pressable hitSlop={8} onPress={() => confirmAsk('Delete this notice?', () => act(() => api.del(withQs(`${base}/announcements/${n.id}`, qs)), 'Notice deleted'))}><Icon name="trash" size={18} color={C.bad} /></Pressable>
         </View>}
       </View>
       <Text style={{ fontSize: 17, fontWeight: '700', color: C.ink, marginTop: 8 }}>{n.title}</Text>
       <Text style={{ color: C.ink, marginTop: 4, lineHeight: 20 }} numberOfLines={long && !open ? 5 : undefined}>{n.body}</Text>
-      {long && <Pressable onPress={() => setOpen(!open)}><Text style={{ color: C.brand, fontWeight: '600', marginTop: 4 }}>{open ? 'Show less' : 'Read more'}</Text></Pressable>}
+      {long && <Pressable onPress={() => setOpen(!open)}><Text style={{ color: C.accent, fontWeight: '600', marginTop: 4 }}>{open ? 'Show less' : 'Read more'}</Text></Pressable>}
       <Dim style={{ marginTop: 8 }}>{n.author} · {dateTime(n.created_at)}</Dim>
     </Card>
   );

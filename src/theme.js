@@ -1,4 +1,4 @@
-export const C = { bg: '#f1f5f2', card: '#fff', ink: '#0c1a12', mute: '#5a7064', line: '#dfe8e2', brand: '#15663f', soft: '#e2f1e8', ok: '#15803d', bad: '#c62828', warn: '#d97706', info: '#2563eb' };
+export const C = { bg: '#0c1a15', card: '#173126', card2: '#1e3f31', input: '#0f221a', ink: '#f3faf5', mute: '#b4cdbf', line: '#2f5a45', brand: '#1f7a55', accent: '#6ef0b4', gold: '#f2cf7a', danger: '#c2413a', soft: '#245240', ok: '#6ef0b4', bad: '#ff9a90', warn: '#f6d36b', info: '#9bbcff', okBg: '#1f4a37', badBg: '#52292c', warnBg: '#4f4421', infoBg: '#2a3f66' };
 export const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const pad = (n) => String(n).padStart(2, '0');
 export const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

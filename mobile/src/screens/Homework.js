@@ -13,7 +13,7 @@ const base = '/homework';
 const clsName = (c) => (c ? `${c.name}${c.section ? ` ${c.section}` : ''}` : '');
 const size = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const TONE = { ok: [C.ok, '#dcfce7'], warn: [C.warn, '#fef3c7'], info: [C.info, '#dbeafe'], off: [C.mute, '#eef2ef'], bad: [C.bad, '#fee2e2'], brand: [C.brand, C.soft] };
+const TONE = { ok: [C.ok, C.okBg], warn: [C.warn, C.warnBg], info: [C.info, C.infoBg], off: [C.mute, C.card2], bad: [C.bad, C.badBg], brand: [C.accent, C.soft] };
 const Chip = ({ children, tone = 'off' }) => <Text style={{ fontSize: 11, fontWeight: '700', color: TONE[tone][0], backgroundColor: TONE[tone][1], paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
 const Chips = ({ children }) => <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>{children}</View>;
 
@@ -28,7 +28,7 @@ const Files = ({ list }) => (!list?.length ? null : (
   <View style={{ gap: 6, marginBottom: 10 }}>
     {list.map((f) => (
       <Pressable key={f.id} onPress={() => Linking.openURL(f.url).catch(() => toast('Could not open this file', true))} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: C.soft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, maxWidth: '100%' }}>
-        <Icon name="download" size={15} color={C.brand} /><Text style={{ color: C.brand, fontWeight: '600', flexShrink: 1 }} numberOfLines={1}>{f.name}</Text><Text style={{ color: C.mute, fontSize: 12 }}>({size(f.size)})</Text>
+        <Icon name="download" size={15} color={C.accent} /><Text style={{ color: C.accent, fontWeight: '600', flexShrink: 1 }} numberOfLines={1}>{f.name}</Text><Text style={{ color: C.mute, fontSize: 12 }}>({size(f.size)})</Text>
       </Pressable>))}
   </View>
 ));
@@ -47,7 +47,7 @@ function FilePick({ files, setFiles }) {
   return (
     <View style={{ gap: 8 }}>
       {files.map((f, i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
           <Icon name="file" size={16} color={C.mute} /><Text style={{ flex: 1, color: C.ink }} numberOfLines={1}>{f.name} <Text style={{ color: C.mute, fontSize: 12 }}>({size(f.size)})</Text></Text>
           <Pressable hitSlop={8} onPress={() => setFiles(files.filter((_, j) => j !== i))}><Icon name="x" size={16} color={C.bad} /></Pressable>
         </View>))}
@@ -214,7 +214,7 @@ function AssignmentView({ id, onClose, onSaved }) {
               <Files list={my.files} />
             </>}
             {locked && (
-              <View style={{ backgroundColor: '#dcfce7', borderRadius: 10, padding: 10 }}>
+              <View style={{ backgroundColor: C.okBg, borderRadius: 10, padding: 10 }}>
                 <Text style={{ fontWeight: '700', color: '#166534' }}>Checked{my.marks ? ` - ${my.marks}` : ''}</Text>
                 {my.feedback ? <Text style={{ color: '#166534', marginTop: 4 }}>{my.feedback}</Text> : null}
               </View>)}

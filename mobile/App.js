@@ -23,7 +23,7 @@ const tint = (c) => `${c}22`;
 function Tile({ m, onPress }) {
   const u = MODULE_UI[m.key];
   return (
-    <Press onPress={onPress} wrap={{ width: '48.5%', marginBottom: 10 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.line }}>
+    <Press onPress={onPress} wrap={{ width: '48.5%', marginBottom: 10 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.line }}>
       <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: tint(u.color), alignItems: 'center', justifyContent: 'center' }}><Icon name={u.icon} color={u.color} size={20} /></View>
       <Text style={{ fontWeight: '700', color: C.ink, flex: 1, fontSize: 14 }} numberOfLines={2}>{u.label}</Text>
     </Press>
@@ -36,24 +36,24 @@ function Home({ me, prefs, mods, pinned, byId, open, openCustomize, recent, unre
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <Text style={sec}>Shortcuts</Text>
-        <Pressable onPress={openCustomize} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon name="sliders" size={15} color={C.brand} /><Text style={{ color: C.brand, fontWeight: '600', fontSize: 13 }}>Customize</Text></Pressable>
+        <Pressable onPress={openCustomize} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon name="sliders" size={15} color={C.accent} /><Text style={{ color: C.accent, fontWeight: '600', fontSize: 13 }}>Customize</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 22 }}>
         {pinned.map((id) => { const t = byId[id]; return (
-          <Press key={id} onPress={() => open(id)} wrap={{ width: '23%', flexGrow: 1 }} style={{ alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 4, borderWidth: 1, borderColor: C.line }}>
+          <Press key={id} onPress={() => open(id)} wrap={{ width: '23%', flexGrow: 1 }} style={{ alignItems: 'center', backgroundColor: C.card, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 4, borderWidth: 1, borderColor: C.line }}>
             <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: tint(t.color), alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}><Icon name={t.icon} color={t.color} size={22} /></View>
             <Text style={{ fontSize: 12, fontWeight: '600', color: C.ink, textAlign: 'center' }} numberOfLines={2}>{t.label}</Text>
           </Press>); })}
         <Pressable onPress={openCustomize} style={{ width: '23%', flexGrow: 1, alignItems: 'center', paddingVertical: 12 }}>
-          <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}><Icon name="plus" color={C.brand} size={22} /></View>
+          <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}><Icon name="plus" color={C.accent} size={22} /></View>
           <Text style={{ fontSize: 12, fontWeight: '600', color: C.mute }}>Add</Text>
         </Pressable>
       </View>
       {recent.length > 0 && (<>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}><Text style={sec}>Latest updates{unread ? ` · ${unread} new` : ''}</Text><Pressable onPress={openInbox}><Text style={{ color: C.brand, fontWeight: '600', fontSize: 13 }}>See all</Text></Pressable></View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}><Text style={sec}>Latest updates{unread ? ` · ${unread} new` : ''}</Text><Pressable onPress={openInbox}><Text style={{ color: C.accent, fontWeight: '600', fontSize: 13 }}>See all</Text></Pressable></View>
         <View style={{ marginBottom: 20 }}>{recent.map((n) => (
-          <Pressable key={n.id} onPress={openInbox} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: n.read_at ? '#fff' : C.soft, borderRadius: 12, borderWidth: 1, borderColor: n.read_at ? C.line : C.brand, padding: 11, marginBottom: 8 }}>
-            <Icon name="bell" size={16} color={C.brand} />
+          <Pressable key={n.id} onPress={openInbox} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: n.read_at ? C.card : C.soft, borderRadius: 12, borderWidth: 1, borderColor: n.read_at ? C.line : C.accent, padding: 11, marginBottom: 8 }}>
+            <Icon name="bell" size={16} color={C.accent} />
             <View style={{ flex: 1 }}><Text style={{ color: C.ink, fontWeight: n.read_at ? '600' : '800', fontSize: 13 }} numberOfLines={1}>{n.title}</Text>{!!n.body && <Text style={{ color: C.mute, fontSize: 12 }} numberOfLines={1}>{n.body}</Text>}</View>
           </Pressable>))}</View>
       </>)}
@@ -73,8 +73,8 @@ export default function App() {
     setUnauthorizedHandler(logout);
     (async () => { if (await loadToken()) { try { await signedIn(await api.get('/auth/me')); } catch { await setToken(null); } } setBooting(false); })();
   }, [logout, signedIn]);
-  if (booting) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: C.bg }}><ActivityIndicator size="large" color={C.brand} /></View>;
-  return <SafeAreaProvider><StatusBar style="dark" />{me ? <Shell me={me} logout={logout} /> : <Login onDone={signedIn} />}</SafeAreaProvider>;
+  if (booting) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: C.bg }}><ActivityIndicator size="large" color={C.accent} /></View>;
+  return <SafeAreaProvider><StatusBar style="light" />{me ? <Shell me={me} logout={logout} /> : <Login onDone={signedIn} />}</SafeAreaProvider>;
 }
 
 function Shell({ me, logout }) {
@@ -162,20 +162,20 @@ function Shell({ me, logout }) {
           <Text style={{ fontSize: 18, fontWeight: '800', color: C.ink }} numberOfLines={1}>{active ? ui.label : `${greeting()}, ${name.split(' ')[0]}`}</Text>
           <Text style={{ fontSize: 12, color: C.mute }} numberOfLines={1}>{active ? (views.length > 1 ? view?.label : me.school?.name || '') : (me.school?.name || 'Platform')}</Text>
         </View>
-        {active && view && <Pressable onPress={togglePin} hitSlop={10}><Icon name="pin" size={20} color={isPinned ? C.brand : C.mute} /></Pressable>}
-        <Pressable onPress={() => setInbox(true)} hitSlop={6} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="bell" size={19} color={C.brand} />
+        {active && view && <Pressable onPress={togglePin} hitSlop={10}><Icon name="pin" size={20} color={isPinned ? C.accent : C.mute} /></Pressable>}
+        <Pressable onPress={() => setInbox(true)} hitSlop={6} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="bell" size={19} color={C.accent} />
           {unread > 0 && <View style={{ position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: C.bad, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{unread > 99 ? '99+' : unread}</Text></View>}
         </Pressable>
-        <Pressable onPress={() => setMore(true)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: C.soft, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.brand, fontWeight: '700' }}>{initials(name)}</Text></Pressable>
+        <Pressable onPress={() => setMore(true)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: C.soft, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.accent, fontWeight: '700' }}>{initials(name)}</Text></Pressable>
       </View>
 
       {active && views.length > 1 && (
         <View style={{ borderBottomWidth: 1, borderColor: C.line }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 14, gap: 8, paddingBottom: 10 }}>
             {views.map((v) => { const on = view?.key === v.key; return (
-              <Pressable key={v.key} onPressIn={() => prefetchUrls(me, active.key, v.key).forEach(prefetch)} onPress={() => go(`${active.key}/${v.key}`)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? C.soft : '#fff', borderWidth: 1, borderColor: on ? C.brand : C.line }}>
-                <Text style={{ color: on ? C.brand : C.mute, fontWeight: '600', fontSize: 13 }}>{v.label}</Text>
+              <Pressable key={v.key} onPressIn={() => prefetchUrls(me, active.key, v.key).forEach(prefetch)} onPress={() => go(`${active.key}/${v.key}`)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? C.soft : C.card, borderWidth: 1, borderColor: on ? C.accent : C.line }}>
+                <Text style={{ color: on ? C.accent : C.mute, fontWeight: '600', fontSize: 13 }}>{v.label}</Text>
               </Pressable>); })}
           </ScrollView>
         </View>
@@ -194,11 +194,11 @@ function Shell({ me, logout }) {
           )}
       </View>
 
-      <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderColor: C.line }}>
-        <Pressable onPress={() => go('')} style={navItem}><Icon name="home" size={22} color={!active ? C.brand : C.mute} /><Text style={[navTxt, !active && { color: C.brand }]}>Home</Text></Pressable>
+      <View style={{ flexDirection: 'row', backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
+        <Pressable onPress={() => go('')} style={navItem}><Icon name="home" size={22} color={!active ? C.accent : C.mute} /><Text style={[navTxt, !active && { color: C.accent }]}>Home</Text></Pressable>
         {dock.map((m) => { const on = active?.key === m.key; return (
-          <Pressable key={m.key} onPress={() => go(m.key)} style={navItem}><Icon name={MODULE_UI[m.key].icon} size={22} color={on ? C.brand : C.mute} /><Text style={[navTxt, on && { color: C.brand }]} numberOfLines={1}>{MODULE_UI[m.key].label.split(' ')[0]}</Text></Pressable>); })}
-        <Pressable onPress={() => setMore(true)} style={navItem}><Icon name="grid" size={22} color={more ? C.brand : C.mute} /><Text style={[navTxt, more && { color: C.brand }]}>More</Text></Pressable>
+          <Pressable key={m.key} onPress={() => go(m.key)} style={navItem}><Icon name={MODULE_UI[m.key].icon} size={22} color={on ? C.accent : C.mute} /><Text style={[navTxt, on && { color: C.accent }]} numberOfLines={1}>{MODULE_UI[m.key].label.split(' ')[0]}</Text></Pressable>); })}
+        <Pressable onPress={() => setMore(true)} style={navItem}><Icon name="grid" size={22} color={more ? C.accent : C.mute} /><Text style={[navTxt, more && { color: C.accent }]}>More</Text></Pressable>
       </View>
 
       <Modal visible={more} transparent animationType="slide" onRequestClose={() => setMore(false)}>

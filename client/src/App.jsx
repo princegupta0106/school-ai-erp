@@ -73,7 +73,9 @@ export default function App() {
     setMeRaw((cur) => (m && cur && JSON.stringify(cur) === JSON.stringify(m) ? cur : m)); // unchanged: keep identity, no re-render
   }, []);
   const [route, setRoute] = useState(parseHash());
-  const [dark, setDark] = useState(document.documentElement.dataset.theme === 'dark');
+  const THEMES = ['forest', 'dark', 'light'];
+  const THEME_LABEL = { forest: 'Forest', dark: 'Dark', light: 'Light' };
+  const [theme, setTheme] = useState(document.documentElement.dataset.theme || 'forest');
   const [menu, setMenu] = useState(false);
   const [pw, setPw] = useState(false);
   const [more, setMore] = useState(false);
@@ -127,9 +129,10 @@ export default function App() {
   useEffect(() => { contentRef.current?.scrollTo?.(0, 0); }, [route.m, route.v]);
 
   const toggleTheme = () => {
-    const d = !dark; setDark(d);
-    document.documentElement.dataset.theme = d ? 'dark' : 'light';
-    localStorage.theme = d ? 'dark' : 'light';
+    const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    try { localStorage.theme = next; } catch {}
   };
   const go = (path) => { setMenu(false); setMore(false); location.hash = path; };
 
@@ -164,7 +167,7 @@ export default function App() {
   if (active && !dock.some((m) => m.key === active.key)) dock[2] = active;
 
   const Actions = () => (<>
-    <button className="nav" onClick={toggleTheme}><Icon name={dark ? 'sun' : 'moon'} />{dark ? 'Light mode' : 'Dark mode'}</button>
+    <button className="nav" onClick={toggleTheme}><Icon name={theme === 'light' ? 'sun' : 'moon'} />Theme: {THEME_LABEL[theme]}</button>
     <button className="nav" onClick={() => { setMenu(false); setMore(false); setCz(true); }}><Icon name="sliders" />Customize home</button>
     <button className="nav" onClick={() => { setMenu(false); setMore(false); setPw(true); }}><Icon name="key" />Change password</button>
     <button className="nav" onClick={signOut}><Icon name="logout" />Sign out</button>

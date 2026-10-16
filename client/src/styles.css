@@ -1,4 +1,4 @@
-/* ===== theme: dark green on black ===== */
+/* ===== themes: light | dark (green on black) | forest (default: mid-tone green-charcoal) ===== */
 :root{--bg:#f1f5f2;--card:#fff;--card2:#f7faf8;--ink:#0c1a12;--mute:#5a7064;--line:#dfe8e2;--accent:#15663f;--accent-ink:#fff;--soft:#e2f1e8;--bad:#c62828;--ok:#15803d;--shadow:0 1px 2px rgba(8,30,18,.05),0 3px 10px rgba(8,30,18,.04);--r:12px;
   --side:#07110c;--side-ink:#cfe3d7;--side-mute:#7d9a8a;--side-on:#123222;--hero:linear-gradient(135deg,#0c2a1b 0%,#0a1d14 55%,#07110c 100%);
   font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
@@ -210,7 +210,7 @@ button.tile{cursor:pointer}.tile b{font-size:22px;line-height:1.1}.tile span{fon
 .seg .s .fl{display:none}
 .seg .s.on.present{background:var(--p);border-color:var(--p);color:#fff}.seg .s.on.absent{background:var(--a);border-color:var(--a);color:#fff}
 .seg .s.on.late{background:var(--l);border-color:var(--l);color:#fff}.seg .s.on.leave{background:var(--v);border-color:var(--v);color:#fff}
-:root[data-theme=dark] .seg .s.on{color:#04140c!important}
+:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on{color:#04140c!important}
 .seg .s:disabled{opacity:.7;cursor:default}
 .asave{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;box-shadow:0 -6px 24px rgba(16,24,40,.12)}
 .asave .sum{font-size:15px}.asave .a{color:var(--a)}
@@ -486,7 +486,7 @@ details.card summary{cursor:pointer;list-style:none}details.card summary::-webki
 
 /* ===== subtle controls: pills, tabs, segmented buttons, chips, date/inputs =====
    Quiet by default: a hairline outline when idle, a soft tint (not a solid fill) when selected. */
-:root[data-theme=dark]{color-scheme:dark}
+:root[data-theme=dark],:root[data-theme=forest]{color-scheme:dark}
 .pill{background:transparent;border:1px solid var(--line);color:var(--mute);padding:5px 13px;font-weight:500}
 .pill:hover{background:color-mix(in srgb,var(--ink) 4%,transparent);color:var(--ink)}
 .pill.on,.pill.on:hover{background:var(--soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 28%,transparent);box-shadow:none;font-weight:600}
@@ -543,8 +543,8 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:.8}
 .seg .s.on.absent{background:color-mix(in srgb,var(--a) 16%,var(--card));border-color:color-mix(in srgb,var(--a) 55%,transparent);color:var(--a)}
 .seg .s.on.late{background:color-mix(in srgb,var(--l) 18%,var(--card));border-color:color-mix(in srgb,var(--l) 55%,transparent);color:var(--l)}
 .seg .s.on.leave{background:color-mix(in srgb,var(--v) 16%,var(--card));border-color:color-mix(in srgb,var(--v) 55%,transparent);color:var(--v)}
-:root[data-theme=dark] .seg .s.on.present{color:var(--p)!important}:root[data-theme=dark] .seg .s.on.absent{color:var(--a)!important}
-:root[data-theme=dark] .seg .s.on.late{color:var(--l)!important}:root[data-theme=dark] .seg .s.on.leave{color:var(--v)!important}
+:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.present{color:var(--p)!important}:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.absent{color:var(--a)!important}
+:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.late{color:var(--l)!important}:root:is([data-theme=dark],[data-theme=forest]) .seg .s.on.leave{color:var(--v)!important}
 .abtn.on{background:color-mix(in srgb,var(--a) 16%,var(--card));border-color:color-mix(in srgb,var(--a) 55%,transparent);color:var(--a)}
 
 
@@ -594,3 +594,42 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:.8}
   .ai-f{padding:.6rem .6rem calc(.6rem + env(safe-area-inset-bottom))}.ai-f input{font-size:16px}
 }
 @media print{.ai-fab,.ai-panel{display:none!important}}
+
+
+/* ===== FOREST theme (default) =====
+   Deep pine page, clearly lighter emerald cards with visible edges, bright text, mint accent + brass gold.
+   Strong contrast on purpose: page < card < raised, text is near-white. Tweak the variables to re-tint. */
+:root[data-theme=forest]{
+  --bg:#0c1a15;--card:#173126;--card2:#1e3f31;--ink:#f3faf5;--mute:#b4cdbf;--line:#2f5a45;
+  --accent:#6ef0b4;--accent-ink:#06150e;--soft:#245240;--bad:#ff9a90;--ok:#6ef0b4;
+  --gold:#f2cf7a;--gold-bg:#443c1f;
+  --shadow:0 1px 0 rgba(255,255,255,.07) inset,0 8px 22px rgba(0,0,0,.35);
+  --side:linear-gradient(180deg,#0a1511 0%,#070e0b 100%);--side-ink:#e2f1e8;--side-mute:#9bbbaa;--side-on:#1f4733;
+  --p:#6ef0b4;--p-bg:#1f4a37;--a:#ff9a90;--a-bg:#52292c;--l:#f6d36b;--l-bg:#4f4421;--v:#9bbcff;--v-bg:#2a3f66;
+  --grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.5'/></svg>");
+}
+:root[data-theme=forest] body{
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(900px 520px at 5% -10%,rgba(110,240,180,.14),transparent 62%),
+    radial-gradient(700px 460px at 105% 105%,rgba(242,207,122,.08),transparent 60%),
+    linear-gradient(165deg,#10231c 0%,#0c1a15 60%,#09130f 100%);
+  background-attachment:fixed}
+:root[data-theme=forest] .side{background:var(--side);border-right-color:#1d3a2d}
+:root[data-theme=forest] .logo{background:linear-gradient(135deg,#f2cf7a,#6ef0b4);color:#06150e}
+:root[data-theme=forest] .side .nav:hover{background:rgba(110,240,180,.09);color:#fff}
+:root[data-theme=forest] .side .nav.on{background:linear-gradient(90deg,rgba(110,240,180,.22),rgba(110,240,180,.05));color:#fff;box-shadow:inset 3px 0 0 var(--gold)}
+:root[data-theme=forest] .card,
+:root[data-theme=forest] .ccard,
+:root[data-theme=forest] .asave{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 55%),var(--card);border-color:var(--line)}
+:root[data-theme=forest] .nav:not(.side .nav){color:var(--mute)}
+:root[data-theme=forest] .nav.on{color:var(--ink)}
+:root[data-theme=forest] .tile.on,:root[data-theme=forest] .typecard.on{box-shadow:0 0 0 1px var(--accent) inset}
+:root[data-theme=forest] .btn{background:var(--card2);border-color:var(--line);color:var(--ink)}
+:root[data-theme=forest] .btn.primary{background:linear-gradient(180deg,#2f7a58,#1f5c42);border-color:#4fbf8e;color:#fff}
+:root[data-theme=forest] .btn.primary:hover{background:linear-gradient(180deg,#378a65,#256b4c)}
+:root[data-theme=forest] input,:root[data-theme=forest] select,:root[data-theme=forest] textarea{background-color:#0f221a;border-color:var(--line);color:var(--ink)}
+:root[data-theme=forest] ::selection{background:rgba(242,207,122,.35);color:#fff}
+:root[data-theme=forest] .ai-fab{background:linear-gradient(135deg,var(--gold),var(--accent));color:var(--accent-ink)}
+:root[data-theme=forest] .ai-h{background:#0a1511}
+:root[data-theme=forest] .center.auth{background:radial-gradient(900px 500px at 50% -10%,#1f5a40 0%,transparent 62%),#0a1511}

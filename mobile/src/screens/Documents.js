@@ -14,8 +14,8 @@ import { shareDocumentPdf, previewHTML } from '../docPrint';
 
 /* ---------------------------------------------------------------- helpers */
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const Sec = ({ children }) => <Text style={{ fontSize: 12, fontWeight: '800', color: C.brand, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 }}>{children}</Text>;
-const Pill = ({ children, color = C.mute, bg = '#eef2ef' }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
+const Sec = ({ children }) => <Text style={{ fontSize: 12, fontWeight: '800', color: C.accent, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 }}>{children}</Text>;
+const Pill = ({ children, color = C.mute, bg = C.card2 }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
 const CancelledPill = () => <Pill color={C.bad} bg="#fee2e2">Cancelled</Pill>;
 const typeLabel = (k) => TYPES[k]?.short || k;
 const fmtStamp = (t) => (t ? new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
@@ -162,7 +162,7 @@ function ReportOptions({ pre, opts, setOpts }) {
 function PlaceholderChips({ onInsert }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-      {PLACEHOLDERS.map(([k, l]) => <Pressable key={k} onPress={() => onInsert(k)} style={{ borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}><Text style={{ color: C.ink, fontSize: 13 }}>{l}</Text></Pressable>)}
+      {PLACEHOLDERS.map(([k, l]) => <Pressable key={k} onPress={() => onInsert(k)} style={{ borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}><Text style={{ color: C.ink, fontSize: 13 }}>{l}</Text></Pressable>)}
     </ScrollView>
   );
 }
@@ -171,7 +171,7 @@ function DesignChips({ value, onPick }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
       {DESIGNS.map((d) => (
-        <Pressable key={d.id} onPress={() => onPick(d)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: value === d.id ? 2 : 1, borderColor: value === d.id ? C.brand : C.line, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 }}>
+        <Pressable key={d.id} onPress={() => onPick(d)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: value === d.id ? 2 : 1, borderColor: value === d.id ? C.accent : C.line, backgroundColor: C.card, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 }}>
           <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: d.accent }} /><Text style={{ color: C.ink, fontWeight: '600' }}>{d.name}</Text>
         </Pressable>))}
     </ScrollView>
@@ -271,7 +271,7 @@ export const IssueDocument = scoped(function IssueDocument({ me, sc, go }) {
         <Sec>1. What do you want to issue?</Sec>
         {TYPE_LIST.map((t, i) => (
           <Pressable key={t.key} onPress={() => pickType(t.key)} style={{ paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderColor: C.line, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: type === t.key ? C.brand : C.line, alignItems: 'center', justifyContent: 'center' }}>{type === t.key && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.brand }} />}</View>
+            <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: type === t.key ? C.accent : C.line, alignItems: 'center', justifyContent: 'center' }}>{type === t.key && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.brand }} />}</View>
             <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: C.ink }}>{t.short}</Text><Dim>{t.desc}</Dim></View>
           </Pressable>))}
       </Card>
@@ -385,8 +385,8 @@ export function MyDocuments({ me }) {
     <Pad reload={reload} loading={loading} hasData>
       {!data.length && <Empty>No documents have been issued to you yet. Ask the school office if you need a certificate.</Empty>}
       {data.map((d) => (
-        <Pressable key={d.id} onPress={() => setOpen(d.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: C.line, padding: 14, marginBottom: 10, opacity: d.status === 'cancelled' ? 0.7 : 1 }}>
-          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' }}><Icon name="doc" size={20} color={C.brand} /></View>
+        <Pressable key={d.id} onPress={() => setOpen(d.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.line, padding: 14, marginBottom: 10, opacity: d.status === 'cancelled' ? 0.7 : 1 }}>
+          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' }}><Icon name="doc" size={20} color={C.accent} /></View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '700', color: C.ink }}>{d.title}</Text>
             <Dim>{other && !d.mine ? `${d.subject_name} · ` : ''}No. {d.serial_no} · {fmtStamp(d.issued_at)}</Dim>

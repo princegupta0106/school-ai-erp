@@ -16,10 +16,10 @@ const pctColor = (v) => (v >= 75 ? C.ok : v >= 50 ? C.warn : C.bad);
 const useMeta = (sc) => useApi(apath('/meta', {}, sc));
 
 const Pct = ({ v, size = 14 }) => <Text style={{ fontWeight: '700', fontSize: size, color: v === null || v === undefined ? C.mute : pctColor(v) }}>{v === null || v === undefined ? '-' : `${v}%`}</Text>;
-const PBar = ({ v }) => <View style={{ height: 6, borderRadius: 3, backgroundColor: '#e5ece7', overflow: 'hidden', marginTop: 4 }}><View style={{ height: 6, width: `${Math.min(100, v ?? 0)}%`, backgroundColor: pctColor(v ?? 0) }} /></View>;
-const GRADE = { A: [C.ok, '#dcfce7'], B: [C.info, '#dbeafe'], C: [C.warn, '#fef3c7'] };
-const Grade = ({ g }) => { if (!g) return null; const t = GRADE[g[0]] || [C.bad, '#fee2e2']; return <Text style={{ color: t[0], backgroundColor: t[1], fontWeight: '700', fontSize: 12, paddingHorizontal: 7, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' }}>{g}</Text>; };
-const Chip = ({ children, tone }) => <Text style={{ fontSize: 11, fontWeight: '600', color: tone === 'bad' ? C.bad : tone === 'brand' ? C.brand : C.mute, backgroundColor: tone === 'bad' ? '#fee2e2' : tone === 'brand' ? C.soft : '#eef2ef', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
+const PBar = ({ v }) => <View style={{ height: 6, borderRadius: 3, backgroundColor: C.line, overflow: 'hidden', marginTop: 4 }}><View style={{ height: 6, width: `${Math.min(100, v ?? 0)}%`, backgroundColor: pctColor(v ?? 0) }} /></View>;
+const GRADE = { A: [C.ok, C.okBg], B: [C.info, C.infoBg], C: [C.warn, C.warnBg] };
+const Grade = ({ g }) => { if (!g) return null; const t = GRADE[g[0]] || [C.bad, C.badBg]; return <Text style={{ color: t[0], backgroundColor: t[1], fontWeight: '700', fontSize: 12, paddingHorizontal: 7, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' }}>{g}</Text>; };
+const Chip = ({ children, tone }) => <Text style={{ fontSize: 11, fontWeight: '600', color: tone === 'bad' ? C.bad : tone === 'brand' ? C.accent : C.mute, backgroundColor: tone === 'bad' ? C.badBg : tone === 'brand' ? C.soft : C.card2, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
 
 function SessionPick({ sessions, value, onChange }) {
@@ -64,7 +64,7 @@ function StudentAcademics({ sc, studentId, mode, onBack, header }) {
           <Text style={{ fontWeight: '700', color: C.ink, marginBottom: 6 }}>Subjects</Text>
           {d.subjects.map((x) => <View key={x.subject_id} style={{ marginTop: 8 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.ink, flex: 1 }} numberOfLines={1}>{x.name}</Text><Pct v={x.overall.pct} /></View><PBar v={x.overall.pct} /></View>)}
         </Card>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><Text style={{ fontWeight: '700', color: C.ink }}>Latest results</Text><Pressable onPress={() => setTab('tests')}><Text style={{ color: C.brand, fontWeight: '600' }}>All tests</Text></Pressable></View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><Text style={{ fontWeight: '700', color: C.ink }}>Latest results</Text><Pressable onPress={() => setTab('tests')}><Text style={{ color: C.accent, fontWeight: '600' }}>All tests</Text></Pressable></View>
         <List>{recent.map((r, i) => <ResultRow key={r.id} r={r} last={i === recent.length - 1} />)}</List>
       </>)}
 
@@ -118,7 +118,7 @@ function ResultRow({ r, last }) {
 function Spark({ pts }) {
   const w = 180; const h = 34; const step = w / (pts.length - 1);
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)} ${(h - 3 - (Math.min(100, p) / 100) * (h - 6)).toFixed(1)}`).join('');
-  return <View style={{ marginTop: 8 }}><Svg width={w} height={h}><Path d={d} fill="none" stroke={C.brand} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" /></Svg></View>;
+  return <View style={{ marginTop: 8 }}><Svg width={w} height={h}><Path d={d} fill="none" stroke={C.accent} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" /></Svg></View>;
 }
 
 /* ================================================================== MY MARKS (student / parent) */
@@ -243,7 +243,7 @@ function MarksSheet({ me, sc, meta, id, active, onBack }) {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <Pressable onPress={back} hitSlop={8} style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}><Icon name="back" size={20} color={C.ink} /></Pressable>
+          <Pressable onPress={back} hitSlop={8} style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' }}><Icon name="back" size={20} color={C.ink} /></Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 18, fontWeight: '800', color: C.ink }}>{a.title}</Text>
             <Dim>{a.subject_name} · Class {a.class_label} · {fmt(a.date)} · out of {num(max)}{a.kind === 'exam' && a.exam_name ? ` · ${a.exam_name}` : ''}</Dim>
@@ -261,20 +261,20 @@ function MarksSheet({ me, sc, meta, id, active, onBack }) {
             const v = vals[s.student_id]; const isBad = bad(v);
             const pct = v.marks !== '' && !v.absent && !isBad ? Math.round((Number(v.marks) / max) * 1000) / 10 : null;
             return (
-              <View key={s.student_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i === sh.students.length - 1 ? 0 : 1, borderColor: C.line, backgroundColor: v.absent ? '#fee2e266' : '#fff' }}>
+              <View key={s.student_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: i === sh.students.length - 1 ? 0 : 1, borderColor: C.line, backgroundColor: v.absent ? C.badBg : C.card }}>
                 <Roll n={s.roll_no} />
                 <Text style={{ flex: 1, fontWeight: '600', color: C.ink }} numberOfLines={2}>{s.full_name}</Text>
                 <View style={{ width: 44, alignItems: 'flex-end' }}>{pct !== null && <Pct v={pct} />}</View>
                 <TextInput ref={(r) => { refs.current[i] = r; }} editable={canEdit && !v.absent} keyboardType="decimal-pad" returnKeyType="next" blurOnSubmit={false}
-                  onSubmitEditing={() => refs.current[i + 1]?.focus()} placeholder={v.absent ? 'Abs' : `/ ${num(max)}`} placeholderTextColor="#9aa5b1"
+                  onSubmitEditing={() => refs.current[i + 1]?.focus()} placeholder={v.absent ? 'Abs' : `/ ${num(max)}`} placeholderTextColor="#8aa598"
                   value={v.absent ? '' : v.marks} onChangeText={(t) => set(s.student_id, { marks: t.replace(/[^0-9.]/g, '') })}
-                  style={{ width: 70, textAlign: 'center', borderWidth: 1, borderColor: isBad ? C.bad : C.line, backgroundColor: isBad ? '#fee2e2' : v.absent ? '#f1f5f2' : '#fff', borderRadius: 10, paddingVertical: 8, fontSize: 15, color: C.ink }} />
-                {canEdit && <Pressable onPress={() => set(s.student_id, { absent: !v.absent, marks: '' })} style={{ paddingHorizontal: 8, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: v.absent ? C.bad : C.line, backgroundColor: v.absent ? C.bad : '#fff' }}><Text style={{ fontSize: 11, fontWeight: '700', color: v.absent ? '#fff' : C.mute }}>Abs</Text></Pressable>}
+                  style={{ width: 70, textAlign: 'center', borderWidth: 1, borderColor: isBad ? C.bad : C.line, backgroundColor: isBad ? C.badBg : v.absent ? C.card2 : C.card, borderRadius: 10, paddingVertical: 8, fontSize: 15, color: C.ink }} />
+                {canEdit && <Pressable onPress={() => set(s.student_id, { absent: !v.absent, marks: '' })} style={{ paddingHorizontal: 8, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: v.absent ? C.bad : C.line, backgroundColor: v.absent ? C.danger : C.card }}><Text style={{ fontSize: 11, fontWeight: '700', color: v.absent ? '#fff' : C.mute }}>Abs</Text></Pressable>}
               </View>);
           })}</List>)}
       </ScrollView>
       {canEdit && sh.students.length > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderColor: C.line }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
           <View style={{ flex: 1 }}><Text style={{ color: C.ink }}>{entered} of {sh.students.length} filled</Text>{invalid > 0 ? <Text style={{ color: C.bad, fontSize: 12 }}>{invalid} over {num(max)} or invalid</Text> : dirty ? <Text style={{ color: C.warn, fontSize: 12 }}>Unsaved changes</Text> : null}</View>
           <View style={{ minWidth: 130 }}><Btn title={busy ? 'Saving...' : 'Save marks'} onPress={save} disabled={busy || !dirty || invalid > 0} /></View>
         </View>)}
@@ -337,7 +337,7 @@ export const AcademicReports = scoped(function AcademicReports({ sc, sid }) {
         </View>
         <List>{rep.students.map((s, i) => (
           <Row key={s.student_id} last={i === rep.students.length - 1} onPress={() => setStudent(s.student_id)}>
-            <View style={{ width: 28, alignItems: 'center' }}><Text style={{ fontWeight: '800', color: s.rank && s.rank <= 3 ? C.brand : C.mute }}>{s.rank ?? '-'}</Text></View>
+            <View style={{ width: 28, alignItems: 'center' }}><Text style={{ fontWeight: '800', color: s.rank && s.rank <= 3 ? C.accent : C.mute }}>{s.rank ?? '-'}</Text></View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: '600', color: C.ink }} numberOfLines={1}>{s.roll_no ? `${s.roll_no}. ` : ''}{s.full_name}</Text>
               <Dim numberOfLines={2}>{rep.subjects.map((x) => { const c = s.subjects[x.id]; return `${x.name} ${c ? (c.pct === null ? 'Abs' : `${c.pct}%`) : '-'}`; }).join(' · ')}</Dim>

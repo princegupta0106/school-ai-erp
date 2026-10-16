@@ -19,10 +19,10 @@ const pickProfile = (p) => Object.fromEntries(PF.map((k) => [k, p?.[k] === null 
 const nameOf = (u) => u.profile?.full_name || u.login_id;
 const cls = (c) => `${c.name}${c.section ? ` ${c.section}` : ''}`;
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const Sec = ({ children }) => <Text style={{ fontSize: 12, fontWeight: '800', color: C.brand, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 8, marginBottom: 10 }}>{children}</Text>;
-const Pill = ({ children, color = C.mute, bg = '#eef2ef' }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
-const Avatar = ({ name }) => <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.brand, fontWeight: '800', fontSize: 14 }}>{initials(name)}</Text></View>;
-const StatusPill = ({ on }) => <Pill color={on ? C.ok : C.mute} bg={on ? '#dcfce7' : '#eef2ef'}>{on ? 'Active' : 'Off'}</Pill>;
+const Sec = ({ children }) => <Text style={{ fontSize: 12, fontWeight: '800', color: C.accent, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 8, marginBottom: 10 }}>{children}</Text>;
+const Pill = ({ children, color = C.mute, bg = C.card2 }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
+const Avatar = ({ name }) => <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.accent, fontWeight: '800', fontSize: 14 }}>{initials(name)}</Text></View>;
+const StatusPill = ({ on }) => <Pill color={on ? C.ok : C.mute} bg={on ? C.okBg : C.card2}>{on ? 'Active' : 'Off'}</Pill>;
 
 function useDebounced(v, ms = 250) {
   const [d, setD] = useState(v);
@@ -92,7 +92,7 @@ function ChildPicker({ options, value, onChange, names = {} }) {
         <Input placeholder="Search a student to add..." value={q} onChangeText={setQ} autoCapitalize="none" />
         {matches.length > 0 && <View style={{ marginTop: 8 }}><List>{matches.map((o, i) => (
           <Row key={o.user_id} last={i === matches.length - 1} onPress={() => { onChange([...value, o.user_id]); setQ(''); }}>
-            <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: C.ink }}>{nameOf(o)}</Text><Dim>{o.login_id}</Dim></View><Icon name="plus" size={18} color={C.brand} />
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: C.ink }}>{nameOf(o)}</Text><Dim>{o.login_id}</Dim></View><Icon name="plus" size={18} color={C.accent} />
           </Row>))}</List></View>}
         {q.trim() !== '' && matches.length === 0 && <Dim style={{ marginTop: 6 }}>No matching student.</Dim>}
       </>}
@@ -172,7 +172,7 @@ function UserSheet({ me, user: initial, classes, students, onClose }) {
   return (
     <Sheet title={nameOf(user)} onClose={onClose}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        <Pill color={C.brand} bg={C.soft}>{ROLE_LABEL[user.role]}</Pill><StatusPill on={user.is_active} /><Dim>ID: {user.login_id}</Dim>
+        <Pill color={C.accent} bg={C.soft}>{ROLE_LABEL[user.role]}</Pill><StatusPill on={user.is_active} /><Dim>ID: {user.login_id}</Dim>
       </View>
       <ErrorBox>{err}</ErrorBox>
 
@@ -215,7 +215,7 @@ function UserSheet({ me, user: initial, classes, students, onClose }) {
           {docs.map((d) => (
             <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderColor: C.line }}>
               <Icon name="file" size={18} color={C.mute} />
-              <Pressable style={{ flex: 1 }} onPress={() => openDoc(d)}><Text style={{ color: C.brand, fontWeight: '600' }} numberOfLines={2}>{d.label}</Text></Pressable>
+              <Pressable style={{ flex: 1 }} onPress={() => openDoc(d)}><Text style={{ color: C.accent, fontWeight: '600' }} numberOfLines={2}>{d.label}</Text></Pressable>
               {has('upload_document') && <Pressable hitSlop={8} onPress={() => delDoc(d.id)} style={{ padding: 6 }}><Icon name="trash" size={19} color={C.bad} /></Pressable>}
             </View>))}
           {has('upload_document') && (<View style={{ marginTop: 10 }}>
@@ -294,7 +294,7 @@ export function UserList({ me }) {
               <Text style={{ fontWeight: '600', color: C.ink }} numberOfLines={1}>{nameOf(u)}</Text>
               <Dim numberOfLines={1}>{u.login_id}{u.profile?.phone ? ` · ${u.profile.phone}` : ''}</Dim>
             </View>
-            <View style={{ alignItems: 'flex-end', gap: 4 }}><Pill color={C.brand} bg={C.soft}>{ROLE_LABEL[u.role]}</Pill>{!u.is_active && <StatusPill on={false} />}</View>
+            <View style={{ alignItems: 'flex-end', gap: 4 }}><Pill color={C.accent} bg={C.soft}>{ROLE_LABEL[u.role]}</Pill>{!u.is_active && <StatusPill on={false} />}</View>
           </Row>))}
           {rows.length > limit && <View style={{ padding: 10, alignItems: 'center' }}><Btn small kind="ghost" title={`Show more (${rows.length - limit} left)`} onPress={() => setLimit(limit + 60)} /></View>}
         </List>)}

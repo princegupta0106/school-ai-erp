@@ -10,7 +10,7 @@ import { useSchoolId } from '../useSchool';
 import { Pad, List, Row } from './Attendance';
 
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const Chip = ({ children, tone }) => <Text style={{ fontSize: 11, fontWeight: '700', color: tone === 'ok' ? C.ok : tone === 'bad' ? C.bad : C.mute, backgroundColor: tone === 'ok' ? '#dcfce7' : tone === 'bad' ? '#fee2e2' : '#eef2ef', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
+const Chip = ({ children, tone }) => <Text style={{ fontSize: 11, fontWeight: '700', color: tone === 'ok' ? C.ok : tone === 'bad' ? C.bad : C.mute, backgroundColor: tone === 'ok' ? C.okBg : tone === 'bad' ? C.badBg : C.card2, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
 const Sec = ({ children }) => <Text style={{ fontSize: 12, fontWeight: '700', color: C.mute, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 4 }}>{children}</Text>;
 const range = (h) => (h.start_date === h.end_date ? fmt(h.start_date) : `${fmt(h.start_date)} to ${fmt(h.end_date)}`);
 const TYPE_LABEL = { holiday: 'Holiday', vacation: 'Vacation', event: 'Event', exam: 'Exam' };
@@ -59,7 +59,7 @@ export function SchoolList({ me }) {
   return (
     <Pad reload={reload} loading={loading} hasData>
       {data.map((s) => (
-        <Press key={s.id} onPress={() => setOpen(s)} style={{ backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line, marginBottom: 10 }}>
+        <Press key={s.id} onPress={() => setOpen(s)} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line, marginBottom: 10 }}>
           <Text style={{ fontWeight: '800', fontSize: 16, color: C.ink }}>{s.name}</Text>
           <Dim style={{ marginTop: 2 }}>{s.address || 'No address added'}</Dim>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}><Chip tone={s.is_active ? 'ok' : 'bad'}>{s.is_active ? 'Active' : 'Off'}</Chip><Dim>code: {s.code}</Dim></View>
