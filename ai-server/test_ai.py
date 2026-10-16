@@ -70,7 +70,7 @@ class T(unittest.TestCase):
     def test_verify_and_permissions(self):
         self.assertIsNone(agent.verify_user("nope"))
         t = agent.verify_user("teacher")
-        self.assertEqual(agent.allowed_tools(t), {"ask_choice"})            # no users permissions -> no real tools
+        self.assertEqual(agent.allowed_tools(t), {"ask_choice", "my_leave", "apply_leave", "cancel_leave", "leave_settings"})   # only own-leave tools, no users tools
         a = agent.verify_user("admin")
         self.assertIn("create_user", agent.allowed_tools(a)); self.assertNotIn("list_schools", agent.allowed_tools(a))
         self.assertNotIn("school", agent.schemas_for(a)[0]["parameters"]["properties"])     # only a super admin names a school

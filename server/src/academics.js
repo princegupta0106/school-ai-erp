@@ -305,7 +305,6 @@ export async function updateAssessment(user, schoolId, id, b) {
   const { error } = await db.from('assessments').update(patch).eq('id', id).eq('school_id', schoolId);
   if (error?.code === '23505') throw httpError(409, 'This exam already has a paper for that class and subject');
   check(error);
-  notifyMarks(schoolId, user, assessment, clean.filter((x) => x.marks !== null || x.absent).map((x) => x.student_id));
   return getSheet(user, schoolId, id);
 }
 
@@ -348,6 +347,7 @@ export async function saveMarks(user, schoolId, id, items) {
   });
   const { error } = await db.rpc('save_marks', { p_school: schoolId, p_assessment: id, p_user: user.user_id, p_items: clean });
   check(error);
+  notifyMarks(schoolId, user, assessment, clean.filter((x) => x.marks !== null || x.absent).map((x) => x.student_id));
   return getSheet(user, schoolId, id);
 }
 

@@ -24,6 +24,11 @@ const files = (req, res, next) => uploader.array('files', 5)(req, res, (err) => 
 });
 
 // ---- teacher
+// "today" (school time zone) + the classes this person may post to: one call for the AI assistant
+r.get('/meta', requireFeature('manage_homework'), asyncH(async (req, res) => res.json(await H.meta(req.user, schoolOf(req)))));
+// Files attached in the AI chat. They only wait here (temporary folder); the homework is created, and the files copied into it,
+// when the teacher presses Confirm on the assistant's card. Not tied to a school, so a super admin can use it too.
+r.post('/chat-files', requireFeature('manage_homework'), files, asyncH(async (req, res) => res.status(201).json({ files: await H.stageFiles(req.user, req.files) })));
 r.get('/classes', requireFeature('manage_homework'), asyncH(async (req, res) => res.json(await H.listClasses(req.user, schoolOf(req)))));
 r.get('/assignments', requireFeature('manage_homework'), asyncH(async (req, res) => res.json(await H.listAssignments(req.user, schoolOf(req)))));
 r.post('/assignments', requireFeature('manage_homework'), files, asyncH(async (req, res) => res.status(201).json(await H.createAssignment(req.user, schoolOf(req), req.body, req.files))));

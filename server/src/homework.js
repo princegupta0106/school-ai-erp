@@ -1,13 +1,16 @@
 // Homework & assignments.
 //   Teacher:  listClasses / listAssignments / createAssignment / deleteAssignment / getSubmissions / checkSubmission
+//   Chat:     stageFiles (files attached in the AI chat wait in a temporary folder) / meta; createAssignment then accepts
+//             `staged_files` and copies them into the homework (see stagedFiles.js)
 //   Student:  myAssignments / myAssignment / submit
 // A teacher sees the assignments HE/SHE created (school admins see all of their school).
 // A student sees the assignments of his/her own class.
 import crypto from 'node:crypto';
 import { db, httpError, check } from './db.js';
 import { accessibleClasses } from './attendance.js';
-import { uploadFile, deleteFile } from './r2.js';
+import { uploadFile, deleteFile, headFile, copyFile, fileUrl, listFiles } from './r2.js';
 import { notifyHomework, notifyChecked } from './notify.js';
+import { stagePrefix, safeName, copyStaged, sweepStaged, MAX_FILES } from './stagedFiles.js';
 
 const one = (x) => (Array.isArray(x) ? x[0] : x);
 const isAdmin = (user) => user.role === 'school_admin' || user.role === 'super_admin';
@@ -34,6 +37,28 @@ const publicFile = (f) => ({ id: f.id, name: f.name, url: f.url, size: f.size, t
 export async function listClasses(user, schoolId) {
   return accessibleClasses(user, schoolId);
 }
+
+// the school's "today" and the classes this person may post to, in one call (the AI assistant needs both)
+export async function meta(user, schoolId) {
+  return { today: await todayStr(), classes: await accessibleClasses(user, schoolId) };
+}
+
+// Files attached in the AI chat. They are NOT homework yet: they wait in staging/homework/<user>/ until the
+// teacher confirms (createAssignment copies them), and are swept away after a day if nobody does.
+export async function stageFiles(user, files) {
+  if (!(files || []).length) throw httpError(400, 'Choose a file to attach');
+  const out = [];
+  try {
+    for (const f of files) {
+      const id = crypto.randomUUID();
+      const key = `${stagePrefix(user.user_id)}${id}-${safeName(f.originalname)}`;
+      await uploadFile(key, f.buffer, f.mimetype);
+      out.push({ id, name: f.originalname, key, size: f.size, type: f.mimetype });
+    }
+  } catch (e) { await removeFiles(out); throw e; }
+  return out;
+}
+export const sweepStaging = () => sweepStaged({ listFiles, deleteFile });
 
 async function ownAssignment(user, schoolId, id) {
   const { data, error } = await db.from('assignments').select('*, classes(id,name,section)').eq('id', id).eq('school_id', schoolId).maybeSingle();
@@ -77,18 +102,26 @@ export async function createAssignment(user, schoolId, b, files) {
   const needs = b.needs_submission === true || b.needs_submission === 'true';
   const due = b.due_date ? String(b.due_date) : null;
   if (due && !DATE.test(due)) throw httpError(400, 'Invalid due date');
-  if (!description && !(files || []).length) throw httpError(400, 'Write something or attach a file');
+  const staged = Array.isArray(b.staged_files) ? b.staged_files : []; // files attached in the AI chat (a JSON request)
+  if ((files || []).length + staged.length > MAX_FILES) throw httpError(400, 'You can attach up to 5 files');
+  if (!description && !(files || []).length && !staged.length) throw httpError(400, 'Write something or attach a file');
   const ok = new Set((await accessibleClasses(user, schoolId)).map((c) => c.id));
   if (!ok.has(b.class_id)) throw httpError(403, 'You can only post to your own classes');
   const id = crypto.randomUUID();
-  const attachments = await saveFiles(files, `schools/${schoolId}/homework/${id}`);
+  const folder = `schools/${schoolId}/homework/${id}`;
+  const uploaded = await saveFiles(files, folder);
+  const written = [];
+  let attachments;
+  try {
+    attachments = [...uploaded, ...(await copyStaged(user.user_id, staged, folder, { headFile, copyFile, fileUrl }, written))];
+  } catch (e) { await removeFiles([...uploaded, ...written]); throw e; }
   const { error } = await db.from('assignments').insert({
     id, school_id: schoolId, class_id: b.class_id, created_by: user.user_id, title, description: description || null,
     subject: String(b.subject || '').trim().slice(0, 60) || null, due_date: due, needs_submission: needs, attachments,
   });
   if (error) { await removeFiles(attachments); check(error); }
   notifyHomework(schoolId, user, { class_id: b.class_id, title, subject: String(b.subject || '').trim().slice(0, 60), needs, due });
-  return { id };
+  return { id, files: attachments.length };
 }
 
 export async function deleteAssignment(user, schoolId, id) {

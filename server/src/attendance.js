@@ -23,7 +23,8 @@ const TEACHER_ROLES = ['staff', 'other'];
 // ---------------------------------------------------------------- dates
 export const todayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: cfg.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 export function validDate(d, what = 'Date') {
-  if (!DATE.test(d || '') || new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) !== d) throw httpError(400, `${what} is not a valid date`);
+  const t = new Date(`${d}T00:00:00Z`); // an impossible date such as 2026-13-40 is an Invalid Date: toISOString() would throw (a 500), so check first
+  if (!DATE.test(d || '') || Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== d) throw httpError(400, `${what} is not a valid date`);
   return d;
 }
 export const addDays = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };

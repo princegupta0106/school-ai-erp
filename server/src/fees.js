@@ -9,10 +9,14 @@
 //   accountSummary(...)                                 just the totals (for lists)
 //   structureView / saveItem / deleteItem / copyStructure   the fee structure
 //   recordPayment / cancelPayment / addAdjustment / voidAdjustment
+//   pendingStudents(school, opts)                       who owes what, school-wide (class, parents, due till date) - feeInsights.js does the sums
+//   listPayments(school, filters)                       receipts of a period / student, with totals by mode and class
+//   studentContacts(school, studentId)                  a student's parents (names + phones)
 import { db, httpError, check } from './db.js';
 import { todayStr, validDate } from './attendance.js';
 import { notifyFee } from './notify.js';
 import { buildLedger, allocate, toPaise, toRupees, FREQUENCIES, FREQUENCY_KEYS, describeItem } from './feeLedger.js';
+import { assemblePending, publicRow, mergeContacts, periodRange, summarizePayments } from './feeInsights.js';
 
 export const MODES = ['cash', 'upi', 'cheque', 'bank_transfer', 'card', 'other'];
 const MAX_MONEY = 10_000_000; // Rs. 1 crore per entry: catches a typo like an extra zero
@@ -88,7 +92,7 @@ export async function loadStudent(school, studentId) {
   };
 }
 
-export async function searchStudents(school, { q, classId }) {
+export async function searchStudents(school, { q, classId, limit = 50 }) {
   const rows = await fetchAll(() => {
     let b = db.from('profiles')
       .select('user_id,full_name,roll_no,admission_no,class_id,extra,classes(name,section,level),users!inner(login_id,is_active,role)')
@@ -101,7 +105,7 @@ export async function searchStudents(school, { q, classId }) {
     .map((p) => { const c = one(p.classes); return { student_id: p.user_id, full_name: p.full_name || one(p.users).login_id, login_id: one(p.users).login_id, roll_no: p.roll_no, admission_no: p.admission_no, class_label: c ? clsLabel(c.name, c.section) : 'No class', level: c?.level ?? 1e9 }; })
     .filter((s) => !needle || `${s.full_name} ${s.login_id} ${s.admission_no ?? ''} ${s.roll_no ?? ''}`.toLowerCase().includes(needle))
     .sort((a, b) => a.level - b.level || a.class_label.localeCompare(b.class_label, undefined, { numeric: true }) || (a.roll_no ?? 1e9) - (b.roll_no ?? 1e9) || a.full_name.localeCompare(b.full_name))
-    .slice(0, 50).map(({ level, ...s }) => s);
+    .slice(0, Math.min(Math.max(Number(limit) || 50, 1), 3000)).map(({ level, ...s }) => s);
 }
 
 // ---------------------------------------------------------------- the student's fee record for a session
@@ -291,6 +295,142 @@ export async function voidAdjustment(school, user, adjustmentId, reason) {
   const { error: e2 } = await db.from('fee_adjustments').update({ voided_at: new Date().toISOString(), voided_by: user.user_id, void_reason: why }).eq('id', adj.id).is('voided_at', null);
   check(e2);
   return { student_id: adj.student_id, session_id: adj.session_id };
+}
+
+// ---------------------------------------------------------------- parents
+// student id -> [{name, phone, login_id}] : the parent ACCOUNTS linked to each student
+async function linkedParents(school, studentIds) {
+  const out = new Map();
+  const ids = [...new Set(studentIds.filter(Boolean))];
+  const links = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('parent_students').select('parent_id,student_id').eq('school_id', school).in('student_id', ids.slice(i, i + 200));
+    check(error);
+    links.push(...data);
+  }
+  const people = new Map();
+  const pids = [...new Set(links.map((l) => l.parent_id))];
+  for (let i = 0; i < pids.length; i += 200) {
+    const { data, error } = await db.from('profiles').select('user_id,full_name,phone,users(login_id)').in('user_id', pids.slice(i, i + 200));
+    check(error);
+    data.forEach((p) => people.set(p.user_id, { name: p.full_name || one(p.users)?.login_id || null, phone: p.phone || null, login_id: one(p.users)?.login_id || null }));
+  }
+  for (const l of links) {
+    const p = people.get(l.parent_id);
+    if (!p) continue;
+    if (!out.has(l.student_id)) out.set(l.student_id, []);
+    out.get(l.student_id).push(p);
+  }
+  return out;
+}
+
+export async function studentContacts(school, studentId) {
+  const [prof, linked] = await Promise.all([
+    db.from('profiles').select('father_name,mother_name,father_phone,mother_phone').eq('user_id', studentId).eq('school_id', school).maybeSingle(),
+    linkedParents(school, [studentId]),
+  ]);
+  check(prof.error);
+  return mergeContacts(linked.get(studentId) || [], prof.data || {});
+}
+
+// ---------------------------------------------------------------- who owes what (school-wide)
+const STUDENT_COLS = 'user_id,full_name,roll_no,admission_no,class_id,father_name,mother_name,father_phone,mother_phone,extra,classes(name,section,level),users!inner(login_id,is_active,role)';
+const studentRow = (p) => {
+  const c = one(p.classes), u = one(p.users);
+  return {
+    student_id: p.user_id, full_name: p.full_name || u.login_id, login_id: u.login_id, roll_no: p.roll_no, admission_no: p.admission_no,
+    class_id: p.class_id, class_name: c?.name || null, class_label: c ? clsLabel(c.name, c.section) : null, level: c?.level ?? null,
+    father_name: p.father_name, mother_name: p.mother_name, father_phone: p.father_phone, mother_phone: p.mother_phone,
+  };
+};
+const all = (table, cols, school, sessionId, extra) => fetchAll(() => {
+  let b = db.from(table).select(cols).eq('school_id', school).eq('session_id', sessionId).order('id');
+  if (extra) b = extra(b);
+  return b;
+});
+
+// opts: {sessionId, classId, className, minPending, dueNow, q, sort, limit}.  Reads only: no fee record is created for anyone.
+export async function pendingStudents(school, opts = {}) {
+  const session = await resolveSession(school, opts.sessionId);
+  const today = todayStr();
+  const [accounts, items, adjustments, payments] = await Promise.all([
+    all('student_fee_accounts', 'id,student_id,class_id,class_name', school, session.id),
+    all('fee_items', 'id,class_name,name,amount,frequency,sort_order,created_at', school, session.id),
+    all('fee_adjustments', 'account_id,item_id,amount,reason,applied_on', school, session.id, (b) => b.is('voided_at', null)),
+    all('fee_payments', 'account_id,amount,status', school, session.id, (b) => b.eq('status', 'received')),
+  ]);
+
+  let profiles;
+  if (session.is_current) {
+    // everyone studying now (graduated students' old dues live in their older session's fee record)
+    profiles = (await fetchAll(() => db.from('profiles').select(STUDENT_COLS).eq('school_id', school).eq('users.role', 'student').eq('users.is_active', true).order('user_id')))
+      .filter((p) => p.extra?.graduated !== true);
+  } else {
+    // an older session: only students who have a fee record in it
+    profiles = [];
+    const ids = [...new Set(accounts.map((a) => a.student_id))];
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await db.from('profiles').select(STUDENT_COLS).eq('school_id', school).eq('users.role', 'student').in('user_id', ids.slice(i, i + 200));
+      check(error);
+      profiles.push(...data);
+    }
+  }
+
+  const { summary, rows } = assemblePending({
+    session, today, students: profiles.map(studentRow), accounts, items, adjustments, payments,
+    filters: { classId: opts.classId, className: opts.className, minPending: opts.minPending, dueNow: opts.dueNow, q: opts.q, sort: opts.sort },
+  });
+  const limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 5000);
+  const shown = rows.slice(0, limit);
+  const linked = await linkedParents(school, shown.map((r) => r.student_id));
+  return {
+    summary, shown: shown.length, truncated: rows.length > shown.length,
+    rows: shown.map((r) => ({ ...publicRow(r), contacts: mergeContacts(linked.get(r.student_id) || [], r._student) })),
+  };
+}
+
+// ---------------------------------------------------------------- receipts of a period / a student
+// f: {from, to, period, mode, status ('received'|'cancelled'|'all'), studentId, receiptNo, className, limit}
+export async function listPayments(school, f = {}) {
+  const today = todayStr();
+  let from = f.from ? validDate(f.from, 'From date') : null;
+  let to = f.to ? validDate(f.to, 'To date') : null;
+  if (f.period) {
+    const r = periodRange(f.period, today);
+    if (!r) throw httpError(400, 'Unknown period');
+    ({ from, to } = r);
+  }
+  if (!from && !to && !f.studentId && !f.receiptNo) from = to = today; // never an unbounded dump by accident
+  if (from && to && from > to) throw httpError(400, 'The "from" date is after the "to" date');
+  if (f.mode && !MODES.includes(f.mode)) throw httpError(400, `Payment mode must be one of: ${MODES.join(', ')}`);
+  const status = ['received', 'cancelled'].includes(f.status) ? f.status : null;
+
+  const rows = await fetchAll(() => {
+    let b = db.from('fee_payments')
+      .select('id,receipt_no,receipt_seq,student_id,session_id,amount,paid_on,mode,reference,class_label,status,cancel_reason,received_by')
+      .eq('school_id', school).order('paid_on', { ascending: false }).order('receipt_seq', { ascending: false });
+    if (from) b = b.gte('paid_on', from);
+    if (to) b = b.lte('paid_on', to);
+    if (f.mode) b = b.eq('mode', f.mode);
+    if (status) b = b.eq('status', status);
+    if (f.studentId) b = b.eq('student_id', f.studentId);
+    if (f.receiptNo) b = b.eq('receipt_no', String(f.receiptNo).trim().toUpperCase());
+    return b;
+  });
+  const want = String(f.className || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const kept = want ? rows.filter((p) => { const l = String(p.class_label || '').toLowerCase(); return l === want || l.startsWith(`${want} `); }) : rows;
+
+  const limit = Math.min(Math.max(Number(f.limit) || 50, 1), 5000);
+  const shown = kept.slice(0, limit);
+  const names = await namesOf([...shown.map((p) => p.student_id), ...shown.map((p) => p.received_by)]);
+  return {
+    from, to, summary: summarizePayments(kept), shown: shown.length, truncated: kept.length > shown.length,
+    rows: shown.map((p) => ({
+      id: p.id, receipt_no: p.receipt_no, student_id: p.student_id, student_name: names.get(p.student_id) || null, class_label: p.class_label,
+      amount: Number(p.amount), paid_on: p.paid_on, mode: p.mode, reference: p.reference, status: p.status, cancel_reason: p.cancel_reason,
+      received_by: names.get(p.received_by) || null,
+    })),
+  };
 }
 
 // ---------------------------------------------------------------- fee structure

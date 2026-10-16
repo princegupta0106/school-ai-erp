@@ -2,7 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Switch, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../api';
+import { downloadAndShare } from '../download';
+import { shareDocumentPdf } from '../docPrint';
 import { C } from '../theme';
 import { Icon } from '../icons';
 
@@ -16,13 +19,63 @@ const SUGGEST = [
   { text: 'Create a student in class 5 A', need: 'create_user' },
   { text: 'Turn off an account', need: 'edit_user' },
   { text: 'Reset a password', need: 'reset_pass' },
+  { text: 'Give homework to a class', need: 'manage_homework' },
+  { text: 'Who has not submitted my homework?', need: 'manage_homework' },
+  { text: 'Enter marks of a test', need: 'manage_assessments' },
+  { text: 'Who are the toppers of class 5 A?', need: 'view_academic_reports' },
+  { text: 'How did my child do in the exams?', need: 'view_my_academics' },
+  { text: 'Download the pending fees list', need: 'view_student_fees' },
+  { text: 'Give me a fee receipt', need: 'view_student_fees' },
+  { text: 'Download my child’s fee receipt', need: 'view_my_fees' },
+  { text: 'Show my documents', need: 'view_my_documents' },
+  { text: 'Post a notice for class 5 A', need: 'post_announcement' },
+  { text: 'Any new messages?', need: 'use_messages' },
+  { text: 'Send a notification to all parents', need: 'send_school_notification' },
+  { text: 'What notices are on the board?', need: 'view_announcements' },
 ];
+// files a teacher may attach to homework from the chat (same limits as the Homework screen)
+const MAX_FILES = 5, MAX_BYTES = 10 * 1024 * 1024;
+const MIME = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', txt: 'text/plain', doc: 'application/msword', xls: 'application/vnd.ms-excel', ppt: 'application/vnd.ms-powerpoint',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
+const mimeOf = (a) => (a.mimeType && a.mimeType !== 'application/octet-stream' ? a.mimeType : MIME[(a.name.split('.').pop() || '').toLowerCase()] || 'application/octet-stream');
+const sizeOf = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const AUTO_KEY = 'ai_auto_confirm';
 
 // **bold** only
 const Rich = ({ text, style }) => (
   <Text style={style}>{String(text ?? '').split(/\*\*(.+?)\*\*/g).map((p, i) => (i % 2 ? <Text key={i} style={{ fontWeight: '800' }}>{p}</Text> : p))}</Text>
 );
+
+// A file the assistant found or made: receipts, fee statements, fee reports (PDF / CSV) and issued certificates.
+// It is fetched with the person's own sign-in and opens the phone's share / save sheet.
+function FileCard({ d }) {
+  const [st, setSt] = useState({ busy: false, err: '', done: false });
+  const go = async () => {
+    setSt({ busy: true, err: '', done: false });
+    try {
+      if (d.kind === 'document') {
+        const row = await api.get(d.path);
+        if (!row.content) throw new Error('This document was cancelled and can no longer be downloaded.');
+        await shareDocumentPdf(row.content, { cancelled: row.status === 'cancelled' });
+      } else await downloadAndShare(d.path, d.filename, d.format === 'CSV' ? 'text/csv' : 'application/pdf');
+      setSt({ busy: false, err: '', done: true });
+    } catch (e) { setSt({ busy: false, err: e.message, done: false }); }
+  };
+  return (
+    <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderLeftWidth: 4, borderLeftColor: C.brand, borderRadius: 12, padding: 10 }}>
+      <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.brand, fontWeight: '800', fontSize: 12 }}>{d.format === 'CSV' ? 'CSV' : 'PDF'}</Text></View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: C.ink, fontWeight: '800' }}>{d.label}</Text>
+        {!!d.sub && <Text style={{ color: C.mute, fontSize: 12 }}>{d.sub}</Text>}
+        {!!st.err && <Text style={{ color: C.bad, fontSize: 12 }}>{st.err}</Text>}
+        {st.done && !st.err && <Text style={{ color: C.ok, fontSize: 12 }}>✓ Ready: choose Save or Share on the sheet that opened</Text>}
+      </View>
+      <Pressable disabled={st.busy} onPress={go} style={{ backgroundColor: C.brand, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, minWidth: 84, alignItems: 'center', opacity: st.busy ? 0.6 : 1 }}>
+        {st.busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>⬇ Download</Text>}
+      </Pressable>
+    </View>
+  );
+}
 
 function ActionCard({ a, busy, onDecide }) {
   const border = a.status === 'done' ? C.ok : a.status === 'failed' ? C.bad : a.status === 'cancelled' ? C.line : C.brand;
@@ -39,6 +92,7 @@ function ActionCard({ a, busy, onDecide }) {
       )}
       {a.status === 'running' && <Text style={{ marginTop: 8, color: C.mute }}>Saving…</Text>}
       {a.status === 'done' && <Text style={{ marginTop: 8, color: C.ok, fontWeight: '700' }}>✓ {a.message || 'Done'}</Text>}
+      {a.status === 'done' && (a.downloads || []).length > 0 && <View style={{ gap: 8, marginTop: 10 }}>{a.downloads.map((d) => <FileCard key={d.id || d.path} d={d} />)}</View>}
       {a.status === 'failed' && <Text style={{ marginTop: 8, color: C.bad }}>{a.message || 'Failed'}</Text>}
       {a.status === 'cancelled' && <Text style={{ marginTop: 8, color: C.mute }}>Cancelled</Text>}
     </View>
@@ -51,17 +105,40 @@ export default function Assistant({ me, onClose }) {
   const [busy, setBusy] = useState(false);
   const [conv, setConv] = useState(null);
   const [auto, setAuto] = useState(false);
+  const [files, setFiles] = useState([]);      // chosen, not sent yet (uploaded when the message is sent)
+  const canAttach = (me.features || []).includes('manage_homework');
   const scroll = useRef(null);
   useEffect(() => { AsyncStorage.getItem(AUTO_KEY).then((v) => setAuto(v === '1')).catch(() => {}); }, []);
   useEffect(() => { const t = setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 60); return () => clearTimeout(t); }, [items, busy]);
 
+  const attach = async () => {
+    try {
+      const r = await DocumentPicker.getDocumentAsync({ type: Object.values(MIME), multiple: true, copyToCacheDirectory: true });
+      if (r.canceled) return;
+      const got = r.assets.map((a) => ({ uri: a.uri, name: a.name, size: a.size || 0, type: mimeOf(a) }));
+      const big = got.filter((f) => f.size > MAX_BYTES);
+      if (big.length) Alert.alert('File too big', `${big.map((f) => f.name).join(', ')}: each file must be under 10 MB.`);
+      const ok = got.filter((f) => f.size <= MAX_BYTES && !files.some((x) => x.name === f.name && x.size === f.size));
+      if (files.length + ok.length > MAX_FILES) Alert.alert('Too many files', `Up to ${MAX_FILES} files at a time.`);
+      setFiles([...files, ...ok].slice(0, MAX_FILES));
+    } catch (e) { Alert.alert('Could not pick a file', e.message); }
+  };
+
   const send = async (t) => {
     const message = (t ?? text).trim();
-    if (!message || busy) return;
+    const sending = t === undefined ? files : [];
+    if ((!message && !sending.length) || busy) return;
     setText(''); setBusy(true);
-    setItems((x) => [...x.filter((i) => i.k !== 'choices'), { k: 'u', text: message }]);
     try {
-      const r = await api.post('/ai/chat', { message, conversation_id: conv, auto_confirm: auto });
+      let attachments;
+      if (sending.length) {                    // the files wait in a temporary folder until the homework is confirmed
+        const fd = new FormData();
+        sending.forEach((f) => fd.append('files', { uri: f.uri, name: f.name, type: f.type }));
+        attachments = (await api.post('/homework/chat-files', fd)).files;
+      }
+      setFiles([]);
+      setItems((x) => [...x.filter((i) => i.k !== 'choices'), { k: 'u', text: message, files: sending.map((f) => f.name) }]);
+      const r = await api.post('/ai/chat', { message, conversation_id: conv, auto_confirm: auto, ...(attachments ? { attachments } : {}) });
       setConv(r.conversation_id);
       const cards = r.actions || [];
       const missing = !cards.length && /check the card|press confirm/i.test(r.reply || '');
@@ -69,8 +146,12 @@ export default function Assistant({ me, onClose }) {
         ...(r.reply && !missing ? [{ k: 'a', text: r.reply }] : []),
         ...(missing ? [{ k: 'e', text: 'The confirm card did not arrive. Please send your request again.' }] : []),
         ...cards.map((a) => ({ k: 'card', a })),
+        ...((r.downloads || []).length ? [{ k: 'files', list: r.downloads }] : []),
         ...(r.choices?.length ? [{ k: 'choices', options: r.choices }] : [])]);
-    } catch (e) { setItems((x) => [...x, { k: 'e', text: e.message }]); } finally { setBusy(false); }
+    } catch (e) {
+      setText((cur) => cur || message);        // keep what they typed (and the files, if the upload itself failed)
+      setItems((x) => [...x, { k: 'e', text: e.message }]);
+    } finally { setBusy(false); }
   };
 
   const decide = async (what, a) => {
@@ -88,7 +169,7 @@ export default function Assistant({ me, onClose }) {
     if (!on) return apply();
     Alert.alert('Turn on auto-confirm?', 'Changes (users, passwords, roles, deletions) will be saved immediately without asking.', [{ text: 'No', style: 'cancel' }, { text: 'Turn on', style: 'destructive', onPress: apply }]);
   };
-  const reset = () => { setConv(null); setItems([]); };
+  const reset = () => { setConv(null); setItems([]); setFiles([]); };
   const chips = SUGGEST.filter((s) => (me.features || []).includes(s.need)).slice(0, 4);
   const first = (me.profile?.full_name || '').split(' ')[0];
 
@@ -110,18 +191,21 @@ export default function Assistant({ me, onClose }) {
           <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 10 }} keyboardShouldPersistTaps="handled">
             {!items.length && (
               <View style={bubble(false)}>
-                <Text style={{ color: C.ink }}>Hi{first ? ` ${first}` : ''}! Tell me what to do in the Users module, for example:</Text>
-                <Text style={{ color: C.mute, fontSize: 13, marginTop: 6, lineHeight: 20 }}>• How many teachers do we have?{'\n'}• Create a student Rahul Sharma in class 5 A{'\n'}• Turn off the account of Ravi Kumar{'\n'}• Reset password of a teacher</Text>
+                <Text style={{ color: C.ink }}>Hi{first ? ` ${first}` : ''}! {canAttach ? 'Tell me what to do, for example:' : 'Tell me what to do in the Users module, for example:'}</Text>
+                <Text style={{ color: C.mute, fontSize: 13, marginTop: 6, lineHeight: 20 }}>{canAttach
+                  ? '• Homework for 5 A maths, exercise 3.2, last date Friday (tap the paperclip to attach the worksheet)\n• Who has not submitted the English homework?\n• Give Rahul 8/10 on the fractions worksheet'
+                  : '• How many teachers do we have?\n• Create a student Rahul Sharma in class 5 A\n• Turn off the account of Ravi Kumar\n• Reset password of a teacher'}</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                   {chips.map((c) => <Pressable key={c.text} onPress={() => send(c.text)} style={chip}><Text style={{ color: C.brand, fontWeight: '600', fontSize: 13 }}>{c.text}</Text></Pressable>)}
                 </View>
               </View>
             )}
             {items.map((i, n) => {
-              if (i.k === 'u') return <View key={n} style={bubble(true)}><Text style={{ color: '#fff' }}>{i.text}</Text></View>;
+              if (i.k === 'u') return <View key={n} style={bubble(true)}>{!!i.text && <Text style={{ color: '#fff' }}>{i.text}</Text>}{(i.files || []).map((f, k) => <Text key={k} style={{ color: '#e2f1e8', fontSize: 13, marginTop: 3 }} numberOfLines={1}>📎 {f}</Text>)}</View>;
               if (i.k === 'a') return <View key={n} style={bubble(false)}><Rich text={i.text} style={{ color: C.ink }} /></View>;
               if (i.k === 'e') return <View key={n} style={{ ...bubble(false), backgroundColor: '#fdecea', borderColor: '#f5c6c2' }}><Text style={{ color: C.bad }}>{i.text}</Text></View>;
               if (i.k === 'card') return <ActionCard key={n} a={i.a} busy={busy} onDecide={decide} />;
+              if (i.k === 'files') return <View key={n} style={{ gap: 8, alignSelf: 'stretch' }}>{i.list.map((d) => <FileCard key={d.id || d.path} d={d} />)}</View>;
               return (
                 <View key={n} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {i.options.map((o) => <Pressable key={o} disabled={busy} onPress={() => send(o)} style={chip}><Text style={{ color: C.brand, fontWeight: '600' }}>{o}</Text></Pressable>)}
@@ -137,10 +221,21 @@ export default function Assistant({ me, onClose }) {
             {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ActivityIndicator size="small" color={C.brand} /><Text style={{ color: C.mute }}>Thinking…</Text></View>}
           </ScrollView>
           <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#fff', borderTopWidth: 1, borderColor: C.line }}>
+            {files.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10, paddingTop: 8 }}>
+                {files.map((f, i) => (
+                  <View key={`${f.name}${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%', backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 999, paddingLeft: 10, paddingRight: 6, paddingVertical: 4 }}>
+                    <Icon name="paperclip" size={13} color={C.mute} />
+                    <Text style={{ color: C.ink, fontSize: 13, flexShrink: 1 }} numberOfLines={1}>{f.name} <Text style={{ color: C.mute, fontSize: 11 }}>{sizeOf(f.size)}</Text></Text>
+                    <Pressable disabled={busy} hitSlop={8} onPress={() => setFiles(files.filter((_, j) => j !== i))}><Icon name="x" size={14} color={C.bad} /></Pressable>
+                  </View>))}
+              </View>
+            )}
             <View style={{ flexDirection: 'row', gap: 8, padding: 10 }}>
-              <TextInput value={text} onChangeText={setText} placeholder="Type a command…" placeholderTextColor="#9aa5b1" maxLength={2000} onSubmitEditing={() => send()} returnKeyType="send"
+              {canAttach && <Pressable disabled={busy || files.length >= MAX_FILES} onPress={attach} accessibilityLabel="Attach files" style={{ borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', opacity: busy || files.length >= MAX_FILES ? 0.5 : 1 }}><Icon name="paperclip" size={19} color={C.brand} /></Pressable>}
+              <TextInput value={text} onChangeText={setText} placeholder={files.length ? 'Which class is this for?' : 'Type a command…'} placeholderTextColor="#9aa5b1" maxLength={2000} onSubmitEditing={() => send()} returnKeyType="send"
                 style={{ flex: 1, borderWidth: 1, borderColor: C.line, backgroundColor: C.bg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: C.ink }} />
-              <Pressable disabled={busy || !text.trim()} onPress={() => send()} style={{ backgroundColor: C.brand, borderRadius: 12, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', opacity: busy || !text.trim() ? 0.5 : 1 }}><Icon name="send" size={19} color="#fff" /></Pressable>
+              <Pressable disabled={busy || (!text.trim() && !files.length)} onPress={() => send()} style={{ backgroundColor: C.brand, borderRadius: 12, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', opacity: busy || (!text.trim() && !files.length) ? 0.5 : 1 }}><Icon name="send" size={19} color="#fff" /></Pressable>
             </View>
           </SafeAreaView>
         </KeyboardAvoidingView>

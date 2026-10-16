@@ -23,6 +23,7 @@ import homeworkRoutes from './routes/homework.js';
 import notificationRoutes from './routes/notifications.js';
 import aiRoutes from './routes/ai.js';
 import { auditMiddleware } from './audit.js';
+import { sweepStaging } from './homework.js';
 
 const app = express();
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
@@ -72,4 +73,10 @@ app.use((err, req, res, next) => {
 });
 
 await seedSuperAdmin();
+// Files attached in the AI chat that nobody turned into homework are removed after a day (needs R2; never stops the server).
+if (cfg.r2.accountId && cfg.r2.bucket) {
+  const sweep = () => sweepStaging().then((n) => n && console.log(`Removed ${n} unused chat file(s)`)).catch((e) => console.warn('Chat-file cleanup skipped:', e.message));
+  setTimeout(sweep, 60 * 1000).unref();
+  setInterval(sweep, 6 * 60 * 60 * 1000).unref();
+}
 app.listen(cfg.port, () => console.log(`School portal running on http://localhost:${cfg.port}`));

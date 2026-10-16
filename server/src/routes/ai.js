@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { asyncH, httpError } from '../db.js';
 import { requireFeature } from '../auth.js';
 import { cfg } from '../config.js';
+import { parseStagedRef, MAX_FILES } from '../stagedFiles.js';
 
 const r = Router();
 const limiter = rateLimit({
@@ -13,6 +14,22 @@ const limiter = rateLimit({
   keyGenerator: (req) => req.user?.user_id || req.ip,
   message: { error: 'Too many messages, wait a minute.' },
 });
+
+// Download cards (receipts, statements, fee reports, issued documents): the app fetches `path` with the person's own sign-in,
+// so only these portal GET routes may ever appear in a card, whatever the AI service sends.
+const ID = '[0-9a-fA-F-]{36}';
+const DL_PATH = new RegExp(`^/(fees/(payments/${ID}/receipt|students/${ID}/statement|my/${ID}/statement|pending/download|payments/download)|documents/issued/${ID})(\\?[A-Za-z0-9_=&%.+:~-]*)?$`);
+export const cleanDownloads = (list) => (Array.isArray(list) ? list : []).slice(0, 8).filter((d) => d && typeof d.path === 'string' && DL_PATH.test(d.path)).map((d) => ({
+  id: String(d.id || '').slice(0, 64), kind: d.kind === 'document' ? 'document' : 'file', label: String(d.label || 'File').slice(0, 120), sub: String(d.sub || '').slice(0, 160),
+  path: d.path, filename: String(d.filename || 'file').replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 90), format: String(d.format || 'PDF').toUpperCase().slice(0, 5), cancelled: !!d.cancelled,
+}));
+export const cleanReply = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  if ('downloads' in data) data.downloads = cleanDownloads(data.downloads);
+  if (Array.isArray(data.actions)) data.actions.forEach((a) => { if (a) a.downloads = cleanDownloads(a.downloads); });
+  if (data.action) data.action.downloads = cleanDownloads(data.action.downloads);
+  return data;
+};
 
 async function forward(method, path, req, body) {
   let res;
@@ -35,10 +52,17 @@ r.get('/status', requireFeature('use_assistant'), asyncH(async (req, res) => {
   catch (e) { res.json({ enabled: false, error: e.message }); }
 }));
 
+// files attached in the chat: keep only the ones in this person's own staging folder (and only the fields the assistant needs)
+const cleanAttachments = (req) => (Array.isArray(req.body?.attachments) ? req.body.attachments : []).slice(0, MAX_FILES).map((a) => {
+  const ref = parseStagedRef(req.user.user_id, a);
+  return ref ? { id: ref.id, key: ref.key, name: ref.name, size: Number(a.size) || 0, type: String(a.type || '').slice(0, 100) } : null;
+}).filter(Boolean);
+
 for (const p of ['chat', 'confirm', 'cancel']) {
   r.post(`/${p}`, requireFeature('use_assistant'), limiter, asyncH(async (req, res) => {
-    const { status, data } = await forward('POST', p, req, req.body);
-    res.status(status).json(data);
+    const body = p === 'chat' ? { ...req.body, attachments: cleanAttachments(req) } : req.body;
+    const { status, data } = await forward('POST', p, req, body);
+    res.status(status).json(cleanReply(data));
   }));
 }
 

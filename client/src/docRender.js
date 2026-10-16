@@ -429,3 +429,24 @@ export function printHTML(html) {
   f.srcdoc = html;
   document.body.appendChild(f);
 }
+
+// Real PDF download (no print dialog): the page is drawn in a hidden frame at its true size, photographed and placed on one A4 sheet.
+export async function downloadPdf(content, opts = {}, filename = 'document.pdf') {
+  const land = content?.orientation === 'landscape';
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+  const f = document.createElement('iframe');
+  f.setAttribute('sandbox', 'allow-same-origin');
+  f.style.cssText = `position:fixed;left:-10000px;top:0;width:${land ? 1123 : 794}px;height:${land ? 794 : 1123}px;border:0`;
+  document.body.appendChild(f);
+  try {
+    await new Promise((res, rej) => { f.onload = res; f.onerror = rej; f.srcdoc = buildHTML(content, opts).replace('</head>', '<style>@media screen{body{background:#fff!important}}</style></head>'); });
+    const d = f.contentDocument;
+    await Promise.race([d.fonts?.ready, wait(2500)]);
+    await Promise.race([Promise.all([...d.images].map((i) => (i.complete ? 1 : new Promise((r) => { i.onload = i.onerror = r; })))), wait(4000)]);
+    const page = d.querySelector('.page') || d.body;
+    const canvas = await html2canvas(page, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: land ? 1123 : 794 });
+    const pdf = new jsPDF({ orientation: land ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, land ? 297 : 210, land ? 210 : 297);
+    pdf.save(filename);
+  } finally { f.remove(); }
+}

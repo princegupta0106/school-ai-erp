@@ -108,9 +108,16 @@ const RULES = [
   R('POST', '/fees/adjustments/:id/void', 'fees.adjustment.void', () => 'Removed a fee adjustment', { entity: 'fee_adjustment' }),
   R('POST', '/fees/payments/:id/cancel', 'fees.payment.cancel', (c) => `Cancelled a fee payment${c.body.reason ? ` - ${c.body.reason}` : ''}`, { entity: 'fee_payment' }),
   R('GET', '/fees/payments/:id/receipt', 'fees.receipt_download', () => 'Downloaded a fee receipt', { entity: 'fee_payment', kind: 'view' }),
+  R('GET', '/fees/pending', 'fees.pending_view', () => 'Viewed the pending-fees list', { kind: 'view' }),
+  R('GET', '/fees/pending/download', 'fees.pending_export', (c) => `Downloaded the pending-fees list (${String(c.q.format || '').toUpperCase()})`, { kind: 'view' }),
+  R('GET', '/fees/payments', 'fees.collection_view', () => 'Viewed fee receipts / collection', { kind: 'view' }),
+  R('GET', '/fees/payments/download', 'fees.collection_export', (c) => `Downloaded the fee collection report (${String(c.q.format || '').toUpperCase()})`, { kind: 'view' }),
+  R('GET', '/fees/students/:id/statement', 'fees.statement_download', (c) => `Downloaded the fee statement of${q(c.label) || ' a student'}`, { entity: 'user', kind: 'view' }),
+  R('GET', '/fees/my/:id/statement', 'fees.statement_download', () => 'Downloaded a fee statement', { entity: 'user', kind: 'view' }),
 
   // ---- homework
   R('POST', '/homework/assignments', 'homework.assignment.create', (c) => `Posted homework / assignment${q(nm(c))}`, { entity: 'assignment' }),
+  R('POST', '/homework/chat-files', 'homework.chat_files', () => 'Attached files to a homework in the AI chat (not posted yet)'),
   R('DELETE', '/homework/assignments/:id', 'homework.assignment.delete', () => 'Deleted homework / assignment', { entity: 'assignment' }),
   R('PATCH', '/homework/submissions/:id', 'homework.submission.check', () => 'Checked a submission', { entity: 'submission' }),
   R('POST', '/homework/my/:id/submit', 'homework.submit', () => 'Submitted an assignment', { entity: 'assignment' }),

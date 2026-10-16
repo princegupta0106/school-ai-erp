@@ -61,7 +61,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(403, {"error": "You don't have access to the assistant."})
         try:
             if p == "/api/chat":
-                out = agent.chat(token, user, body.get("conversation_id"), body.get("message"), bool(body.get("auto_confirm")))
+                out = agent.chat(token, user, body.get("conversation_id"), body.get("message"), bool(body.get("auto_confirm")), body.get("attachments"))
             elif p == "/api/confirm":
                 out = agent.confirm(token, user, body.get("action_id"), body.get("conversation_id"))
             else:
