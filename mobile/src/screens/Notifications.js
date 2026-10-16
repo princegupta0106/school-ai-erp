@@ -8,7 +8,7 @@ import { registerPush, enableLocalAlerts } from '../push';
 import { startBackgroundChecks, openBatterySettings } from '../background';
 
 const KIND_ICON = { notice: 'megaphone', message: 'chat', homework: 'file', marks: 'academics', fees: 'rupee', document: 'doc', leave: 'wallet', general: 'bell' };
-const KIND_COLOR = { notice: '#e11d48', message: '#0891b2', homework: '#c026d3', marks: '#2563eb', fees: '#059669', document: '#65a30d', leave: '#d97706', general: C.brand };
+const KIND_COLOR = { notice: '#e11d48', message: '#0891b2', homework: '#c026d3', marks: '#2563eb', fees: '#059669', document: '#65a30d', leave: '#d97706', get general() { return C.brand; } };
 
 // The inbox behind the bell: everything sent to this person, newest first. Works even when phone push is off.
 export default function Notifications({ data, reload, onClose, onOpen }) {
@@ -30,7 +30,7 @@ export default function Notifications({ data, reload, onClose, onOpen }) {
         <Btn small kind="ghost" title="Turn on phone alerts" onPress={enable} disabled={busy} />
       </View>
       {!data ? <Loading /> : items.length === 0 ? <Empty>Nothing yet. Notices, homework, marks, fees and documents will show up here.</Empty> : items.map((n) => (
-        <Pressable key={n.id} onPress={() => open(n)} style={{ flexDirection: 'row', gap: 12, backgroundColor: n.read_at ? '#fff' : C.soft, borderRadius: 14, borderWidth: 1, borderColor: n.read_at ? C.line : C.brand, padding: 12, marginBottom: 10 }}>
+        <Pressable key={n.id} onPress={() => open(n)} style={{ flexDirection: 'row', gap: 12, backgroundColor: n.read_at ? C.card : C.soft, borderRadius: 14, borderWidth: 1, borderColor: n.read_at ? C.line : C.brand, padding: 12, marginBottom: 10 }}>
           <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: `${KIND_COLOR[n.kind] || C.brand}22`, alignItems: 'center', justifyContent: 'center' }}><Icon name={KIND_ICON[n.kind] || 'bell'} size={19} color={KIND_COLOR[n.kind] || C.brand} /></View>
           <View style={{ flex: 1 }}>
             <Text style={{ color: C.ink, fontWeight: n.read_at ? '600' : '800' }} numberOfLines={2}>{n.title}</Text>

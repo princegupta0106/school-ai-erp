@@ -11,7 +11,9 @@ export const C = { ...LIGHT };
 export const SH = { shadowColor: '#14202A', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 };
 
 // styles that are built once at load must still follow the theme: wrap the factory in live() and every property read re-runs it
-export const live = (fn) => { const o = {}; for (const k of Object.keys(fn())) Object.defineProperty(o, k, { enumerable: true, get: () => fn()[k] }); return o; };
+// Object.freeze matters: React Native's dev mode (Expo Go) deep-freezes style objects by redefining their properties, which throws
+// "property is not configurable" on our getters. It skips objects that are already frozen, and frozen getters still compute live.
+export const live = (fn) => { const o = {}; for (const k of Object.keys(fn())) Object.defineProperty(o, k, { enumerable: true, get: () => fn()[k] }); return Object.freeze(o); };
 
 // mode: 'system' | 'light' | 'dark'
 export const THEME_KEY = 'theme.mode';

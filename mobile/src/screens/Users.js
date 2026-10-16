@@ -20,9 +20,9 @@ const nameOf = (u) => u.profile?.full_name || u.login_id;
 const cls = (c) => `${c.name}${c.section ? ` ${c.section}` : ''}`;
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
 const Sec = ({ children }) => <Text style={{ fontSize: 14, fontWeight: '700', color: C.ink, marginTop: 8, marginBottom: 10 }}>{children}</Text>;
-const Pill = ({ children, color = C.mute, bg = '#EFEBE2' }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
+const Pill = ({ children, color = C.mute, bg = C.muteBg }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
 const Avatar = ({ name }) => <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.brand, fontWeight: '800', fontSize: 14 }}>{initials(name)}</Text></View>;
-const StatusPill = ({ on }) => <Pill color={on ? C.ok : C.mute} bg={on ? '#dcfce7' : '#EFEBE2'}>{on ? 'Active' : 'Off'}</Pill>;
+const StatusPill = ({ on }) => <Pill color={on ? C.ok : C.mute} bg={on ? C.okBg : C.muteBg}>{on ? 'Active' : 'Off'}</Pill>;
 
 function useDebounced(v, ms = 250) {
   const [d, setD] = useState(v);

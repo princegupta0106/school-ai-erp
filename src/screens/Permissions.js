@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, AppState, Linking, Platform, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { C, SH } from '../theme';
+import { C, SH, live } from '../theme';
 import { Sheet, Btn, Dim } from '../ui';
 import { Icon } from '../icons';
 import { registerPush, enableLocalAlerts } from '../push';
@@ -57,6 +57,22 @@ async function readAll() {
   return out;
 }
 
+// Permissions the phone grants at install time (declared in app.json). They cannot be switched off from inside the app,
+// so they are shown for information only.
+const autoList = () => {
+  const out = [
+    { key: 'net', icon: 'upload', title: 'Internet access', why: 'Loads your school data and sends your changes to the server.' },
+    { key: 'files', icon: 'file', title: 'Files and documents', why: 'Attach, download and share PDFs and photos. The app only sees files you pick yourself; it never browses your storage.' },
+  ];
+  if (Platform.OS === 'android') out.push(
+    { key: 'vib', icon: 'bell', title: 'Vibration', why: 'Lets notifications vibrate your phone.' },
+    { key: 'wake', icon: 'bolt', title: 'Keep phone awake for a moment', why: 'Lets the background check finish while the screen is off.' },
+    { key: 'boot', icon: 'grid', title: 'Start after phone restarts', why: 'Keeps the background notification check running after a reboot.' },
+  );
+  return out;
+};
+
+const sectionH = live(() => ({ color: C.mute, fontSize: 12, fontWeight: '700', marginBottom: 8 }));
 const TONE = { ok: () => [C.ok, C.okBg, 'Allowed'], bad: () => [C.bad, C.badBg, 'Not allowed'], unknown: () => [C.warn, C.warnBg, 'Check'] };
 
 export default function Permissions({ onClose }) {
@@ -81,18 +97,20 @@ export default function Permissions({ onClose }) {
   };
 
   const allOk = rows && rows.every((r) => r.status !== 'bad');
+  const badCount = rows ? rows.filter((r) => r.status === 'bad').length : 0;
   return (
     <Sheet title="App permissions" onClose={onClose}>
       {!rows ? <ActivityIndicator color={C.brand} style={{ marginTop: 30 }} /> : (<>
         <View style={{ backgroundColor: allOk ? C.okBg : C.warnBg, borderRadius: 14, padding: 14, marginBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Icon name={allOk ? 'check' : 'shield'} size={24} color={allOk ? C.ok : C.warn} />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: C.ink, fontWeight: '800', fontSize: 15 }}>{allOk ? 'All set' : `${missing.length || rows.filter((r) => r.status === 'bad').length} permission${(missing.length || 1) === 1 ? '' : 's'} missing`}</Text>
-            <Dim>{allOk ? 'Everything the app needs is allowed on this phone.' : 'Allow these so you do not miss school updates.'}</Dim>
+            <Text style={{ color: C.ink, fontWeight: '800', fontSize: 15 }}>{allOk ? 'All set' : `${badCount} permission${badCount === 1 ? '' : 's'} missing`}</Text>
+            <Dim>{allOk ? (rows.some((r) => r.status === 'unknown') ? 'Everything we can check is allowed. Please review the item marked Check.' : 'Everything the app needs is allowed on this phone.') : 'Allow these so you do not miss school updates.'}</Dim>
           </View>
         </View>
         {missing.length > 0 && <View style={{ marginBottom: 14 }}><Btn title={busy ? 'Working…' : 'Allow all missing permissions'} disabled={busy} onPress={grantAll} /></View>}
         {!!msg && <Text style={{ color: C.warn, backgroundColor: C.warnBg, padding: 10, borderRadius: 10, marginBottom: 12 }}>{msg}</Text>}
+        <Text style={sectionH}>NEEDS YOUR APPROVAL</Text>
         {rows.map((r) => {
           const [fg, bg, label] = TONE[r.status]();
           return (
@@ -107,6 +125,22 @@ export default function Permissions({ onClose }) {
             </View>
           );
         })}
+        <Text style={[sectionH, { marginTop: 8 }]}>ALLOWED AUTOMATICALLY WHEN INSTALLED</Text>
+        {autoList().map((r) => {
+          const [fg, bg] = TONE.ok();
+          return (
+            <View key={r.key} style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 14, marginBottom: 10, ...SH }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}><Icon name={r.icon} size={20} color={fg} /></View>
+                <View style={{ flex: 1 }}><Text style={{ color: C.ink, fontWeight: '700', fontSize: 15 }}>{r.title}</Text><Dim>{r.why}</Dim></View>
+                <Text style={{ color: fg, backgroundColor: bg, fontSize: 11, fontWeight: '800', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' }}>Allowed</Text>
+              </View>
+            </View>
+          );
+        })}
+        <View style={{ backgroundColor: C.muteBg, borderRadius: 12, padding: 12, marginTop: 4 }}>
+          <Text style={{ color: C.mute, fontSize: 12 }}>This app does not use your camera, microphone, location, contacts, SMS or call history, and never asks for them.</Text>
+        </View>
         <Pressable onPress={openSettings} style={{ alignSelf: 'center', paddingVertical: 12 }}><Text style={{ color: C.brand, fontWeight: '700' }}>Open phone settings for this app</Text></Pressable>
       </>)}
     </Sheet>

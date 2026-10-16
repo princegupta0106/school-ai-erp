@@ -212,11 +212,11 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
 
       <Modal visible={more} transparent animationType="slide" onRequestClose={() => setMore(false)}>
         <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' }} onPress={() => setMore(false)}>
-          <Pressable style={{ backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 30 }} onPress={() => {}}>
+          <Pressable style={{ backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 30, maxHeight: winH * 0.94 }} onPress={() => {}}>
             <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: C.line, marginBottom: 12 }} />
             <View style={{ marginBottom: 12 }}><Text style={{ fontWeight: '700', color: C.ink, fontSize: 16 }}>{name}</Text><Text style={{ color: C.mute }}>{ROLE_LABEL[me.role]}{me.school ? ` · ${me.school.name}` : ''}</Text></View>
             {/* shadow/fade at the top and bottom edge shows when more modules are hidden and can be scrolled to */}
-            <ScrollFade fade={C.bg} size={34} style={{ maxHeight: Math.max(220, Math.min(420, winH * 0.42)) }} showsVerticalScrollIndicator={false}><View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingBottom: 14 }}>{mods.map((m) => <Tile key={m.key} m={m} onPress={() => go(m.key)} />)}</View></ScrollFade>
+            <ScrollFade fade={C.bg} size={34} style={{ maxHeight: Math.max(160, Math.min(380, winH * 0.32)) }} showsVerticalScrollIndicator={false}><View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingBottom: 14 }}>{mods.map((m) => <Tile key={m.key} m={m} onPress={() => go(m.key)} />)}</View></ScrollFade>
             <View style={{ paddingVertical: 10 }}>
               <Text style={{ color: C.mute, fontSize: 12, fontWeight: '700', marginBottom: 8 }}>APPEARANCE</Text>
               <View style={{ flexDirection: 'row', backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 3 }}>

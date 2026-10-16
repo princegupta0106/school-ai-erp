@@ -16,7 +16,7 @@ import { shareDocumentPdf, previewHTML } from '../docPrint';
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
 const Sec = ({ children }) => <Text style={{ fontSize: 14, fontWeight: '700', color: C.ink, marginBottom: 10 }}>{children}</Text>;
 const Pill = ({ children, color = C.mute, bg = C.muteBg }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
-const CancelledPill = () => <Pill color={C.bad} bg="#fee2e2">Cancelled</Pill>;
+const CancelledPill = () => <Pill color={C.bad} bg={C.badBg}>Cancelled</Pill>;
 const typeLabel = (k) => TYPES[k]?.short || k;
 const fmtStamp = (t) => (t ? new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const HEX = /^#[0-9a-fA-F]{6}$/;

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text } from 'react-native';
 import { api, setToken, API_URL } from '../api';
 import { C } from '../theme';
 import { Icon } from '../icons';
-import { Card, Field, Input, Btn, ErrorBox, Dim } from '../ui';
+import { Card, Field, Input, Btn, ErrorBox, Dim, KeyboardSafe } from '../ui';
 
 export default function Login({ onDone }) {
   const [f, setF] = useState({ login_id: '', password: '' });
@@ -14,7 +14,7 @@ export default function Login({ onDone }) {
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: C.bg }}>
+    <KeyboardSafe style={{ justifyContent: 'center', padding: 20, backgroundColor: C.bg }}>
       <Card style={{ padding: 24, borderRadius: 22 }}>
         <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}><Icon name="school" size={24} color="#fff" /></View>
         <Text style={{ fontSize: 26, fontWeight: '700', color: C.ink, letterSpacing: -0.5, marginBottom: 4 }}>School Portal</Text>
@@ -25,6 +25,6 @@ export default function Login({ onDone }) {
         <Btn title={busy ? 'Signing in...' : 'Sign in'} onPress={go} disabled={busy || !f.login_id || !f.password} />
         <Dim style={{ marginTop: 14, fontSize: 11 }}>Server: {API_URL}</Dim>
       </Card>
-    </KeyboardAvoidingView>
+    </KeyboardSafe>
   );
 }

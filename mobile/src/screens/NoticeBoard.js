@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { api, withQs } from '../api';
-import { C, dateTime } from '../theme';
+import { C, dateTime, live } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Chips, Field, Input, Check, useRun, confirmAsk, toast } from '../ui';
 import { useApi } from '../useApi';
@@ -39,7 +39,7 @@ function NoticeForm({ me, qs, sid, edit, onClose, onSaved }) {
   );
 }
 
-const Chip = ({ children, head }) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: head ? C.soft : '#EFEBE2', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>{children}</View>;
+const Chip = ({ children, head }) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: head ? C.soft : C.muteBg, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>{children}</View>;
 
 function Notice({ n, qs, onChanged, onEdit }) {
   const [open, setOpen] = useState(false);
@@ -65,7 +65,7 @@ function Notice({ n, qs, onChanged, onEdit }) {
     </Card>
   );
 }
-const chipTxt = { color: C.mute, fontSize: 12, fontWeight: '600' };
+const chipTxt = live(() => ({ color: C.mute, fontSize: 12, fontWeight: '600' }));
 
 export default function NoticeBoard({ me }) {
   const { sid, picker, qs } = useSchoolId(me);

@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Platform, RefreshControl } from 'react-native';
 import { api } from '../api';
 import { C, initials, timeStr, dayKey, dayLabel, when } from '../theme';
 import { Icon } from '../icons';
-import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Input, Press, toast } from '../ui';
+import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Input, Press, toast, KeyboardSafe } from '../ui';
 import { useApi } from '../useApi';
 
 const base = '/communication';
@@ -66,8 +66,8 @@ function Thread({ conv, active, onBack, onActivity }) {
     catch (x) { toast(x.message, true); } finally { setBusy(false); }
   };
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: C.line }}>
+    <KeyboardSafe iosOffset={90}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: C.card, borderBottomWidth: 1, borderColor: C.line }}>
         <Pressable onPress={onBack} hitSlop={10}><Icon name="back" size={22} color={C.ink} /></Pressable>
         <Avatar name={conv.other.name} size={36} />
         <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: C.ink }} numberOfLines={1}>{conv.other.name}</Text><Dim>{conv.other.label}</Dim></View>
@@ -79,19 +79,19 @@ function Thread({ conv, active, onBack, onActivity }) {
           {msgs.length === 0 && <Empty>No messages yet. Say hello!</Empty>}
           {msgs.map((m, i) => (
             <React.Fragment key={m.id}>
-              {(i === 0 || dayKey(msgs[i - 1].created_at) !== dayKey(m.created_at)) && <Text style={{ alignSelf: 'center', color: C.mute, fontSize: 12, backgroundColor: '#E4DFD3', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginVertical: 6, overflow: 'hidden' }}>{dayLabel(m.created_at)}</Text>}
-              <View style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '82%', backgroundColor: m.mine ? C.brand : '#fff', borderRadius: 16, borderBottomRightRadius: m.mine ? 4 : 16, borderBottomLeftRadius: m.mine ? 16 : 4, paddingHorizontal: 12, paddingVertical: 8, borderWidth: m.mine ? 0 : 1, borderColor: C.line }}>
+              {(i === 0 || dayKey(msgs[i - 1].created_at) !== dayKey(m.created_at)) && <Text style={{ alignSelf: 'center', color: C.mute, fontSize: 12, backgroundColor: C.line, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginVertical: 6, overflow: 'hidden' }}>{dayLabel(m.created_at)}</Text>}
+              <View style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '82%', backgroundColor: m.mine ? C.brand : C.card, borderRadius: 16, borderBottomRightRadius: m.mine ? 4 : 16, borderBottomLeftRadius: m.mine ? 16 : 4, paddingHorizontal: 12, paddingVertical: 8, borderWidth: m.mine ? 0 : 1, borderColor: C.line }}>
                 <Text style={{ color: m.mine ? '#fff' : C.ink, fontSize: 15 }}>{m.body}</Text>
                 <Text style={{ color: m.mine ? '#ffffffb0' : C.mute, fontSize: 10, alignSelf: 'flex-end', marginTop: 2 }}>{timeStr(m.created_at)}</Text>
               </View>
             </React.Fragment>))}
         </>)}
       </ScrollView>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderColor: C.line }}>
-        <TextInput value={text} onChangeText={setText} multiline maxLength={2000} placeholder="Type a message" placeholderTextColor="#9A9A93" style={{ flex: 1, maxHeight: 110, backgroundColor: C.bg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, fontSize: 15, color: C.ink }} />
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10, backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
+        <TextInput value={text} onChangeText={setText} multiline maxLength={2000} placeholder="Type a message" placeholderTextColor={C.hint} style={{ flex: 1, maxHeight: 110, backgroundColor: C.bg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, fontSize: 15, color: C.ink }} />
         <Press onPress={send} disabled={busy || !text.trim()} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center', opacity: busy || !text.trim() ? 0.5 : 1 }}><Icon name="send" size={19} color="#fff" /></Press>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardSafe>
   );
 }
 
@@ -113,7 +113,7 @@ export default function Messages({ me, active: onScreen = true }) {
       <ErrorBox>{error}</ErrorBox>
       {!list ? (error ? null : <Loading />) : list.length === 0 ? <Empty>No chats yet. Start one with "New message".</Empty> : (
         <Card style={{ padding: 0, overflow: 'hidden' }}>{list.map((c, i) => (
-          <Pressable key={c.id} onPress={() => setChat({ id: c.id, other: c.other })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderTopWidth: i ? 1 : 0, borderColor: C.line, backgroundColor: pressed ? C.bg : '#fff' })}>
+          <Pressable key={c.id} onPress={() => setChat({ id: c.id, other: c.other })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderTopWidth: i ? 1 : 0, borderColor: C.line, backgroundColor: pressed ? C.bg : C.card })}>
             <Avatar name={c.other.name} />
             <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: C.ink }} numberOfLines={1}>{c.other.name}</Text><Dim style={{ marginTop: 1 }}>{c.last_mine ? 'You: ' : ''}{c.last_preview}</Dim></View>
             <View style={{ alignItems: 'flex-end', gap: 4 }}><Dim style={{ fontSize: 11 }}>{c.last_message_at ? when(c.last_message_at) : ''}</Dim>

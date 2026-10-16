@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Switch, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, TextInput, Modal, Platform, Switch, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -8,6 +8,7 @@ import { downloadAndShare } from '../download';
 import { shareDocumentPdf } from '../docPrint';
 import { C, SH } from '../theme';
 import { Icon } from '../icons';
+import { KeyboardSafe } from '../ui';
 
 // "Ask AI" chat (same behaviour as the web app). Reading things (counts, lists, searches) happens straight away.
 // Anything that CHANGES data shows a Confirm card first; nothing is saved until the person taps Confirm
@@ -62,7 +63,7 @@ function FileCard({ d }) {
     } catch (e) { setSt({ busy: false, err: e.message, done: false }); }
   };
   return (
-    <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, ...SH, borderLeftWidth: 4, borderLeftColor: C.brand, borderRadius: 12, padding: 10 }}>
+    <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, ...SH, borderLeftWidth: 4, borderLeftColor: C.brand, borderRadius: 12, padding: 10 }}>
       <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.brand, fontWeight: '800', fontSize: 12 }}>{d.format === 'CSV' ? 'CSV' : 'PDF'}</Text></View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: C.ink, fontWeight: '800' }}>{d.label}</Text>
@@ -80,14 +81,14 @@ function FileCard({ d }) {
 function ActionCard({ a, busy, onDecide }) {
   const border = a.status === 'done' ? C.ok : a.status === 'failed' ? C.bad : a.status === 'cancelled' ? C.line : C.brand;
   return (
-    <View style={{ alignSelf: 'stretch', backgroundColor: '#fff', borderWidth: 1, borderColor: border, borderLeftWidth: 4, borderRadius: 12, padding: 12, opacity: a.status === 'cancelled' ? 0.6 : 1 }}>
+    <View style={{ alignSelf: 'stretch', backgroundColor: C.card, borderWidth: 1, borderColor: border, borderLeftWidth: 4, borderRadius: 12, padding: 12, opacity: a.status === 'cancelled' ? 0.6 : 1 }}>
       <Text style={{ fontWeight: '800', color: C.ink, fontSize: 15, marginBottom: 4 }}>{a.title}</Text>
       {(a.lines || []).map((l, i) => <Text key={i} style={{ color: C.ink, paddingVertical: 1 }}>{l}</Text>)}
       {!!a.footer && <Text style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: C.line, fontWeight: '700', color: C.ink }}>{a.footer}</Text>}
       {a.status === 'pending' && (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
           <Pressable disabled={busy} onPress={() => onDecide('confirm', a)} style={{ backgroundColor: C.brand, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10, opacity: busy ? 0.5 : 1 }}><Text style={{ color: '#fff', fontWeight: '800' }}>Confirm</Text></Pressable>
-          <Pressable disabled={busy} onPress={() => onDecide('cancel', a)} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10, opacity: busy ? 0.5 : 1 }}><Text style={{ color: C.ink, fontWeight: '700' }}>Cancel</Text></Pressable>
+          <Pressable disabled={busy} onPress={() => onDecide('cancel', a)} style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10, opacity: busy ? 0.5 : 1 }}><Text style={{ color: C.ink, fontWeight: '700' }}>Cancel</Text></Pressable>
         </View>
       )}
       {a.status === 'running' && <Text style={{ marginTop: 8, color: C.mute }}>Saving…</Text>}
@@ -106,10 +107,13 @@ export default function Assistant({ me, onClose }) {
   const [conv, setConv] = useState(null);
   const [auto, setAuto] = useState(false);
   const [files, setFiles] = useState([]);      // chosen, not sent yet (uploaded when the message is sent)
+  const [kb, setKb] = useState(0);             // height of the keyboard covering this screen (0 = closed)
   const canAttach = (me.features || []).includes('manage_homework');
   const scroll = useRef(null);
   useEffect(() => { AsyncStorage.getItem(AUTO_KEY).then((v) => setAuto(v === '1')).catch(() => {}); }, []);
   useEffect(() => { const t = setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 60); return () => clearTimeout(t); }, [items, busy]);
+  // when the keyboard opens, keep the latest messages in view above it
+  useEffect(() => { if (!kb) return; const t = setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 80); return () => clearTimeout(t); }, [kb]);
 
   const attach = async () => {
     try {
@@ -173,11 +177,11 @@ export default function Assistant({ me, onClose }) {
   const chips = SUGGEST.filter((s) => (me.features || []).includes(s.need)).slice(0, 4);
   const first = (me.profile?.full_name || '').split(' ')[0];
 
-  const bubble = (u) => ({ maxWidth: '88%', alignSelf: u ? 'flex-end' : 'flex-start', backgroundColor: u ? C.brand : '#fff', borderWidth: u ? 0 : 1, borderColor: C.line, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9 });
-  const chip = { borderWidth: 1, borderColor: C.brand, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: '#fff' };
+  const bubble = (u) => ({ maxWidth: '88%', alignSelf: u ? 'flex-end' : 'flex-start', backgroundColor: u ? C.brand : C.card, borderWidth: u ? 0 : 1, borderColor: C.line, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9 });
+  const chip = { borderWidth: 1, borderColor: C.brand, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: C.card };
 
   return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
+    <Modal visible animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <SafeAreaView style={{ flex: 1, backgroundColor: C.brand }} edges={['top']}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.brand }}>
           <Icon name="sparkle" size={20} color="#fff" />
@@ -187,7 +191,7 @@ export default function Assistant({ me, onClose }) {
           <Pressable onPress={reset} hitSlop={10}><Text style={{ color: '#fff', fontSize: 20 }}>↺</Text></Pressable>
           <Pressable onPress={onClose} hitSlop={10}><Icon name="x" size={22} color="#fff" /></Pressable>
         </View>
-        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardSafe style={{ backgroundColor: C.bg }} onInset={setKb}>
           <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 10 }} keyboardShouldPersistTaps="handled">
             {!items.length && (
               <View style={bubble(false)}>
@@ -203,7 +207,7 @@ export default function Assistant({ me, onClose }) {
             {items.map((i, n) => {
               if (i.k === 'u') return <View key={n} style={bubble(true)}>{!!i.text && <Text style={{ color: '#fff' }}>{i.text}</Text>}{(i.files || []).map((f, k) => <Text key={k} style={{ color: '#DFEEE3', fontSize: 13, marginTop: 3 }} numberOfLines={1}>📎 {f}</Text>)}</View>;
               if (i.k === 'a') return <View key={n} style={bubble(false)}><Rich text={i.text} style={{ color: C.ink }} /></View>;
-              if (i.k === 'e') return <View key={n} style={{ ...bubble(false), backgroundColor: '#fdecea', borderColor: '#f5c6c2' }}><Text style={{ color: C.bad }}>{i.text}</Text></View>;
+              if (i.k === 'e') return <View key={n} style={{ ...bubble(false), backgroundColor: C.badBg, borderColor: C.badLine }}><Text style={{ color: C.bad }}>{i.text}</Text></View>;
               if (i.k === 'card') return <ActionCard key={n} a={i.a} busy={busy} onDecide={decide} />;
               if (i.k === 'files') return <View key={n} style={{ gap: 8, alignSelf: 'stretch' }}>{i.list.map((d) => <FileCard key={d.id || d.path} d={d} />)}</View>;
               return (
@@ -215,12 +219,12 @@ export default function Assistant({ me, onClose }) {
             {pending.length > 1 && (
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable disabled={busy} onPress={() => decideAll('confirm')} style={{ flex: 1, backgroundColor: C.brand, borderRadius: 10, paddingVertical: 11, alignItems: 'center', opacity: busy ? 0.5 : 1 }}><Text style={{ color: '#fff', fontWeight: '800' }}>Confirm all ({pending.length})</Text></Pressable>
-                <Pressable disabled={busy} onPress={() => decideAll('cancel')} style={{ flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingVertical: 11, alignItems: 'center', opacity: busy ? 0.5 : 1 }}><Text style={{ color: C.ink, fontWeight: '700' }}>Cancel all</Text></Pressable>
+                <Pressable disabled={busy} onPress={() => decideAll('cancel')} style={{ flex: 1, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingVertical: 11, alignItems: 'center', opacity: busy ? 0.5 : 1 }}><Text style={{ color: C.ink, fontWeight: '700' }}>Cancel all</Text></Pressable>
               </View>
             )}
             {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ActivityIndicator size="small" color={C.brand} /><Text style={{ color: C.mute }}>Thinking…</Text></View>}
           </ScrollView>
-          <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#fff', borderTopWidth: 1, borderColor: C.line }}>
+          <SafeAreaView edges={kb ? [] : ['bottom']} style={{ backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
             {files.length > 0 && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10, paddingTop: 8 }}>
                 {files.map((f, i) => (
@@ -232,13 +236,13 @@ export default function Assistant({ me, onClose }) {
               </View>
             )}
             <View style={{ flexDirection: 'row', gap: 8, padding: 10 }}>
-              {canAttach && <Pressable disabled={busy || files.length >= MAX_FILES} onPress={attach} accessibilityLabel="Attach files" style={{ borderWidth: 1, borderColor: C.line, ...SH, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', opacity: busy || files.length >= MAX_FILES ? 0.5 : 1 }}><Icon name="paperclip" size={19} color={C.brand} /></Pressable>}
-              <TextInput value={text} onChangeText={setText} placeholder={files.length ? 'Which class is this for?' : 'Type a command…'} placeholderTextColor="#9A9A93" maxLength={2000} onSubmitEditing={() => send()} returnKeyType="send"
+              {canAttach && <Pressable disabled={busy || files.length >= MAX_FILES} onPress={attach} accessibilityLabel="Attach files" style={{ borderWidth: 1, borderColor: C.line, ...SH, backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', opacity: busy || files.length >= MAX_FILES ? 0.5 : 1 }}><Icon name="paperclip" size={19} color={C.brand} /></Pressable>}
+              <TextInput value={text} onChangeText={setText} onFocus={() => setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 250)} placeholder={files.length ? 'Which class is this for?' : 'Type a command…'} placeholderTextColor={C.hint} maxLength={2000} onSubmitEditing={() => send()} returnKeyType="send"
                 style={{ flex: 1, borderWidth: 1, borderColor: C.line, backgroundColor: C.bg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: C.ink }} />
               <Pressable disabled={busy || (!text.trim() && !files.length)} onPress={() => send()} style={{ backgroundColor: C.brand, borderRadius: 12, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', opacity: busy || (!text.trim() && !files.length) ? 0.5 : 1 }}><Icon name="send" size={19} color="#fff" /></Pressable>
             </View>
           </SafeAreaView>
-        </KeyboardAvoidingView>
+        </KeyboardSafe>
       </SafeAreaView>
     </Modal>
   );

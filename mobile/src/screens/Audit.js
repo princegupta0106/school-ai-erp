@@ -16,7 +16,7 @@ const KIND = { change: 'Change', view: 'Viewed', auth: 'Sign-in' };
 const ROLE = { super_admin: 'Super admin', school_admin: 'School admin', parent: 'Parent', staff: 'Staff', student: 'Student', other: 'Other' };
 const EMPTY = { q: '', module: '', kind: '', result: '', from: '', to: '', school_id: '' };
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const Chip = ({ ok }) => <Text style={{ fontSize: 11, fontWeight: '700', color: ok ? C.ok : C.bad, backgroundColor: ok ? '#dcfce7' : '#fee2e2', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{ok ? 'OK' : 'Failed'}</Text>;
+const Chip = ({ ok }) => <Text style={{ fontSize: 11, fontWeight: '700', color: ok ? C.ok : C.bad, backgroundColor: ok ? C.okBg : C.badBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{ok ? 'OK' : 'Failed'}</Text>;
 
 function Detail({ log, sup, onClose }) {
   const rows = [
@@ -43,7 +43,7 @@ function Detail({ log, sup, onClose }) {
         </View>))}
       {Object.keys(rest).length > 0 && <>
         <Text style={{ color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 16, marginBottom: 6 }}>Details recorded</Text>
-        <Text selectable style={{ fontFamily: 'monospace', fontSize: 12, color: C.ink, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 10 }}>{JSON.stringify(rest, null, 2)}</Text>
+        <Text selectable style={{ fontFamily: 'monospace', fontSize: 12, color: C.ink, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 10 }}>{JSON.stringify(rest, null, 2)}</Text>
       </>}
       <Dim style={{ marginTop: 12 }}>Passwords, salary figures and message text are never stored in the log.</Dim>
     </Sheet>
@@ -93,7 +93,7 @@ export function AuditLogs({ me }) {
         {dirty && <Btn small kind="ghost" title="Clear" onPress={() => { setF(EMPTY); setApplied(EMPTY); }} />}
       </View>
       {showF && (
-        <View style={{ backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: C.line, ...SH, padding: 12, marginBottom: 12 }}>
+        <View style={{ backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.line, ...SH, padding: 12, marginBottom: 12 }}>
           {sup && <Field label="School"><Choice value={f.school_id} onChange={set('school_id')} options={[{ value: '', label: 'All schools' }, { value: 'platform', label: 'Platform only' }, ...(schools || []).map((s) => ({ value: s.id, label: s.name }))]} /></Field>}
           <Field label="Module"><Choice value={f.module} onChange={set('module')} options={[{ value: '', label: 'All modules' }, ...Object.entries(MODULES).map(([value, label]) => ({ value, label }))]} /></Field>
           <Field label="Type"><Choice value={f.kind} onChange={set('kind')} options={[{ value: '', label: 'All' }, { value: 'change', label: 'Changes' }, { value: 'view', label: 'Views' }, { value: 'auth', label: 'Sign-ins' }]} /></Field>

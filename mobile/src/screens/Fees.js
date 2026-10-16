@@ -17,7 +17,7 @@ const TERM_LABEL = { one_time: 'One time', half_yearly: 'Half yearly', quarterly
 const TERM_EVERY = { one_time: '', half_yearly: 'every 6 months', quarterly: 'every 3 months', monthly: 'every month' };
 const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
 const num = (t) => t.replace(/[^0-9.]/g, '');
-const Chip = ({ children, color = C.mute, bg = '#EFEBE2' }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
+const Chip = ({ children, color = C.mute, bg = C.muteBg }) => <Text style={{ fontSize: 11, fontWeight: '700', color, backgroundColor: bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
 const IconBtn = ({ name, color = C.mute, onPress }) => <Pressable onPress={onPress} hitSlop={8} style={{ padding: 6 }}><Icon name={name} size={19} color={color} /></Pressable>;
 
 function useDebounced(v, ms = 300) {
@@ -133,10 +133,10 @@ export const FeeStructure = scoped(function FeeStructure({ sc }) {
 
 /* ================================================================== ONE STUDENT'S FEES */
 const lineChip = (l) => {
-  if (l.status === 'paid') return ['Paid', C.ok, '#dcfce7'];
-  if (l.status === 'partial') return l.overdue ? ['Part paid · overdue', C.bad, '#fee2e2'] : ['Part paid', C.warn, '#fef3c7'];
-  if (l.status === 'due') return l.overdue ? ['Overdue', C.bad, '#fee2e2'] : ['Due today', C.warn, '#fef3c7'];
-  return ['Upcoming', C.mute, '#EFEBE2'];
+  if (l.status === 'paid') return ['Paid', C.ok, C.okBg];
+  if (l.status === 'partial') return l.overdue ? ['Part paid · overdue', C.bad, C.badBg] : ['Part paid', C.warn, C.warnBg];
+  if (l.status === 'due') return l.overdue ? ['Overdue', C.bad, C.badBg] : ['Due today', C.warn, C.warnBg];
+  return ['Upcoming', C.mute, C.muteBg];
 };
 
 function PayForm({ d, sc, onClose, onPaid }) {
@@ -151,7 +151,7 @@ function PayForm({ d, sc, onClose, onPaid }) {
   return (
     <Sheet title={`Record payment - ${d.student.full_name}`} onClose={onClose}>
       <Notice>Pending {rupees(t.pending)}{t.due_till_date > 0 ? ` · due till date ${rupees(t.due_till_date)}` : ''}. The money goes to the oldest unpaid fees first.</Notice>
-      <Field label="Amount received (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(x) => setF({ ...f, amount: num(x) })} style={[{ fontSize: 20, fontWeight: '700' }, bad && f.amount !== '' && { borderColor: C.bad, backgroundColor: '#fee2e2' }]} /></Field>
+      <Field label="Amount received (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(x) => setF({ ...f, amount: num(x) })} style={[{ fontSize: 20, fontWeight: '700' }, bad && f.amount !== '' && { borderColor: C.bad, backgroundColor: C.badBg }]} /></Field>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         {t.due_till_date > 0 && <Btn small kind="ghost" title={`Due till date ${rupees(t.due_till_date)}`} onPress={() => setF({ ...f, amount: String(t.due_till_date) })} />}
         <Btn small kind="ghost" title={`Everything pending ${rupees(t.pending)}`} onPress={() => setF({ ...f, amount: String(t.pending) })} />
@@ -330,7 +330,7 @@ export function MyFees({ me, active }) {
   return (
     <Pad reload={reload} loading={loading} hasData>
       {kids.map((k) => (
-        <Press key={k.student_id} onPress={() => setOpen(k.student_id)} style={{ backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line, ...SH, marginBottom: 10 }}>
+        <Press key={k.student_id} onPress={() => setOpen(k.student_id)} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line, ...SH, marginBottom: 10 }}>
           <Text style={{ fontWeight: '800', fontSize: 16, color: C.ink }}>{k.full_name}</Text>
           <Dim>{k.class_label ? `Class ${k.class_label}` : 'No class'}</Dim>
           {k.summary && <Text style={{ marginTop: 6, fontWeight: '700', color: k.summary.due_till_date > 0 ? C.bad : C.ok }}>{k.summary.due_till_date > 0 ? `${rupees(k.summary.due_till_date)} due` : k.summary.pending > 0 ? 'Nothing due yet' : 'All paid'}</Text>}
