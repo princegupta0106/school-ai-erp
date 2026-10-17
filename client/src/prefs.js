@@ -14,12 +14,14 @@ export const ACTIONS = [
   { id: 'payroll/my/apply', label: 'Apply for leave', icon: 'plus', need: ['my_leave'], base: 'payroll/my' },
 ];
 
-export const defaultPrefs = () => ({ hidden: [], order: [], shortcuts: null }); // null = use smart defaults
+export const defaultPrefs = () => ({ hidden: [], order: [], shortcuts: null, dashHidden: [], dashOrder: [] }); // null = use smart defaults
 
 const clean = (p) => ({
   hidden: Array.isArray(p?.hidden) ? p.hidden : [],
   order: Array.isArray(p?.order) ? p.order : [],
   shortcuts: Array.isArray(p?.shortcuts) ? p.shortcuts : null,
+  dashHidden: Array.isArray(p?.dashHidden) ? p.dashHidden : [], // dashboard cards the user removed
+  dashOrder: Array.isArray(p?.dashOrder) ? p.dashOrder : [],
 });
 export function loadLocal(me) {
   try { const raw = localStorage.getItem(key(me)); return raw ? clean(JSON.parse(raw)) : null; } catch { return null; }

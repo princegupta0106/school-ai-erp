@@ -137,6 +137,15 @@ r.get('/my-children', asyncH(async (req, res) => {
   res.json(data.map((row) => out(req, row)));
 }));
 
+// lowest roll number (1-100) not yet used in the class; null when the class is full
+async function nextFreeRoll(school_id, class_id) {
+  const { data, error } = await db.from('profiles').select('roll_no').eq('school_id', school_id).eq('class_id', class_id).not('roll_no', 'is', null);
+  check(error);
+  const used = new Set(data.map((x) => x.roll_no));
+  for (let n = 1; n <= 100; n += 1) if (!used.has(n)) return n;
+  return null;
+}
+
 // ---- create_user
 r.post('/', requireFeature('create_user'), asyncH(async (req, res) => {
   const b = req.body;
@@ -150,7 +159,11 @@ r.post('/', requireFeature('create_user'), asyncH(async (req, res) => {
   const profile = profileFrom(req, b.profile);
   if (school_id) await checkClass(school_id, profile.class_id);
   if (role !== 'student') { delete profile.roll_no; } // roll numbers are for students only
-  else if (school_id) await checkRoll(school_id, profile.class_id, profile.roll_no, null);
+  else if (school_id) {
+    const blank = profile.roll_no === null || profile.roll_no === undefined || profile.roll_no === '';
+    if (blank && profile.class_id) profile.roll_no = await nextFreeRoll(school_id, profile.class_id); // new students get the next free roll number automatically
+    await checkRoll(school_id, profile.class_id, profile.roll_no, null);
+  }
 
   const { data: u, error } = await db.from('users').insert({
     school_id, login_id, role, password_hash: await bcrypt.hash(String(b.password), 10),

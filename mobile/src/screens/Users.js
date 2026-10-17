@@ -58,7 +58,7 @@ function ProfileFields({ f, setF, role, classes, canEdit = true, canSalary = fal
     {role === 'student' && (<>
       <Sec>School details</Sec>
       {In('admission_no', 'Admission no.')}
-      <Field label="Roll no." hint="1 to 100, unique in the class"><Input editable={!d} keyboardType="number-pad" maxLength={3} value={f.roll_no || ''} onChangeText={(t) => setF({ ...f, roll_no: t.replace(/[^0-9]/g, '') })} /></Field>
+      <Field label="Roll no." hint="1 to 100, unique in the class. Leave blank to auto-assign"><Input editable={!d} keyboardType="number-pad" maxLength={3} value={f.roll_no || ''} onChangeText={(t) => setF({ ...f, roll_no: t.replace(/[^0-9]/g, '') })} /></Field>
       <Field label="Class"><Choice value={f.class_id || ''} onChange={(v) => !d && setF({ ...f, class_id: v })} options={[{ value: '', label: '-' }, ...classes.map((c) => ({ value: c.id, label: cls(c) }))]} /></Field>
       <Sec>Parents</Sec>
       {In('father_name', "Father's name")}

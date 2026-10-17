@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { db, httpError, check, asyncH } from '../db.js';
 import { requireFeature, isSuper } from '../auth.js';
+// admins (school and platform) may decide their own leave; everyone else needs another approver
+const canDecideOwn = (req) => isSuper(req) || req.user.role === 'school_admin';
 import { notifyLeave } from '../notify.js';
 import * as L from '../payroll-logic.js';
 
@@ -193,12 +195,12 @@ async function loadReq(req) {
 }
 r.post('/leave/:id/approve', requireFeature('leave_approve'), asyncH(async (req, res) => {
   const row = await loadReq(req);
-  if (row.user_id === req.user.user_id && !isSuper(req)) throw httpError(403, "You can't approve your own leave. Another approver must do it.");
+  if (row.user_id === req.user.user_id && !canDecideOwn(req)) throw httpError(403, "You can't approve your own leave. Another approver must do it.");
   res.json(await approve(row, req.user, false, String(req.body.note || '').trim()));
 }));
 r.post('/leave/:id/reject', requireFeature('leave_approve'), asyncH(async (req, res) => {
   const row = await loadReq(req);
-  if (row.user_id === req.user.user_id && !isSuper(req)) throw httpError(403, "You can't decide your own leave");
+  if (row.user_id === req.user.user_id && !canDecideOwn(req)) throw httpError(403, "You can't decide your own leave");
   const { data, error } = await db.from('leave_requests').update({ status: 'rejected', decided_by: req.user.user_id, decided_at: new Date().toISOString(), decision_note: String(req.body.note || '').trim() || null }).eq('id', row.id).eq('status', 'pending').select().maybeSingle();
   check(error); if (!data) throw httpError(409, 'This request was already handled');
   await audit(row.school_id, req.user, 'leave_rejected', row.user_id, { leave_id: row.id });

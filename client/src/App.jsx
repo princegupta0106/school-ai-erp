@@ -5,6 +5,7 @@ import { Icon, Modal, Field, toast, initials, ROLE_LABEL, ErrorBoundary, NetBar,
 import { MODULE_UI } from './registry.js';
 import Customize from './Customize.jsx';
 import AssistantChat from './AssistantChat.jsx';
+import Dashboard from './Dashboard.jsx';
 import { usePrefs, allTargets, effectiveShortcuts, orderedModules } from './prefs.js';
 
 const parseHash = () => { const [m, v, a] = location.hash.replace(/^#\/?/, '').split('/'); return { m: m || '', v: v || '', a: a || '' }; };
@@ -80,6 +81,8 @@ export default function App() {
   const [pw, setPw] = useState(false);
   const [more, setMore] = useState(false);
   const [cz, setCz] = useState(false);
+  const [slim, setSlim] = useState(() => { try { return localStorage.getItem('portal.sidebar') === 'slim'; } catch { return false; } });
+  const toggleSlim = () => setSlim((v) => { const n = !v; try { localStorage.setItem('portal.sidebar', n ? 'slim' : 'wide'); } catch {} return n; });
   const [prefs, updatePrefs] = usePrefs(me || {});
 
   const logout = useCallback(() => { setToken(null); forgetMe(); clearCache(); setMe(null); location.hash = ''; }, [setMe]);
@@ -166,11 +169,11 @@ export default function App() {
   const dock = [...shown.slice(0, 3)];
   if (active && !dock.some((m) => m.key === active.key)) dock[2] = active;
 
-  const Actions = () => (<>
-    <button className="nav" onClick={toggleTheme}><Icon name={theme === 'light' ? 'sun' : 'moon'} />{theme === 'light' ? 'Switch to dark' : 'Switch to light'}</button>
-    <button className="nav" onClick={() => { setMenu(false); setMore(false); setCz(true); }}><Icon name="sliders" />Customize home</button>
-    <button className="nav" onClick={() => { setMenu(false); setMore(false); setPw(true); }}><Icon name="key" />Change password</button>
-    <button className="nav" onClick={signOut}><Icon name="logout" />Sign out</button>
+  const Actions = ({ noOut }) => (<>
+    <button className="nav" onClick={toggleTheme}><Icon name={theme === 'light' ? 'sun' : 'moon'} /><span className="nl">{theme === 'light' ? 'Switch to dark' : 'Switch to light'}</span></button>
+    <button className="nav" onClick={() => { setMenu(false); setMore(false); setCz(true); }}><Icon name="sliders" /><span className="nl">Customize home</span></button>
+    <button className="nav" onClick={() => { setMenu(false); setMore(false); setPw(true); }}><Icon name="key" /><span className="nl">Change password</span></button>
+    {!noOut && <button className="nav" onClick={signOut}><Icon name="logout" /><span className="nl">Sign out</span></button>}
   </>);
 
   const ModTile = ({ m }) => { const u = MODULE_UI[m.key]; return (
@@ -181,20 +184,25 @@ export default function App() {
     </button>); };
 
   return (
-    <div className="shell">
+    <div className={`shell ${slim ? 'slim' : ''}`}>
       <NetBar />
       <aside className="side">
-        <div className="brand"><div className="logo"><Icon name="school" /></div><div><b>School Portal</b><small>{me.school?.name || 'Platform'}</small></div></div>
+        <div className="brand"><div className="logo"><Icon name="school" /></div><div className="brand-t"><b>School Portal</b><small>{me.school?.name || 'Platform'}</small></div><button className="icon-btn slimtop" title={slim ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={slim ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggleSlim}><Icon name={slim ? 'chevron' : 'back'} size={18} /></button></div>
         {active ? (<>
-          <button className="nav" onClick={() => go('')}><Icon name="back" />All modules</button>
+          <button className="nav" title="All modules" onClick={() => go('')}><Icon name="back" /><span className="nl">All modules</span></button>
           <div className="nav-label">{ui.label}</div>
-          {views.map((v) => <button key={v.key} className={`nav ${view?.key === v.key ? 'on' : ''}`} onClick={() => go(`${active.key}/${v.key}`)} onPointerEnter={() => warmView(me, v)}>{v.label}</button>)}
+          {views.map((v) => <button key={v.key} className={`nav ${view?.key === v.key ? 'on' : ''}`} onClick={() => go(`${active.key}/${v.key}`)} onPointerEnter={() => warmView(me, v)} title={v.label}><span className="vi">{v.label[0]}</span><span className="nl">{v.label}</span></button>)}
         </>) : (<>
-          <button className="nav on"><Icon name="home" />Home</button>
+          <button className="nav on" title="Home"><Icon name="home" /><span className="nl">Home</span></button>
           <div className="nav-label">Modules</div>
-          {ordered.map((m) => <button key={m.key} className="nav" onClick={() => go(m.key)}><Icon name={MODULE_UI[m.key].icon} />{MODULE_UI[m.key].label}</button>)}
+          {ordered.map((m) => <button key={m.key} className="nav" title={MODULE_UI[m.key].label} onClick={() => go(m.key)}><Icon name={MODULE_UI[m.key].icon} /><span className="nl">{MODULE_UI[m.key].label}</span></button>)}
         </>)}
-        <div className="grow" /><Actions />
+        <div className="grow" /><Actions noOut />
+        <div className="side-me">
+          <span className="sm-av">{initials(name)}</span>
+          <div className="sm-t"><b>{name}</b><small>{ROLE_LABEL[me.role]}</small></div>
+          <button className="icon-btn sm-out" title="Sign out" aria-label="Sign out" onClick={signOut}><Icon name="logout" size={18} /></button>
+        </div>
       </aside>
 
       <div className="main">
@@ -219,6 +227,7 @@ export default function App() {
           {active ? (View && <ErrorBoundary key={`${active.key}/${view.key}`}><View me={me} action={route.a} go={(v) => go(`${active.key}/${v}`)} /></ErrorBoundary>) : (
             mods.length === 0 ? <div className="empty">No modules are turned on for your account yet. Ask your school admin.</div> :
             <div className="home">
+              <Dashboard me={me} go={go} prefs={prefs} update={updatePrefs} />
               <section>
                 <div className="sec-h"><h2>Shortcuts</h2><button className="linkbtn" onClick={() => setCz(true)}><Icon name="sliders" size={15} />Customize</button></div>
                 <div className="sc-grid">

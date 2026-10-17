@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './api';
 
 // Same shape as the web app ({hidden, order, shortcuts}) and saved to the same place (/auth/prefs), so layouts sync.
-const clean = (p) => ({ hidden: Array.isArray(p?.hidden) ? p.hidden : [], order: Array.isArray(p?.order) ? p.order : [], shortcuts: Array.isArray(p?.shortcuts) ? p.shortcuts : null });
+const clean = (p) => ({ hidden: Array.isArray(p?.hidden) ? p.hidden : [], order: Array.isArray(p?.order) ? p.order : [], shortcuts: Array.isArray(p?.shortcuts) ? p.shortcuts : null, dashHidden: Array.isArray(p?.dashHidden) ? p.dashHidden : [], dashOrder: Array.isArray(p?.dashOrder) ? p.dashOrder : [] });
 export function usePrefs(me) {
   const id = me.user_id || me.login_id;
   const [prefs, setPrefs] = useState(clean(me.ui_prefs));

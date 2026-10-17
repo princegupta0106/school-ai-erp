@@ -75,6 +75,8 @@ r.put('/prefs', authenticate, asyncH(async (req, res) => {
   const prefs = {
     hidden: strList(b.hidden, 50),
     order: strList(b.order, 50),
+    dashHidden: strList(b.dashHidden, 50), // dashboard cards the person removed
+    dashOrder: strList(b.dashOrder, 50),
     shortcuts: b.shortcuts === null || b.shortcuts === undefined ? null : strList(b.shortcuts, 30), // null = use the defaults
   };
   const { error } = await db.from('users').update({ ui_prefs: prefs }).eq('user_id', req.user.user_id);

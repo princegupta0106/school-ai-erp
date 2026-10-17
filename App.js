@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Modal, BackHandler, AppState, Appearance, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Modal, BackHandler, AppState, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { api, loadToken, setToken, setUnauthorizedHandler } from './src/api';
@@ -18,6 +18,7 @@ import Customize from './src/screens/Customize';
 import ChangePassword from './src/screens/ChangePassword';
 import Assistant from './src/screens/Assistant';
 import Permissions from './src/screens/Permissions';
+import Dashboard from './src/screens/Dashboard';
 
 const tint = (c) => `${c}22`;
 
@@ -31,10 +32,11 @@ function Tile({ m, onPress }) {
   );
 }
 
-function Home({ me, prefs, mods, pinned, byId, open, openCustomize, recent, unread, openInbox }) {
+function Home({ me, prefs, update, mods, pinned, byId, open, openCustomize, recent, unread, openInbox }) {
   const shown = mods.filter((m) => !prefs.hidden.includes(m.key));
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+      <Dashboard me={me} go={open} prefs={prefs} update={update} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <Text style={sec}>Shortcuts</Text>
         <Pressable onPress={openCustomize} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon name="sliders" size={15} color={C.brand} /><Text style={{ color: C.brand, fontWeight: '600', fontSize: 13 }}>Customize</Text></Pressable>
@@ -69,12 +71,8 @@ const sec = live(() => ({ fontSize: 15, fontWeight: '700', color: C.ink }));
 export default function App() {
   const [me, setMe] = useState(null); const [booting, setBooting] = useState(true);
   const [themeMode, setThemeMode] = useState('light'); const [, repaint] = useState(0);
-  // choose System / Light / Dark: recolour everything, remember the choice
+  // choose Light / Dark: recolour everything, remember the choice
   const chooseTheme = useCallback((m) => { applyTheme(m); setThemeMode(m); saveThemeMode(m); repaint((n) => n + 1); }, []);
-  useEffect(() => { // while on "System", follow the phone's own light/dark switch
-    const sub = Appearance.addChangeListener(() => { setThemeMode((m) => { if (m === 'system') { applyTheme('system'); repaint((n) => n + 1); } return m; }); });
-    return () => sub.remove();
-  }, []);
   const logout = useCallback(async () => { await unregisterPush(); await stopBackgroundChecks(); await setToken(null); await clearCache(); setMe(null); }, []);
   const signedIn = useCallback(async (m) => { await initCache(m.user_id); setMe(withClientDefaults(m)); }, []);
   useEffect(() => {
@@ -191,7 +189,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
       )}
 
       <View style={{ flex: 1 }}>
-        {!active ? <Pane key="home" from="y"><Home me={me} prefs={prefs} mods={mods} pinned={pinned} byId={byId} open={go} openCustomize={() => setCz(true)} recent={(nd?.items || []).slice(0, 3)} unread={unread} openInbox={() => setInbox(true)} /></Pane>
+        {!active ? <Pane key="home" from="y"><Home me={me} prefs={prefs} update={updatePrefs} mods={mods} pinned={pinned} byId={byId} open={go} openCustomize={() => setCz(true)} recent={(nd?.items || []).slice(0, 3)} unread={unread} openInbox={() => setInbox(true)} /></Pane>
           : (
             <Pane key={active.key} from="x">
               {views.length === 0 && <Text style={{ padding: 24, color: C.mute, textAlign: 'center' }}>You don't have access to anything in this module.</Text>}
@@ -220,7 +218,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
             <View style={{ paddingVertical: 10 }}>
               <Text style={{ color: C.mute, fontSize: 12, fontWeight: '700', marginBottom: 8 }}>APPEARANCE</Text>
               <View style={{ flexDirection: 'row', backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 3 }}>
-                {[['system', 'System', 'sliders'], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']].map(([k, l, ic]) => { const on = themeMode === k; return (
+                {[['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']].map(([k, l, ic]) => { const on = themeMode === k; return (
                   <Pressable key={k} onPress={() => chooseTheme(k)} accessibilityLabel={`${l} theme`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 9, backgroundColor: on ? C.soft : 'transparent', borderWidth: on ? 1 : 0, borderColor: C.brand }}>
                     <Icon name={ic} size={16} color={on ? C.brand : C.mute} /><Text style={{ color: on ? C.brand : C.mute, fontWeight: on ? '800' : '600', fontSize: 13 }}>{l}</Text>
                   </Pressable>); })}

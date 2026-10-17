@@ -1,4 +1,3 @@
-import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---- Themes. `C` and `SH` are mutated in place by applyTheme(), so every screen that reads them while rendering picks up the new look.
@@ -15,17 +14,16 @@ export const SH = { shadowColor: '#14202A', shadowOpacity: 0.07, shadowRadius: 1
 // "property is not configurable" on our getters. It skips objects that are already frozen, and frozen getters still compute live.
 export const live = (fn) => { const o = {}; for (const k of Object.keys(fn())) Object.defineProperty(o, k, { enumerable: true, get: () => fn()[k] }); return Object.freeze(o); };
 
-// mode: 'system' | 'light' | 'dark'
+// mode: 'light' | 'dark' (chosen by hand; no automatic system theme)
 export const THEME_KEY = 'theme.mode';
-export const resolveTheme = (mode) => (mode === 'dark' ? 'dark' : mode === 'light' ? 'light' : Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
+export const resolveTheme = (mode) => (mode === 'dark' ? 'dark' : 'light');
 export function applyTheme(mode) {
   const t = resolveTheme(mode);
   Object.assign(C, t === 'dark' ? DARK : LIGHT);
   SH.shadowColor = C.shadow; SH.shadowOpacity = C.shadowOpacity;
-  try { Appearance.setColorScheme?.(mode === 'system' ? null : t); } catch { /* older runtime: only the app itself changes */ }
   return t;
 }
-export const loadThemeMode = async () => { try { const v = await AsyncStorage.getItem(THEME_KEY); return v === 'dark' || v === 'light' || v === 'system' ? v : 'light'; } catch { return 'light'; } };
+export const loadThemeMode = async () => { try { const v = await AsyncStorage.getItem(THEME_KEY); return v === 'dark' ? 'dark' : 'light'; } catch { return 'light'; } };
 export const saveThemeMode = (m) => AsyncStorage.setItem(THEME_KEY, m).catch(() => {});
 export const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const pad = (n) => String(n).padStart(2, '0');

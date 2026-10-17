@@ -30,7 +30,7 @@ function ProfileFields({ f, setF, role, classes, canEdit = true, canSalary = fal
     </>)}
     {role === 'student' && (<>
       <div className="sec">School details</div>
-      {In('admission_no', 'Admission no.')}<Field label="Roll no." hint="1 to 100, unique in the class"><input type="number" min="1" max="100" step="1" value={f.roll_no || ''} onChange={set('roll_no')} disabled={d} /></Field>
+      {In('admission_no', 'Admission no.')}<Field label="Roll no." hint="1 to 100, unique in the class. Leave blank to auto-assign"><input type="number" min="1" max="100" step="1" value={f.roll_no || ''} onChange={set('roll_no')} disabled={d} /></Field>
       <div className="full"><Field label="Class"><select value={f.class_id || ''} onChange={set('class_id')} disabled={d}><option value="">-</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name} {c.section}</option>)}</select></Field></div>
       <div className="sec">Parents</div>
       {In('father_name', "Father's name")}{In('father_phone', "Father's phone")}
