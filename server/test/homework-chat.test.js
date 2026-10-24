@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 
 process.env.AUTH_SECRET = 'x'; process.env.SUPABASE_URL = 'http://localhost:1'; process.env.SUPABASE_SECRET_KEY = 'x';
-process.env.R2_ACCOUNT_ID = 'acc'; process.env.R2_ACCESS_KEY_ID = 'k'; process.env.R2_SECRET_ACCESS_KEY = 's'; process.env.R2_BUCKET_NAME = 'bkt'; process.env.R2_PUBLIC_URL = 'https://files.test';
+process.env.R2_ACCOUNT_ID = 'acc'; process.env.R2_ACCESS_KEY_ID = 'k'; process.env.R2_SECRET_ACCESS_KEY = 's'; process.env.R2_BUCKET_NAME = 'bkt'; // private bucket: no R2_PUBLIC_URL
 
 // ------------------------------------------------------------------ fake AI service (must exist before config.js is read)
 const AI_SEEN = [];
@@ -156,7 +156,7 @@ test('confirming: staged files are COPIED into the homework, notified, and the s
   assert.equal(row.attachments.length, 2);
   for (const a of row.attachments) {
     assert.ok(a.key.startsWith(`schools/${S1}/homework/${made.id}/`), a.key);
-    assert.equal(a.url, `https://files.test/${a.key}`);
+    assert.equal(a.url, undefined, 'no link is stored: the bucket is private');
     assert.ok(BUCKET.has(a.key), 'the copy exists');
   }
   assert.deepEqual(row.attachments.map((a) => [a.name, a.size, a.type]), [['Worksheet 4.pdf', 9, 'application/pdf'], ['answers.txt', 3, 'text/plain']]);

@@ -2,10 +2,20 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { db, httpError, check, asyncH } from '../db.js';
 import { requireFeature, isSuper } from '../auth.js';
+import { keyOf, refOf, toDisplay } from '../r2.js';
 
 const r = Router();
 const FIELDS = ['name', 'address', 'phone', 'email', 'logo_url'];
 const clean = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, typeof o[k] === 'string' ? (o[k].trim() || null) : o[k]]));
+// The logo is either an outside link or a file in our private bucket (kept as "r2:<key>", shown through a 1-hour signed link).
+const showSchool = async (s) => (s ? { ...s, logo_url: s.logo_url ? await toDisplay(s.logo_url) : s.logo_url } : s);
+function storedLogo(schoolId, patch) {
+  if (typeof patch.logo_url !== 'string') return;
+  const key = keyOf(patch.logo_url);
+  if (!key) return;
+  if (key.includes('..') || !key.startsWith(`schools/${schoolId}/`)) throw httpError(400, 'The logo must be a file uploaded for this school');
+  patch.logo_url = refOf(key);
+}
 const LOGIN_RE = /^[a-z0-9._-]{3,40}$/;
 
 // create_school: super admin only. Creates the school AND its first school admin.
@@ -18,6 +28,7 @@ r.post('/', requireFeature('create_school'), asyncH(async (req, res) => {
   if (!LOGIN_RE.test(loginId)) throw httpError(400, 'Admin ID: 3-40 letters, numbers, . _ -');
   if (String(admin.password || '').length < 6) throw httpError(400, 'Admin password needs at least 6 characters');
 
+  if (keyOf(req.body.logo_url)) throw httpError(400, 'Upload the logo after the school is created');
   const { data: school, error } = await db.from('schools').insert({ name, code, ...clean(req.body, FIELDS.slice(1)) }).select().single();
   check(error);
   try {
@@ -27,7 +38,7 @@ r.post('/', requireFeature('create_school'), asyncH(async (req, res) => {
     check(e1);
     const { error: e2 } = await db.from('profiles').insert({ user_id: u.user_id, school_id: school.id, full_name: admin.full_name || null, phone: admin.phone || null, email: admin.email || null });
     check(e2);
-    res.status(201).json({ school, admin: { user_id: u.user_id, login_id: loginId } });
+    res.status(201).json({ school: await showSchool(school), admin: { user_id: u.user_id, login_id: loginId } });
   } catch (e) {
     await db.from('schools').delete().eq('id', school.id); // roll back, cascades users
     throw e;
@@ -40,7 +51,7 @@ r.get('/', requireFeature('get_school', 'edit_school'), asyncH(async (req, res) 
   if (!isSuper(req)) q = q.eq('id', req.user.school_id);
   const { data, error } = await q;
   check(error);
-  res.json(data);
+  res.json(await Promise.all(data.map(showSchool)));
 }));
 
 r.get('/:id', requireFeature('get_school', 'edit_school'), asyncH(async (req, res) => {
@@ -48,12 +59,13 @@ r.get('/:id', requireFeature('get_school', 'edit_school'), asyncH(async (req, re
   const { data, error } = await db.from('schools').select('*').eq('id', req.params.id).maybeSingle();
   check(error);
   if (!data) throw httpError(404, 'School not found');
-  res.json(data);
+  res.json(await showSchool(data));
 }));
 
 r.patch('/:id', requireFeature('edit_school'), asyncH(async (req, res) => {
   if (!isSuper(req) && req.params.id !== req.user.school_id) throw httpError(404, 'School not found');
   const patch = clean(req.body, FIELDS);
+  storedLogo(req.params.id, patch);
   if (patch.name === null) throw httpError(400, 'School name cannot be empty');
   if (isSuper(req)) {
     if (req.body.is_active !== undefined) patch.is_active = !!req.body.is_active;
@@ -63,7 +75,7 @@ r.patch('/:id', requireFeature('edit_school'), asyncH(async (req, res) => {
   const { data, error } = await db.from('schools').update(patch).eq('id', req.params.id).select().maybeSingle();
   check(error);
   if (!data) throw httpError(404, 'School not found');
-  res.json(data);
+  res.json(await showSchool(data));
 }));
 
 // promote_students: dry_run (default) previews; real run moves everyone up and starts the new session

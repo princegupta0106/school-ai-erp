@@ -16,6 +16,7 @@ import { IssueDocument, IssuedList, Templates, Letterhead, MyDocuments } from '.
 import { MyHomework, Homework } from './screens/Homework';
 import { VisitorList, AddVisitor } from './screens/Visitors';
 import { AuditLogs } from './screens/Audit';
+import { Backup } from './screens/Backup';
 import { SchoolList, SchoolNew, Calendar, Promotion } from './screens/School';
 import { prevMonth } from './theme';
 
@@ -70,6 +71,8 @@ export const MODULE_UI = {
     { key: 'manage', label: 'Homework', need: ['manage_homework'], component: Homework }] },
   audit: { label: 'Audit logs', color: '#475569', icon: 'shield', views: [
     { key: 'log', label: 'Activity log', need: ['view_audit_logs'], component: AuditLogs }] },
+  backup: { label: 'Backup', color: '#0369a1', icon: 'download', views: [
+    { key: 'backup', label: 'Backup & restore', need: ['manage_backups'], component: Backup }] },
 };
 
 // Safety net for a server that is older than this app: add the permissions every role gets by default on the current

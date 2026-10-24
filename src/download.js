@@ -20,5 +20,5 @@ export async function downloadAndShare(apiPath, fileName, mimeType = 'applicatio
   }
   const Sharing = await import('expo-sharing');
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device');
-  await Sharing.shareAsync(uri, { mimeType, UTI: mimeType === 'application/pdf' ? 'com.adobe.pdf' : 'public.comma-separated-values-text', dialogTitle: fileName });
+  await Sharing.shareAsync(uri, { mimeType, UTI: mimeType === 'application/pdf' ? 'com.adobe.pdf' : mimeType === 'text/csv' ? 'public.comma-separated-values-text' : mimeType === 'application/zip' ? 'public.zip-archive' : mimeType === 'application/gzip' ? 'org.gnu.gnu-zip-archive' : 'public.data', dialogTitle: fileName });
 }

@@ -319,7 +319,7 @@ The system includes companion Native Mobile Apps for **Android and iOS** (built 
 * **Backend Engine:** High-concurrency Node.js API server with REST endpoints.
 * **Database & Persistence:** Enterprise PostgreSQL with relational schemas, indexed fuzzy search, and foreign-key referential integrity.
 * **AI Microservice:** Python AI agent engine supporting Google Gemini 3.8 Flash and Claude 3.5 models with intelligent tool calling, keep-alive HTTP pooling, and sub-second response times.
-* **File Storage:** Cloudflare R2 object storage for lightning-fast, zero-egress-cost document, image, and assignment delivery.
+* **File Storage:** PRIVATE Cloudflare R2 bucket for documents, images and assignments. The database stores only each file's key; the server signs a temporary download link (valid 1 hour) every time a file is shown. The bucket has no public access.
 * **Frontend Web Application:** Modern, responsive React SPA with instant cache prefetching, dark/light theme support, and zero external framework bloat.
 * **Mobile Applications:** React Native / Expo with full native capabilities (Push Notifications, Camera, File System, Secure Storage).
 

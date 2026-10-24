@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { db, httpError, check, asyncH } from '../db.js';
 import { requireFeature, isSuper, shapeUser, USER_SELECT } from '../auth.js';
 import { ROLES, ALL_FEATURES, SUPER_ONLY, allowedForRole } from '../features.js';
-import { uploadFile, deleteFile } from '../r2.js';
+import { uploadFile, deleteFile, signedUrl } from '../r2.js';
 
 const r = Router();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -32,6 +32,11 @@ const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefin
 const out = (req, row) => {
   const u = shapeUser(row);
   if (!req.user.features.includes('manage_salary') && u.user_id !== req.user.user_id) delete u.profile.salary;
+  return u;
+};
+// uploaded documents live in a private bucket: give each one a link that works for an hour (the database keeps only the key)
+const signDocs = async (u) => {
+  if (Array.isArray(u?.profile?.documents)) u.profile.documents = await Promise.all(u.profile.documents.map(async (d) => ({ ...d, url: await signedUrl(d.key, { filename: d.name }) })));
   return u;
 };
 
@@ -93,7 +98,7 @@ async function loadTarget(req) {
 const reload = async (req, user_id) => {
   const { data, error } = await db.from('users').select(USER_SELECT).eq('user_id', user_id).single();
   check(error);
-  return (await attachLinks([out(req, data)]))[0];
+  return signDocs((await attachLinks([out(req, data)]))[0]);
 };
 const checkRole = (req, role) => {
   if (!ROLES.includes(role)) throw httpError(400, 'Unknown role');
@@ -124,7 +129,7 @@ r.get('/', requireFeature('get_all_users_school'), asyncH(async (req, res) => {
   if (req.query.role) q = q.eq('role', req.query.role);
   const { data, error } = await q;
   check(error);
-  res.json(await attachLinks(data.map((row) => out(req, row)), isSuper(req) ? req.query.school_id : req.user.school_id));
+  res.json(await Promise.all((await attachLinks(data.map((row) => out(req, row)), isSuper(req) ? req.query.school_id : req.user.school_id)).map(signDocs)));
 }));
 
 // the signed-in parent's own students (for the future parent panel). No feature needed: it is your own data.
@@ -134,7 +139,7 @@ r.get('/my-children', asyncH(async (req, res) => {
   if (!l.length) return res.json([]);
   const { data, error: e2 } = await db.from('users').select(USER_SELECT).in('user_id', l.map((x) => x.student_id));
   check(e2);
-  res.json(data.map((row) => out(req, row)));
+  res.json(await Promise.all(data.map((row) => signDocs(out(req, row)))));
 }));
 
 // lowest roll number (1-100) not yet used in the class; null when the class is full
@@ -180,7 +185,7 @@ r.post('/', requireFeature('create_user'), asyncH(async (req, res) => {
 }));
 
 // ---- get_user
-r.get('/:id', requireFeature('get_user'), asyncH(async (req, res) => res.json((await attachLinks([out(req, await loadTarget(req))]))[0])));
+r.get('/:id', requireFeature('get_user'), asyncH(async (req, res) => res.json(await signDocs((await attachLinks([out(req, await loadTarget(req))]))[0]))));
 
 // ---- edit_user (profile fields + active flag)
 r.patch('/:id', requireFeature('edit_user'), asyncH(async (req, res) => {
@@ -258,7 +263,7 @@ r.patch('/:id/features', requireFeature('change_features'), asyncH(async (req, r
   res.json(await reload(req, t.user_id));
 }));
 
-// ---- upload_document (Cloudflare R2)
+// ---- upload_document (private Cloudflare R2 bucket; only the key is stored, links are signed when the user is read)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -272,9 +277,9 @@ r.post('/:id/documents', requireFeature('upload_document'), upload.single('file'
   const id = crypto.randomUUID();
   const safe = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
   const key = `schools/${t.school_id || 'platform'}/users/${t.user_id}/${id}-${safe}`;
-  const url = await uploadFile(key, req.file.buffer, req.file.mimetype);
+  await uploadFile(key, req.file.buffer, req.file.mimetype);
   const current = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles)?.documents || [];
-  const doc = { id, label: String(req.body.label || '').trim() || req.file.originalname, name: req.file.originalname, url, key, size: req.file.size, type: req.file.mimetype, uploaded_at: new Date().toISOString() };
+  const doc = { id, label: String(req.body.label || '').trim() || req.file.originalname, name: req.file.originalname, key, size: req.file.size, type: req.file.mimetype, uploaded_at: new Date().toISOString() };
   const { error } = await db.from('profiles').update({ documents: [...current, doc] }).eq('user_id', t.user_id);
   if (error) { await deleteFile(key).catch(() => {}); check(error); }
   res.status(201).json(await reload(req, t.user_id));

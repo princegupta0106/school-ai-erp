@@ -11,7 +11,7 @@
 //   listIssued / getIssued / cancelIssued     the register (staff) and a single document
 //   myDocuments(user)                         documents issued to me, or to my children
 import { db, httpError, check } from './db.js';
-import { uploadFile } from './r2.js';
+import { uploadFile, signedUrl, keyOf, refOf, toStored, toDisplay } from './r2.js';
 import { studentDashboard, listSessions, PASS_PERCENT, gradeOf } from './academics.js';
 import { notifyDocument } from './notify.js';
 import { studentReport, todayStr } from './attendance.js';
@@ -48,12 +48,35 @@ async function fetchAll(make) {
   return rows;
 }
 
-// images are shown on the printed page: only http(s) links or files of this site
-function url(v, what) {
-  const s = clean(v, 600);
+// Images are shown on the printed page: an outside https link, or a file of THIS school in our private bucket.
+// Our files are stored as "r2:<key>" (never as a link that expires). The browser may hand back the 1-hour link it was
+// given earlier; keyOf() turns that back into the key, so the database only ever holds the permanent reference.
+function url(v, what, schoolId) {
+  const s = clean(v, 1500);
   if (!s) return null;
+  const key = keyOf(s);
+  if (key) {
+    if (key.includes('..') || !key.startsWith(`schools/${schoolId}/`)) throw httpError(400, `${what} must be a file uploaded for this school`);
+    return refOf(key);
+  }
   if (!/^(https?:\/\/|\/)[^\s"'<>]+$/i.test(s)) throw httpError(400, `${what} must be a web link (https://...)`);
   return s;
+}
+
+// stored image references -> links that work for one hour (outside links pass through untouched)
+const IMG_COLS = ['logo_url', 'signature_url', 'seal_url', 'bg_url'];
+async function signImages(o) {
+  if (!o || typeof o !== 'object') return o;
+  const out = { ...o };
+  for (const c of IMG_COLS) if (out[c]) out[c] = await toDisplay(out[c]);
+  return out;
+}
+// an issued document keeps its letterhead + background as references; give the viewer fresh links
+async function signContent(content) {
+  if (!content) return content;
+  const c = await signImages(content);
+  if (c.school) c.school = await signImages(c.school);
+  return c;
 }
 
 // ---------------------------------------------------------------- meta
@@ -74,7 +97,7 @@ export async function letterhead(schoolId) {
   const o = s || {};
   return {
     name: school.name, address: school.address || '', phone: school.phone || '', email: school.email || '',
-    logo_url: o.logo_url || school.logo_url || '', signature_url: o.signature_url || '', seal_url: o.seal_url || '',
+    logo_url: toStored(o.logo_url || school.logo_url || ''), signature_url: toStored(o.signature_url || ''), seal_url: toStored(o.seal_url || ''), // always permanent references, never links that expire
     principal_name: o.principal_name || '', principal_title: o.principal_title || 'Principal',
     tagline: o.tagline || '', reg_line: o.reg_line || '', place: o.place || '', footer_note: o.footer_note || '',
   };
@@ -89,10 +112,11 @@ export async function getMeta(schoolId) {
     db.from('classes').select('id,name,section,level').eq('school_id', schoolId).order('level', { nullsFirst: false }).order('name').order('section'),
   ]);
   check(settings.error); check(templates.error); check(classes.error);
+  const tpls = await Promise.all(templates.data.map(async (t) => [t.doc_type, await signImages(t)]));
   return {
-    letterhead: lh,
-    settings: settings.data || {},
-    templates: Object.fromEntries(templates.data.map((t) => [t.doc_type, t])),
+    letterhead: await signImages(lh),
+    settings: await signImages(settings.data || {}),
+    templates: Object.fromEntries(tpls),
     sessions,
     classes: classes.data.map((c) => ({ id: c.id, label: clsLabel(c) })),
     types: Object.entries(TYPES).map(([key, t]) => ({ key, label: t.label, for: t.for })),
@@ -103,7 +127,7 @@ export async function getMeta(schoolId) {
 export async function saveSettings(schoolId, b) {
   const row = { school_id: schoolId, updated_at: new Date().toISOString() };
   for (const f of SETTING_FIELDS) row[f] = clean(b[f], f === 'footer_note' ? 300 : 160) || null;
-  for (const f of IMAGE_FIELDS) row[f] = url(b[f], f.replace('_url', '').replace('_', ' ')) || null;
+  for (const f of IMAGE_FIELDS) row[f] = url(b[f], f.replace('_url', '').replace('_', ' '), schoolId) || null;
   const { error } = await db.from('doc_settings').upsert(row, { onConflict: 'school_id' });
   check(error);
   return getMeta(schoolId);
@@ -115,7 +139,9 @@ export async function uploadImage(schoolId, kind, file) {
   if (!process.env.R2_BUCKET_NAME) throw httpError(400, 'File storage (R2) is not set up in .env - paste an image link instead');
   const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file.mimetype];
   const key = `schools/${schoolId}/documents/${kind}-${Date.now()}.${ext}`;
-  return { url: await uploadFile(key, file.buffer, file.mimetype) };
+  await uploadFile(key, file.buffer, file.mimetype);
+  // `url` is a 1-hour link to preview the picture now; saving it keeps only the permanent reference (see url())
+  return { url: await signedUrl(key), ref: refOf(key) };
 }
 
 export async function saveTemplate(schoolId, type, b) {
@@ -131,7 +157,7 @@ export async function saveTemplate(schoolId, type, b) {
     school_id: schoolId, doc_type: type, updated_at: new Date().toISOString(),
     title: clean(b.title, 120) || null,
     body: String(b.body ?? '').replace(/\r/g, '').slice(0, 4000) || null,
-    design, accent, orientation, bg_url: url(b.bg_url, 'Background image'),
+    design, accent, orientation, bg_url: url(b.bg_url, 'Background image', schoolId),
     settings: { inset: Number.isFinite(inset) ? Math.min(Math.max(inset, 0), 60) : 18, body_staff: String(b.body_staff ?? b.settings?.body_staff ?? '').replace(/\r/g, '').slice(0, 4000) || null },
   };
   const { error } = await db.from('doc_templates').upsert(row, { onConflict: 'school_id,doc_type' });
@@ -311,7 +337,7 @@ export async function issue(user, schoolId, b) {
   const inset = Number.isFinite(Number(b.inset)) ? Math.min(Math.max(Number(b.inset), 0), 60) : 18;
 
   const content = {
-    v: 1, type, title, body, design, accent, orientation, inset, bg_url: url(b.bg_url, 'Background image'),
+    v: 1, type, title, body, design, accent, orientation, inset, bg_url: url(b.bg_url, 'Background image', schoolId),
     school: await letterhead(schoolId), subject, fields, issued_on: todayStr(),
   };
   if (type === 'report_card') {
@@ -331,7 +357,7 @@ export async function issue(user, schoolId, b) {
   }).select('*').single();
   check(error);
   notifyDocument(schoolId, user, person.u.user_id, title);
-  return data;
+  return { ...data, content: await signContent(data.content) };
 }
 
 // ---------------------------------------------------------------- register
@@ -365,6 +391,7 @@ export async function getIssued(user, schoolId, id, isStaff) {
     if (!ok) throw httpError(403, 'This document was not issued to you');
     if (data.status === 'cancelled') data.content = null; // a cancelled document can no longer be printed by the holder
   }
+  data.content = await signContent(data.content);
   return data;
 }
 

@@ -22,6 +22,7 @@ import documentsRoutes from './routes/documents.js';
 import homeworkRoutes from './routes/homework.js';
 import notificationRoutes from './routes/notifications.js';
 import aiRoutes from './routes/ai.js';
+import backupRoutes from './routes/backup.js';
 import { auditMiddleware } from './audit.js';
 import { sweepStaging } from './homework.js';
 
@@ -51,6 +52,7 @@ app.use('/api/homework', authenticate, homeworkRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/audit', authenticate, auditRoutes);
 app.use('/api/ai', authenticate, aiRoutes);
+app.use('/api/backup', authenticate, backupRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 if (fs.existsSync(cfg.clientDist)) {

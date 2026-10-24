@@ -13,6 +13,7 @@ import { TestsAndMarks, AcademicReports, SubjectManager, ExamManager, MyMarks } 
 import { MyLeave, LeaveRequests, Balances, Payroll, PaySettings } from './modules/PayrollModule.jsx';
 import { Homework, MyHomework } from './modules/HomeworkModule.jsx';
 import { AuditLogs } from './modules/AuditModule.jsx';
+import { Backup } from './modules/BackupModule.jsx';
 import { IssueDocument, IssuedList, MyDocuments, Templates, Letterhead } from './modules/DocumentsModule.jsx';
 import { fetchers } from './fetchers.js';
 
@@ -128,6 +129,12 @@ export const MODULE_UI = {
     label: 'Audit logs', desc: 'A permanent record of who did what and when - for your school (super admin: every school)', color: '#475569', icon: 'shield',
     views: [
       { key: 'log', label: 'Activity log', need: ['view_audit_logs'], component: AuditLogs },
+    ],
+  },
+  backup: {
+    label: 'Backup', desc: 'Download a full backup of the school (database + files) and restore it in one click', color: '#0369a1', icon: 'download',
+    views: [
+      { key: 'backup', label: 'Backup & restore', need: ['manage_backups'], component: Backup },
     ],
   },
 };

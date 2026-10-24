@@ -21,7 +21,7 @@ const isUuid = (v) => typeof v === 'string' && UUID.test(v);
 
 export const AUDIT_MODULES = {
   auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors',
-  fees: 'Fees', communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', ai: 'AI assistant', audit: 'Audit logs', system: 'Other',
+  fees: 'Fees', communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', ai: 'AI assistant', audit: 'Audit logs', backup: 'Backup & restore', system: 'Other',
 };
 
 // ---- readable names for the thing that was touched: [table, column that holds its name] ----------
@@ -167,6 +167,14 @@ const RULES = [
   R('POST', '/ai/chat', 'ai.chat', () => 'Sent a message to the AI assistant'),
   R('POST', '/ai/confirm', 'ai.confirm', (c) => 'Confirmed an action proposed by the AI assistant'),
   R('POST', '/ai/cancel', 'ai.cancel', () => 'Cancelled an action proposed by the AI assistant'),
+
+  // ---- backup & restore
+  R('POST', '/backup', 'backup.create', () => 'Started a backup of the school (database + files)'),
+  R('POST', '/backup/restore-upload', 'backup.restore', () => 'Started restoring the school from uploaded backup files'),
+  R('POST', '/backup/:id/restore', 'backup.restore', () => 'Started restoring the school from a saved backup'),
+  R('DELETE', '/backup/:id', 'backup.delete', () => 'Deleted a saved backup'),
+  R('GET', '/backup/:id/database', 'backup.download', () => 'Downloaded the database backup file', { kind: 'view' }),
+  R('GET', '/backup/:id/files', 'backup.download', () => 'Downloaded the files backup (zip)', { kind: 'view' }),
 
   // ---- audit logs themselves (only exporting is recorded; browsing the log is not)
   R('POST', '/audit/navigate', 'audit.navigate', () => 'Opened a page', { kind: 'view' }),

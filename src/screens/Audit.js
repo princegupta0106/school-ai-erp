@@ -10,7 +10,7 @@ import { qs, Pad, List } from './Attendance';
 
 const MODULES = {
   auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', fees: 'Fees',
-  communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', audit: 'Audit logs', system: 'Other',
+  communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', audit: 'Audit logs', backup: 'Backup & restore', system: 'Other',
 };
 const KIND = { change: 'Change', view: 'Viewed', auth: 'Sign-in' };
 const ROLE = { super_admin: 'Super admin', school_admin: 'School admin', parent: 'Parent', staff: 'Staff', student: 'Student', other: 'Other' };

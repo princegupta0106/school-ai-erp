@@ -8,7 +8,7 @@
 import crypto from 'node:crypto';
 import { db, httpError, check } from './db.js';
 import { accessibleClasses } from './attendance.js';
-import { uploadFile, deleteFile, headFile, copyFile, fileUrl, listFiles } from './r2.js';
+import { uploadFile, deleteFile, headFile, copyFile, listFiles, signedUrl } from './r2.js';
 import { notifyHomework, notifyChecked } from './notify.js';
 import { stagePrefix, safeName, copyStaged, sweepStaged, MAX_FILES } from './stagedFiles.js';
 
@@ -16,7 +16,7 @@ const one = (x) => (Array.isArray(x) ? x[0] : x);
 const isAdmin = (user) => user.role === 'school_admin' || user.role === 'super_admin';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// ---- files (Cloudflare R2, same bucket as user documents)
+// ---- files (private Cloudflare R2 bucket, same bucket as user documents). Only the key is stored; links are signed per request.
 async function saveFiles(files, folder) {
   const out = [];
   try {
@@ -24,14 +24,16 @@ async function saveFiles(files, folder) {
       const id = crypto.randomUUID();
       const safe = f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
       const key = `${folder}/${id}-${safe}`;
-      const url = await uploadFile(key, f.buffer, f.mimetype);
-      out.push({ id, name: f.originalname, url, key, size: f.size, type: f.mimetype });
+      await uploadFile(key, f.buffer, f.mimetype);
+      out.push({ id, name: f.originalname, key, size: f.size, type: f.mimetype });
     }
   } catch (e) { await removeFiles(out); throw e; }
   return out;
 }
 const removeFiles = (list) => Promise.allSettled((list || []).map((f) => deleteFile(f.key)));
-const publicFile = (f) => ({ id: f.id, name: f.name, url: f.url, size: f.size, type: f.type });
+// what the browser / phone gets for a stored file: a link that works for one hour (older rows also carry a now-unused `url`)
+const publicFile = async (f) => ({ id: f.id, name: f.name, url: await signedUrl(f.key, { filename: f.name }), size: f.size, type: f.type });
+const publicFiles = (list) => Promise.all((list || []).map(publicFile));
 
 // ================================================================= teacher side
 export async function listClasses(user, schoolId) {
@@ -87,10 +89,10 @@ export async function listAssignments(user, schoolId) {
   subs.forEach((s) => { const c = counts.get(s.assignment_id) || { submitted: 0, checked: 0 }; c.submitted += 1; if (s.status === 'checked') c.checked += 1; counts.set(s.assignment_id, c); });
   const classIds = [...new Set(data.map((a) => a.class_id))];
   const totals = new Map(await Promise.all(classIds.map(async (id) => [id, (await classStudentIds(schoolId, id)).length])));
-  return data.map((a) => {
+  return Promise.all(data.map(async (a) => {
     const c = counts.get(a.id) || { submitted: 0, checked: 0 };
-    return { ...a, classes: one(a.classes), attachments: (a.attachments || []).map(publicFile), total_students: totals.get(a.class_id) || 0, submitted: c.submitted, checked: c.checked, to_check: c.submitted - c.checked };
-  });
+    return { ...a, classes: one(a.classes), attachments: await publicFiles(a.attachments), total_students: totals.get(a.class_id) || 0, submitted: c.submitted, checked: c.checked, to_check: c.submitted - c.checked };
+  }));
 }
 
 export async function createAssignment(user, schoolId, b, files) {
@@ -113,7 +115,7 @@ export async function createAssignment(user, schoolId, b, files) {
   const written = [];
   let attachments;
   try {
-    attachments = [...uploaded, ...(await copyStaged(user.user_id, staged, folder, { headFile, copyFile, fileUrl }, written))];
+    attachments = [...uploaded, ...(await copyStaged(user.user_id, staged, folder, { headFile, copyFile }, written))];
   } catch (e) { await removeFiles([...uploaded, ...written]); throw e; }
   const { error } = await db.from('assignments').insert({
     id, school_id: schoolId, class_id: b.class_id, created_by: user.user_id, title, description: description || null,
@@ -140,14 +142,14 @@ export async function getSubmissions(user, schoolId, id) {
   const { data: subs, error: e2 } = await db.from('assignment_submissions').select('*').eq('assignment_id', id);
   check(e2);
   const by = new Map(subs.map((s) => [s.student_id, s]));
-  const rows = studs.filter((p) => p.extra?.graduated !== true).map((p) => {
+  const rows = (await Promise.all(studs.filter((p) => p.extra?.graduated !== true).map(async (p) => {
     const s = by.get(p.user_id);
     return {
       student_id: p.user_id, name: p.full_name || one(p.users).login_id, roll_no: p.roll_no,
-      submission: s ? { id: s.id, note: s.note, files: (s.files || []).map(publicFile), is_late: s.is_late, submitted_at: s.submitted_at, status: s.status, marks: s.marks, feedback: s.feedback, checked_at: s.checked_at } : null,
+      submission: s ? { id: s.id, note: s.note, files: await publicFiles(s.files), is_late: s.is_late, submitted_at: s.submitted_at, status: s.status, marks: s.marks, feedback: s.feedback, checked_at: s.checked_at } : null,
     };
-  }).sort((x, y) => (x.roll_no ?? 1e9) - (y.roll_no ?? 1e9) || x.name.localeCompare(y.name));
-  return { assignment: { id: a.id, title: a.title, description: a.description, subject: a.subject, due_date: a.due_date, needs_submission: a.needs_submission, classes: one(a.classes), attachments: (a.attachments || []).map(publicFile) }, students: rows };
+  }))).sort((x, y) => (x.roll_no ?? 1e9) - (y.roll_no ?? 1e9) || x.name.localeCompare(y.name));
+  return { assignment: { id: a.id, title: a.title, description: a.description, subject: a.subject, due_date: a.due_date, needs_submission: a.needs_submission, classes: one(a.classes), attachments: await publicFiles(a.attachments) }, students: rows };
 }
 
 export async function checkSubmission(user, schoolId, submissionId, b) {
@@ -176,7 +178,7 @@ export async function myAssignments(user) {
   check(e2);
   const by = new Map(subs.map((s) => [s.assignment_id, s]));
   const teachers = await teacherNames(data.map((a) => a.created_by));
-  return data.map((a) => ({ ...a, attachments: (a.attachments || []).map(publicFile), teacher: teachers.get(a.created_by) || '', my: by.get(a.id) || null }));
+  return Promise.all(data.map(async (a) => ({ ...a, attachments: await publicFiles(a.attachments), teacher: teachers.get(a.created_by) || '', my: by.get(a.id) || null })));
 }
 
 async function teacherNames(ids) {
@@ -197,8 +199,8 @@ export async function myAssignment(user, id) {
   const teachers = await teacherNames([a.created_by]);
   return {
     id: a.id, title: a.title, description: a.description, subject: a.subject, due_date: a.due_date, needs_submission: a.needs_submission, created_at: a.created_at,
-    attachments: (a.attachments || []).map(publicFile), teacher: teachers.get(a.created_by) || '',
-    my: s ? { note: s.note, files: (s.files || []).map(publicFile), is_late: s.is_late, submitted_at: s.submitted_at, status: s.status, marks: s.marks, feedback: s.feedback, checked_at: s.checked_at } : null,
+    attachments: await publicFiles(a.attachments), teacher: teachers.get(a.created_by) || '',
+    my: s ? { note: s.note, files: await publicFiles(s.files), is_late: s.is_late, submitted_at: s.submitted_at, status: s.status, marks: s.marks, feedback: s.feedback, checked_at: s.checked_at } : null,
   };
 }
 

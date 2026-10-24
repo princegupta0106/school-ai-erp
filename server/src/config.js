@@ -26,6 +26,8 @@ export const cfg = {
     accessKeyId: process.env.R2_ACCESS_KEY_ID,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     bucket: process.env.R2_BUCKET_NAME,
+    // OPTIONAL and only for old data: the bucket is private now. If files were saved earlier under a public address, put it here
+    // so those old links are recognised and re-signed. New files never use it.
     publicUrl: (process.env.R2_PUBLIC_URL || '').replace(/\/$/, ''),
   },
   // the Python AI service (ai-server/). The portal forwards /api/ai/* to it; it listens on this machine only.

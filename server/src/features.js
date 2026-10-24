@@ -116,6 +116,12 @@ export const MODULES = {
       view_audit_logs: { label: 'View the audit log (who did what, when) of the school', roles: ADMINS },
     },
   },
+  backup: {
+    label: 'Backup & restore',
+    features: {
+      manage_backups: { label: 'Create, download & restore backups of the school (database + files)', roles: ['school_admin'] },
+    },
+  },
   payroll: {
     label: 'Payroll & Leave',
     features: {

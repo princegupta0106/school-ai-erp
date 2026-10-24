@@ -24,8 +24,8 @@ export function parseStagedRef(userId, ref) {
   return { id, key, name: String(ref?.name || rest.slice(37)).slice(0, 200) };
 }
 
-// Validate a list of refs and turn them into attachments of homework `folder`. r2 = { headFile, copyFile, fileUrl }.
-// Returns [{ id, name, url, key, size, type }]; `copied` collects what was written so the caller can undo it on failure.
+// Validate a list of refs and turn them into attachments of homework `folder`. r2 = { headFile, copyFile }.
+// Returns [{ id, name, key, size, type }] (no link is stored: the bucket is private, links are signed when the file is shown); `copied` collects what was written so the caller can undo it on failure.
 export async function copyStaged(userId, refs, folder, r2, copied = []) {
   if (!Array.isArray(refs)) return [];
   if (refs.length > MAX_FILES) throw Object.assign(new Error('You can attach up to 5 files'), { status: 400 });
@@ -40,9 +40,9 @@ export async function copyStaged(userId, refs, folder, r2, copied = []) {
     if (!head) throw Object.assign(new Error(`"${p.name}" has expired. Attach it again.`), { status: 400 });
     const id = globalThis.crypto.randomUUID();
     const key = `${folder}/${id}-${safeName(p.name)}`;
-    const url = await r2.copyFile(p.key, key);
+    await r2.copyFile(p.key, key);
     copied.push({ key });
-    out.push({ id, name: p.name, url, key, size: head.size, type: head.type });
+    out.push({ id, name: p.name, key, size: head.size, type: head.type });
   }
   return out;
 }
