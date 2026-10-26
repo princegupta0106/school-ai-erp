@@ -59,6 +59,27 @@ function FileCard({ d }) {
   );
 }
 
+// reveals text a few characters at a time, so a reply that arrives in one piece still appears progressively
+function Typed({ text }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (n >= text.length) return undefined;
+    const t = setTimeout(() => setN((v) => Math.min(text.length, v + Math.max(2, Math.ceil(text.length / 90)))), 18);
+    return () => clearTimeout(t);
+  }, [n, text]);
+  return <>{rich(text.slice(0, n))}</>;
+}
+
+// shown from the moment the message is sent until the first words arrive: the real backend step, a live timer and rotating hints
+const HINTS = ['Reading your request…', 'Checking what you are allowed to do…', 'Looking through the school data…', 'Working out the answer…', 'Almost there, still working…'];
+function Waiting({ step }) {
+  const [sec, setSec] = useState(0);
+  useEffect(() => { const t = setInterval(() => setSec((v) => v + 1), 1000); return () => clearInterval(t); }, []);
+  const tool = step && step.startsWith('Running');
+  const msg = tool ? step : HINTS[Math.min(HINTS.length - 1, Math.floor(sec / 3))];
+  return <div className="ai-step"><span className="ai-spin" aria-hidden="true" /> {msg} <small>{sec}s</small></div>;
+}
+
 function Card({ a, busy, onDecide }) {
   return (
     <div className={`ai-card ${a.status}`}>
@@ -122,19 +143,41 @@ export default function AssistantChat({ me }) {
       }
       setFiles([]);
       setItems((x) => [...x.filter((i) => i.k !== 'choices'), { k: 'u', text: message, files: sending.map((f) => f.name) }]);
-      const r = await api.post('/ai/chat', { message, conversation_id: conv, auto_confirm: auto, ...(attachments ? { attachments } : {}) });
+      const body = { message, conversation_id: conv, auto_confirm: auto, ...(attachments ? { attachments } : {}) };
+      let r = null, errMsg = '';
+      const onEvent = (ev) => {
+        if (ev.t === 'status' || ev.t === 'tool') {            // what the backend is doing right now (shown while waiting)
+          setItems((x) => [...x.filter((i) => i.k !== 'step'), { k: 'step', text: ev.text }]);
+        } else if (ev.t === 'text') {                          // the AI's words: show them immediately, indicator goes away
+          setItems((x) => [...x.filter((i) => i.k !== 'step'), { k: 'a', text: ev.text, live: true, typed: true }]);
+        } else if (ev.t === 'done') r = ev.data;
+        else if (ev.t === 'error') errMsg = ev.error;
+      };
+      try { await api.stream('/ai/chat/stream', body, onEvent); }
+      catch (e) {
+        if (e.status !== 404) throw e;                         // an older server without streaming: use the normal request
+        r = await api.post('/ai/chat', body);
+      }
+      if (errMsg) throw new Error(errMsg);
+      if (!r) throw new Error('The connection dropped before the answer finished. Please try again.');
       setConv(r.conversation_id);
       const cards = r.actions || [];
       const missing = !cards.length && /check the card|press confirm/i.test(r.reply || '');
-      setItems((x) => [...x,
-        ...(r.reply && !missing ? [{ k: 'a', text: r.reply }] : []),
+      const norm = (t) => String(t).replace(/\s+/g, ' ').trim().toLowerCase();
+      setItems((x) => {
+        const live = x.filter((i) => i.live);
+        const same = live.length && norm(live.map((i) => i.text).join(' ')) === norm(r.reply || '');   // keep the bubbles already on screen when they match the final answer
+        const base = x.filter((i) => i.k !== 'step' && (same || !i.live)).map((i) => (i.live ? { ...i, live: false } : i));
+        return [...base,
+        ...(r.reply && !missing && !same ? [{ k: 'a', text: r.reply, typed: true }] : []),
         ...(missing ? [{ k: 'e', text: 'The confirm card did not arrive. Please send your request again.' }] : []),
         ...(r.actions || []).map((a) => ({ k: 'card', a })),
         ...((r.downloads || []).length ? [{ k: 'files', list: r.downloads }] : []),
-        ...(r.choices?.length ? [{ k: 'choices', options: r.choices }] : [])]);
+        ...(r.choices?.length ? [{ k: 'choices', options: r.choices }] : [])];
+      });
     } catch (e) {
       setText((cur) => cur || message);              // keep what they typed (and the files, if the upload itself failed)
-      setItems((x) => [...x, { k: 'e', text: e.message }]);
+      setItems((x) => [...x.filter((i) => i.k !== 'step'), { k: 'e', text: e.message }]);
     } finally { setBusy(false); }
   };
 
@@ -186,7 +229,8 @@ export default function AssistantChat({ me }) {
           )}
           {items.map((i, n) => {
             if (i.k === 'u') return <div key={n} className="ai-b u">{i.text}{(i.files || []).map((f, k) => <div key={k} className="ai-file">📎 {f}</div>)}</div>;
-            if (i.k === 'a') return <div key={n} className="ai-b a">{rich(i.text)}</div>;
+            if (i.k === 'a') return <div key={n} className={`ai-b a${i.typed ? ' ai-in' : ''}`}>{i.typed ? <Typed text={i.text} /> : rich(i.text)}</div>;
+            if (i.k === 'step') return null;
             if (i.k === 'e') return <div key={n} className="ai-b e">{i.text}</div>;
             if (i.k === 'card') return <Card key={n} a={i.a} busy={busy} onDecide={decide} />;
             if (i.k === 'files') return <div key={n} className="ai-dls">{i.list.map((d) => <FileCard key={d.id || d.path} d={d} />)}</div>;
@@ -198,7 +242,7 @@ export default function AssistantChat({ me }) {
               <button className="btn" disabled={busy} onClick={() => decideAll('cancel')}>Cancel all</button>
             </div>
           )}
-          {busy && <div className="ai-dots">Thinking…</div>}
+          {busy && !items.some((i) => i.live) && <Waiting step={items.find((i) => i.k === 'step')?.text} />}
           <div ref={end} />
         </div>
         {(files.length > 0 || picked) && (

@@ -70,7 +70,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         p = self.path.split("?")[0]
-        if p not in ("/api/chat", "/api/confirm", "/api/cancel"):
+        if p not in ("/api/chat", "/api/chat_stream", "/api/confirm", "/api/cancel"):
             return self.send_error(404)
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -85,6 +85,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(401, {"error": "Please sign in again."})
         if "use_assistant" not in (user.get("features") or []):
             return self._json(403, {"error": "You don't have access to the assistant."})
+        if p == "/api/chat_stream":
+            return self._stream_chat(token, user, body)
         try:
             if p == "/api/chat":
                 out = agent.chat(token, user, body.get("conversation_id"), body.get("message"), bool(body.get("auto_confirm")), body.get("attachments"))
@@ -98,6 +100,32 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             print("[ai] error:", repr(e))
             self._json(500, {"error": "Something went wrong. Please try again."})
+
+    def _stream_chat(self, token, user, body):
+        """Same as /api/chat but sends newline-delimited JSON events while it works: status / tool / text ... then done (or error)."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("Cache-Control", "no-cache, no-transform")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.close_connection = True
+
+        def emit(ev):
+            self.wfile.write((json.dumps(ev, ensure_ascii=False) + "\n").encode())
+            self.wfile.flush()
+        try:
+            out = agent.chat(token, user, body.get("conversation_id"), body.get("message"), bool(body.get("auto_confirm")), body.get("attachments"), emit)
+            emit({"t": "done", "data": out})
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except agent.ErpError as e:
+            emit({"t": "error", "error": str(e)})
+        except Exception as e:
+            print("[ai] error:", repr(e))
+            try:
+                emit({"t": "error", "error": "Something went wrong. Please try again."})
+            except Exception:
+                pass
 
     def log_message(self, *a):
         pass

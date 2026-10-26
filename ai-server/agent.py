@@ -4972,7 +4972,8 @@ def _run_call(call, ctx):
         return {"error": f"Bad arguments: {e}"}
 
 
-def chat(token, user, conv_id, text, auto=False, attachments=None):
+def chat(token, user, conv_id, text, auto=False, attachments=None, emit=None):
+    emit = emit or (lambda *_: None)             # emit(event_dict): live progress for the streaming endpoint (no-op otherwise)
     text = (text or "").strip()
     if not text and not attachments:
         raise ErpError("Empty message")
@@ -4992,10 +4993,15 @@ def chat(token, user, conv_id, text, auto=False, attachments=None):
         prefetch(ctx)              # the people list loads while the first LLM call is thinking
     texts = []
     for _ in range(MAX_STEPS):
+        emit({"t": "status", "text": "Thinking…"})
         r = llm(msgs, schemas, system)
         msgs.append({"role": "assistant", "text": r["text"], "calls": r["calls"], **({"raw": r["raw"]} if r.get("raw") else {})})
         if r["text"]:
             texts.append(r["text"])
+            emit({"t": "text", "text": r["text"]})      # show the model's words the moment they arrive
+        for x in r["calls"]:
+            if x["name"] != "ask_choice":
+                emit({"t": "tool", "text": "Running: " + str(x["name"]).replace("_", " ")})
         if not r["calls"]:
             break
         stop = False

@@ -58,6 +58,44 @@ const cleanAttachments = (req) => (Array.isArray(req.body?.attachments) ? req.bo
   return ref ? { id: ref.id, key: ref.key, name: ref.name, size: Number(a.size) || 0, type: String(a.type || '').slice(0, 100) } : null;
 }).filter(Boolean);
 
+// Streaming chat: relays the AI service's live events (status / tool / text) to the app line by line, as they happen.
+r.post('/chat/stream', requireFeature('use_assistant'), limiter, async (req, res) => {
+  res.status(200);
+  res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');   // no-transform keeps compression from buffering the stream
+  res.setHeader('X-Accel-Buffering', 'no');
+  const send = (o) => { res.write(`${JSON.stringify(o)}\n`); res.flush?.(); };
+  send({ t: 'ping', pad: ' '.repeat(2048) });                 // flushes any proxy buffer right away so later events arrive live
+  const ac = new AbortController();
+  res.on('close', () => ac.abort());
+  try {
+    const up = await fetch(`${cfg.ai.url}/api/chat_stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: req.headers.authorization },
+      body: JSON.stringify({ ...req.body, attachments: cleanAttachments(req) }),
+      signal: AbortSignal.any([ac.signal, AbortSignal.timeout(150000)]),
+    });
+    if (!up.ok || !up.body) { const d = await up.json().catch(() => ({})); send({ t: 'error', error: d.error || 'The AI service could not answer.' }); return res.end(); }
+    const dec = new TextDecoder();
+    let buf = '';
+    const line = (l) => {
+      if (!l.trim()) return;
+      let ev; try { ev = JSON.parse(l); } catch { return; }
+      if (ev.t === 'done') ev.data = cleanReply(ev.data);
+      send(ev);
+    };
+    for await (const chunk of up.body) {
+      buf += dec.decode(chunk, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) { line(buf.slice(0, i)); buf = buf.slice(i + 1); }
+    }
+    line(buf);
+  } catch (e) {
+    if (!ac.signal.aborted) send({ t: 'error', error: 'The AI service is not running. Start it with run.bat (it opens an "AI service" window) or: python ai-server/server.py' });
+  }
+  res.end();
+});
+
 for (const p of ['chat', 'confirm', 'cancel']) {
   r.post(`/${p}`, requireFeature('use_assistant'), limiter, asyncH(async (req, res) => {
     const body = p === 'chat' ? { ...req.body, attachments: cleanAttachments(req) } : req.body;

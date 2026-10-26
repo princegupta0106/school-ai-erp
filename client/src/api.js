@@ -33,6 +33,27 @@ async function request(method, url, body) {
     return data;
   } finally { if (!quiet) bump(-1); }
 }
+// POST that answers with newline-delimited JSON events; onEvent is called for each one as it arrives
+async function stream(url, body, onEvent) {
+  const t = getToken();
+  const res = await fetch(`/api${url}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) }, body: JSON.stringify(body) });
+  if (!res.ok || !res.body) {
+    if (res.status === 401) onUnauthorized();
+    const data = await res.json().catch(() => ({}));
+    const err = new Error(data.error || `Request failed (${res.status})`); err.status = res.status; throw err;
+  }
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let buf = '';
+  const line = (l) => { if (!l.trim()) return; try { onEvent(JSON.parse(l)); } catch { /* ignore a broken line */ } };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) { line(buf.slice(0, i)); buf = buf.slice(i + 1); }
+  }
+  line(buf);
+}
 // downloads a file (e.g. a PDF receipt) with the sign-in token and hands it to the browser
 async function download(url, fallbackName) {
   const t = getToken();
@@ -55,4 +76,5 @@ export const api = {
   patch: (u, b) => request('PATCH', u, b ?? {}),
   put: (u, b) => request('PUT', u, b ?? {}),
   del: (u) => request('DELETE', u),
+  stream,
 };
