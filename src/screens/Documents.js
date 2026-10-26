@@ -75,7 +75,7 @@ function CancelSheet({ id, sc, onClose, onDone }) {
   return (
     <Sheet title="Cancel this document" onClose={onClose}>
       <Dim style={{ marginBottom: 12 }}>The document stays in the register as cancelled and can no longer be printed by the student or staff member. Its number is never reused.</Dim>
-      <Field label="Reason (kept in the history)"><Input maxLength={200} value={reason} onChangeText={setReason} /></Field>
+      <Field req label="Reason (kept in the history)"><Input maxLength={200} value={reason} onChangeText={setReason} /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn kind="danger" title={busy ? 'Please wait...' : 'Cancel document'} onPress={go} disabled={busy || !reason.trim()} />
     </Sheet>

@@ -33,7 +33,7 @@ export default function SendNotification({ me }) {
         <Field label="Classes" hint="Students, parents and teachers of these classes">
           {!classes ? <Dim>Loading classes...</Dim> : classes.length === 0 ? <Dim>No classes available to you.</Dim> : <Chips values={f.class_ids} onChange={set('class_ids')} options={classes.map((c) => ({ value: c.id, label: clsName(c) }))} />}
         </Field>)}
-      <Field label="Title"><Input maxLength={100} value={f.title} onChangeText={set('title')} placeholder="e.g. School closed tomorrow" /></Field>
+      <Field req label="Title"><Input maxLength={100} value={f.title} onChangeText={set('title')} placeholder="e.g. School closed tomorrow" /></Field>
       <Field label="Message (optional)"><Input multiline maxLength={500} value={f.body} onChangeText={set('body')} placeholder="A short message..." /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn title={busy ? 'Sending...' : 'Send notification'} disabled={busy || bad} onPress={send} />

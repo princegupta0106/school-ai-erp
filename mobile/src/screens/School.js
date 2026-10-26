@@ -1,6 +1,6 @@
 // School module for mobile. Mirrors client/src/modules/SchoolModule.jsx (same endpoints and rules).
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { api } from '../api';
 import { C, fmt, ymd, SH } from '../theme';
 import { Icon } from '../icons';
@@ -26,9 +26,34 @@ function OptDate({ value, onChange, min }) {
 }
 
 /* ================================================================== SCHOOLS (list + edit) */
+/* school logo: upload a picture (no links) */
+function LogoField({ school, can }) {
+  const [logo, setLogo] = useState(school.logo_url || ''); const [busy, setBusy] = useState(false);
+  const pick = async () => {
+    try {
+      const DP = await import('expo-document-picker');
+      const r = await DP.getDocumentAsync({ type: ['image/png', 'image/jpeg', 'image/webp'], copyToCacheDirectory: true });
+      if (r.canceled || !r.assets?.[0]) return;
+      const a = r.assets[0]; setBusy(true);
+      const fd = new FormData(); fd.append('file', { uri: a.uri, name: a.name || 'logo.png', type: a.mimeType || 'image/png' });
+      const res = await api.post(`/schools/${school.id}/logo`, fd); setLogo(res.logo_url || ''); toast('Logo saved');
+    } catch (x) { toast(x.message, true); } finally { setBusy(false); }
+  };
+  const remove = async () => { setBusy(true); try { await api.del(`/schools/${school.id}/logo`); setLogo(''); toast('Logo removed'); } catch (x) { toast(x.message, true); } finally { setBusy(false); } };
+  return (
+    <Field label="School logo" hint="PNG, JPG or WebP, up to 4 MB">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {logo ? <Image source={{ uri: logo }} style={{ width: 56, height: 56, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff' }} resizeMode="contain" /> : <Dim>No logo yet</Dim>}
+        {can && <Btn small kind="ghost" title={busy ? 'Uploading...' : logo ? 'Change logo' : 'Upload logo'} onPress={pick} disabled={busy} />}
+        {can && !!logo && <Btn small kind="ghost" title="Remove" onPress={remove} disabled={busy} />}
+      </View>
+    </Field>
+  );
+}
+
 function SchoolForm({ school, me, onSaved }) {
   const can = me.features.includes('edit_school'); const sup = me.role === 'super_admin';
-  const [f, setF] = useState({ name: school.name || '', code: school.code || '', address: school.address || '', phone: school.phone || '', email: school.email || '', logo_url: school.logo_url || '', is_active: school.is_active });
+  const [f, setF] = useState({ name: school.name || '', code: school.code || '', address: school.address || '', phone: school.phone || '', email: school.email || '', is_active: school.is_active });
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
   const save = async () => {
@@ -38,12 +63,12 @@ function SchoolForm({ school, me, onSaved }) {
   };
   const ro = !can;
   return (<>
-    <Field label="School name"><Input value={f.name} onChangeText={set('name')} editable={!ro} /></Field>
-    <Field label="Code"><Input autoCapitalize="none" value={f.code} onChangeText={set('code')} editable={!ro && sup} /></Field>
+    <Field req label="School name"><Input value={f.name} onChangeText={set('name')} editable={!ro} /></Field>
+    <Field req={sup} label="Code"><Input autoCapitalize="none" value={f.code} onChangeText={set('code')} editable={!ro && sup} /></Field>
     <Field label="Phone"><Input keyboardType="phone-pad" value={f.phone} onChangeText={set('phone')} editable={!ro} /></Field>
     <Field label="Email"><Input autoCapitalize="none" keyboardType="email-address" value={f.email} onChangeText={set('email')} editable={!ro} /></Field>
     <Field label="Address"><Input multiline value={f.address} onChangeText={set('address')} editable={!ro} /></Field>
-    <Field label="Logo URL"><Input autoCapitalize="none" value={f.logo_url} onChangeText={set('logo_url')} editable={!ro} /></Field>
+    <LogoField school={school} can={can} />
     {sup && can && <Check label="School is active (turning off blocks everyone in it from signing in)" value={f.is_active} onChange={set('is_active')} />}
     <ErrorBox>{err}</ErrorBox>
     {can && <Btn title={busy ? 'Saving...' : 'Save changes'} onPress={save} disabled={busy || !f.name.trim()} />}
@@ -61,8 +86,6 @@ export function SchoolList({ me }) {
       {data.map((s) => (
         <Press key={s.id} onPress={() => setOpen(s)} style={{ backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line, ...SH, marginBottom: 10 }}>
           <Text style={{ fontWeight: '800', fontSize: 16, color: C.ink }}>{s.name}</Text>
-          <Dim style={{ marginTop: 2 }}>{s.address || 'No address added'}</Dim>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}><Chip tone={s.is_active ? 'ok' : 'bad'}>{s.is_active ? 'Active' : 'Off'}</Chip><Dim>code: {s.code}</Dim></View>
         </Press>))}
       {open && <Sheet title={open.name} onClose={() => setOpen(null)}><SchoolForm key={open.id} school={open} me={me} onSaved={() => { setOpen(null); reload(); }} /></Sheet>}
     </Pad>
@@ -71,7 +94,7 @@ export function SchoolList({ me }) {
 
 /* ================================================================== CREATE SCHOOL */
 export function SchoolNew({ go }) {
-  const blank = { name: '', code: '', address: '', phone: '', email: '', admin: { login_id: '', password: '', full_name: '' } };
+  const blank = { name: '', code: '', address: '', phone: '', email: '', admin: { password: '', full_name: '' } };
   const [f, setF] = useState(blank); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
   const setA = (k) => (v) => setF((p) => ({ ...p, admin: { ...p.admin, [k]: v } }));
@@ -84,17 +107,17 @@ export function SchoolNew({ go }) {
     <Pad>
       <Card>
         <Sec>School</Sec>
-        <Field label="School name"><Input value={f.name} onChangeText={set('name')} /></Field>
-        <Field label="Code" hint="Short unique name, e.g. dps-pune"><Input autoCapitalize="none" value={f.code} onChangeText={set('code')} /></Field>
+        <Field req label="School name"><Input value={f.name} onChangeText={set('name')} /></Field>
+        <Field req label="Code" hint="Short unique name, e.g. dps-pune"><Input autoCapitalize="none" value={f.code} onChangeText={set('code')} /></Field>
         <Field label="Phone"><Input keyboardType="phone-pad" value={f.phone} onChangeText={set('phone')} /></Field>
         <Field label="Email"><Input autoCapitalize="none" keyboardType="email-address" value={f.email} onChangeText={set('email')} /></Field>
         <Field label="Address"><Input multiline value={f.address} onChangeText={set('address')} /></Field>
         <Sec>School admin (gets every feature for this school)</Sec>
-        <Field label="Admin name"><Input value={f.admin.full_name} onChangeText={setA('full_name')} /></Field>
-        <Field label="Admin login ID"><Input autoCapitalize="none" autoCorrect={false} value={f.admin.login_id} onChangeText={setA('login_id')} /></Field>
-        <Field label="Admin password" hint="At least 6 characters"><Input secureTextEntry autoCapitalize="none" value={f.admin.password} onChangeText={setA('password')} /></Field>
+        <Field req label="Admin name"><Input value={f.admin.full_name} onChangeText={setA('full_name')} /></Field>
+        <Field label="Admin login ID" hint="Made automatically, e.g. AF001"><Input value="Automatic" editable={false} /></Field>
+        <Field req label="Admin password" hint="At least 6 characters"><Input secureTextEntry autoCapitalize="none" value={f.admin.password} onChangeText={setA('password')} /></Field>
         <ErrorBox>{err}</ErrorBox>
-        <Btn title={busy ? 'Creating...' : 'Create school'} onPress={save} disabled={busy || !f.name.trim() || !f.code.trim() || !f.admin.login_id.trim() || f.admin.password.length < 6} />
+        <Btn title={busy ? 'Creating...' : 'Create school'} onPress={save} disabled={busy || !f.name.trim() || !f.code.trim() || !f.admin.full_name.trim() || f.admin.password.length < 6} />
       </Card>
     </Pad>
   );
@@ -140,9 +163,9 @@ export function Calendar({ me }) {
           </View>))}
         {edit && (<>
           <View style={{ borderTopWidth: 1, borderColor: C.line, marginTop: 10, paddingTop: 12 }}>
-            <Field label="New session"><Input value={ns.name} onChangeText={(t) => setNs({ ...ns, name: t })} placeholder="2026-2027" /></Field>
-            <Field label="Starts"><DateField value={ns.start_date} onChange={(v) => setNs({ ...ns, start_date: v })} /></Field>
-            <Field label="Ends"><DateField value={ns.end_date} min={ns.start_date} onChange={(v) => setNs({ ...ns, end_date: v })} /></Field>
+            <Field req label="New session"><Input value={ns.name} onChangeText={(t) => setNs({ ...ns, name: t })} placeholder="2026-2027" /></Field>
+            <Field req label="Starts"><DateField value={ns.start_date} onChange={(v) => setNs({ ...ns, start_date: v })} /></Field>
+            <Field req label="Ends"><DateField value={ns.end_date} min={ns.start_date} onChange={(v) => setNs({ ...ns, end_date: v })} /></Field>
             <Btn title="Add session" disabled={!ns.name.trim()} onPress={run(async () => { await api.post(`/calendar/sessions${qsOf(sid)}`, ns); setNs({ name: '', start_date: today, end_date: today }); }, 'Session added')} />
           </View>
         </>)}
@@ -159,8 +182,8 @@ export function Calendar({ me }) {
           </View>))}
         {edit && (
           <View style={{ borderTopWidth: 1, borderColor: C.line, marginTop: 10, paddingTop: 12 }}>
-            <Field label="Add holiday / event"><Input value={nh.title} onChangeText={(t) => setNh({ ...nh, title: t })} placeholder="Diwali break" /></Field>
-            <Field label="From"><DateField value={nh.start_date} onChange={(v) => setNh({ ...nh, start_date: v, end_date: nh.end_date && nh.end_date < v ? '' : nh.end_date })} /></Field>
+            <Field req label="Add holiday / event"><Input value={nh.title} onChangeText={(t) => setNh({ ...nh, title: t })} placeholder="Diwali break" /></Field>
+            <Field req label="From"><DateField value={nh.start_date} onChange={(v) => setNh({ ...nh, start_date: v, end_date: nh.end_date && nh.end_date < v ? '' : nh.end_date })} /></Field>
             <Field label="To (optional)"><OptDate value={nh.end_date} min={nh.start_date} onChange={(v) => setNh({ ...nh, end_date: v })} /></Field>
             <Field label="Type"><Choice value={nh.type} onChange={(v) => setNh({ ...nh, type: v })} options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))} /></Field>
             <Btn title="Add" disabled={!nh.title.trim()} onPress={run(async () => { await api.post(`/calendar/holidays${qsOf(sid)}`, { ...nh, end_date: nh.end_date || undefined, session_id: active || undefined }); setNh({ title: '', start_date: today, end_date: '', type: 'holiday' }); }, 'Added')} />
@@ -213,9 +236,9 @@ export function Promotion({ me }) {
           <Choice value={final} onChange={(v) => { setFinal(v); setPlan(null); }} options={[{ value: 'deactivate', label: 'Graduate + turn off accounts' }, { value: 'keep', label: 'Graduate, keep accounts on' }]} />
         </Field>
         <Sec>Next session</Sec>
-        <Field label="Name"><Input value={ns.name} onChangeText={(t) => setNs({ ...ns, name: t })} /></Field>
-        <Field label="Starts">{ns.start_date ? <DateField value={ns.start_date} onChange={(v) => setNs({ ...ns, start_date: v })} /> : <Dim>-</Dim>}</Field>
-        <Field label="Ends">{ns.end_date ? <DateField value={ns.end_date} onChange={(v) => setNs({ ...ns, end_date: v })} /> : <Dim>-</Dim>}</Field>
+        <Field req label="Name"><Input value={ns.name} onChangeText={(t) => setNs({ ...ns, name: t })} /></Field>
+        <Field req label="Starts">{ns.start_date ? <DateField value={ns.start_date} onChange={(v) => setNs({ ...ns, start_date: v })} /> : <Dim>-</Dim>}</Field>
+        <Field req label="Ends">{ns.end_date ? <DateField value={ns.end_date} onChange={(v) => setNs({ ...ns, end_date: v })} /> : <Dim>-</Dim>}</Field>
         <ErrorBox>{err}</ErrorBox>
         <Btn kind="ghost" title="Preview what will change" onPress={preview} disabled={busy} />
       </Card>

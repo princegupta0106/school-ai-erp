@@ -59,8 +59,8 @@ export function Modal({ title, onClose, children, wide }) {
   );
 }
 
-export const Field = ({ label, children, hint }) => (
-  <label className="field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>
+export const Field = ({ label, children, hint, req }) => (
+  <label className="field"><span>{label}{req && <b className="req" aria-hidden="true"> *</b>}</span>{children}{hint && <small>{hint}</small>}</label>
 );
 
 export const Empty = ({ children }) => <div className="empty">{children}</div>;

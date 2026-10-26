@@ -781,3 +781,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
   .shell.slim .slimtop{margin-left:0}
   .shell.slim .side-me{flex-direction:column;gap:6px;padding:10px 0 4px;width:100%}
 }
+
+/* mandatory fields */
+.field .req{color:#d92d20;font-weight:700}

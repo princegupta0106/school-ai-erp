@@ -53,9 +53,9 @@ export function Btn({ title, onPress, kind, disabled, small }) {
   );
 }
 
-export const Field = ({ label, children, hint }) => (
+export const Field = ({ label, children, hint, req }) => (
   <View style={{ marginBottom: 12 }}>
-    <Text style={s.label}>{label}</Text>
+    <Text style={s.label}>{label}{req ? <Text style={{ color: '#d92d20', fontWeight: '800' }}> *</Text> : null}</Text>
     {children}
     {hint ? <Dim style={{ marginTop: 3 }}>{hint}</Dim> : null}
   </View>

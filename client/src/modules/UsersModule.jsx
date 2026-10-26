@@ -14,7 +14,7 @@ function ProfileFields({ f, setF, role, classes, canEdit = true, canSalary = fal
   const In = (k, label, type = 'text') => <Field label={label}><input type={type} value={f[k] || ''} onChange={set(k)} disabled={d} /></Field>;
   return (<>
     <div className="sec">Basic details</div>
-    <div className="full">{In('full_name', 'Full name')}</div>
+    <div className="full"><Field label="Full name" req><input required value={f.full_name || ''} onChange={set('full_name')} disabled={d} /></Field></div>
     {In('phone', 'Phone')}{In('email', 'Email')}
     {In('dob', 'Date of birth', 'date')}
     <Field label="Gender"><select value={f.gender || ''} onChange={set('gender')} disabled={d}><option value="">-</option><option>Male</option><option>Female</option><option>Other</option></select></Field>
@@ -30,8 +30,8 @@ function ProfileFields({ f, setF, role, classes, canEdit = true, canSalary = fal
     </>)}
     {role === 'student' && (<>
       <div className="sec">School details</div>
-      {In('admission_no', 'Admission no.')}<Field label="Roll no." hint="1 to 100, unique in the class. Leave blank to auto-assign"><input type="number" min="1" max="100" step="1" value={f.roll_no || ''} onChange={set('roll_no')} disabled={d} /></Field>
-      <div className="full"><Field label="Class"><select value={f.class_id || ''} onChange={set('class_id')} disabled={d}><option value="">-</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name} {c.section}</option>)}</select></Field></div>
+      {In('admission_no', 'Admission no.')}<span />
+      <div className="full"><Field label="Class" req hint="Roll no. is given automatically"><select required value={f.class_id || ''} onChange={set('class_id')} disabled={d}><option value="">-</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name} {c.section}</option>)}</select></Field></div>
       <div className="sec">Parents</div>
       {In('father_name', "Father's name")}{In('father_phone', "Father's phone")}
       {In('father_occupation', "Father's occupation")}<span />
@@ -40,7 +40,7 @@ function ProfileFields({ f, setF, role, classes, canEdit = true, canSalary = fal
     </>)}
   </>);
 }
-const PF = ['full_name', 'phone', 'email', 'dob', 'gender', 'address', 'admission_no', 'roll_no', 'class_id', 'blood_group', 'emergency_contact_name', 'emergency_contact_phone',
+const PF = ['full_name', 'phone', 'email', 'dob', 'gender', 'address', 'admission_no', 'class_id', 'blood_group', 'emergency_contact_name', 'emergency_contact_phone',
   'father_name', 'mother_name', 'father_phone', 'mother_phone', 'father_occupation', 'mother_occupation', 'employee_id', 'designation', 'department', 'qualification', 'joining_date', 'salary'];
 const pickProfile = (p) => Object.fromEntries(PF.map((k) => [k, p?.[k] ?? '']));
 
@@ -215,7 +215,7 @@ export function UserList({ me }) {
 export function UserAdd({ me, go }) {
   const { data: classes = [] } = useData('classes', fetchers.classes);
   const { data: schools } = useData('schools', fetchers.schools, me.role === 'super_admin');
-  const [a, setA] = useState({ login_id: '', password: '', role: 'student', school_id: '' });
+  const [a, setA] = useState({ password: '', role: 'student', school_id: '' });
   const { data: all } = useData('users', fetchers.users, me.features.includes('get_all_users_school'));
   const [f, setF] = useState(pickProfile({})); const [feats, setFeats] = useState([]); const [kids, setKids] = useState([]);
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
@@ -230,9 +230,9 @@ export function UserAdd({ me, go }) {
   return (
     <form className="card form" style={{ maxWidth: 760 }} onSubmit={save}>
       <div className="sec">Sign-in</div>
-      {me.role === 'super_admin' && <div className="full"><Field label="School"><select required value={a.school_id} onChange={(e) => setA({ ...a, school_id: e.target.value })}><option value="">Choose a school</option>{(schools || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field></div>}
-      <Field label="User ID"><input required value={a.login_id} onChange={(e) => setA({ ...a, login_id: e.target.value })} autoComplete="off" /></Field>
-      <Field label="Password" hint="At least 6 characters"><input required type="password" value={a.password} onChange={(e) => setA({ ...a, password: e.target.value })} autoComplete="new-password" /></Field>
+      {me.role === 'super_admin' && <div className="full"><Field label="School" req><select required value={a.school_id} onChange={(e) => setA({ ...a, school_id: e.target.value })}><option value="">Choose a school</option>{(schools || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field></div>}
+      <Field label="User ID" hint="Made automatically from the school, e.g. AF001"><input disabled readOnly value="Automatic" /></Field>
+      <Field label="Password" req hint="At least 6 characters"><input required type="password" value={a.password} onChange={(e) => setA({ ...a, password: e.target.value })} autoComplete="new-password" /></Field>
       <div className="full"><Field label="Role"><select value={a.role} onChange={(e) => setA({ ...a, role: e.target.value })}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></Field></div>
       <ProfileFields f={f} setF={setF} role={a.role} classes={classes.filter((c) => c.school_id === sid)} canSalary={me.features.includes('manage_salary')} />
       {a.role === 'parent' && (
@@ -261,7 +261,7 @@ export function ClassManager({ me }) {
     <div className="stack" style={{ maxWidth: 640 }}>
       <form className="card row" onSubmit={add}>
         {me.role === 'super_admin' && <select required style={{ width: 'auto' }} value={school} onChange={(e) => setSchool(e.target.value)}><option value="">School</option>{(schools || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
-        <input required style={{ flex: '1 1 120px' }} placeholder="Class, e.g. 5" value={name} onChange={(e) => setName(e.target.value)} />
+        <input required style={{ flex: '1 1 120px' }} placeholder="Class, e.g. 5 *" value={name} onChange={(e) => setName(e.target.value)} />
         <input style={{ flex: '1 1 90px' }} placeholder="Section, e.g. A" value={section} onChange={(e) => setSection(e.target.value)} />
         <input type="number" min="1" style={{ flex: '1 1 90px' }} placeholder="Order (1,2,3..)" title="Used for year-end promotion: students move from order n to n+1" value={level} onChange={(e) => setLevel(e.target.value)} />
         <button className="btn primary"><Icon name="plus" size={16} />Add class</button>

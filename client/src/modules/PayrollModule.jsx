@@ -63,12 +63,12 @@ function ApplyForm({ types, mode, onDone, sid, qs, onBehalfList }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <form className="form" onSubmit={run(async () => { await api.post(withQs('/payroll/leave', qs), { ...f, end_date: f.end_date || f.start_date, user_id: f.user_id || undefined }); setF(blank); await onDone(); }, onBehalfList ? 'Leave recorded' : mode === 'auto' ? 'Leave approved automatically' : 'Leave request sent for approval')}>
-      {onBehalfList && <div className="full"><Field label="Employee"><select required value={f.user_id} onChange={set('user_id')}><option value="">Choose...</option>{onBehalfList.map((e) => <option key={e.user_id} value={e.user_id}>{e.full_name}</option>)}</select></Field></div>}
-      <Field label="Leave type"><select required value={f.leave_type_id} onChange={set('leave_type_id')}>{types.map((t) => <option key={t.id} value={t.id}>{t.name}{t.is_paid ? '' : ' (unpaid)'}</option>)}</select></Field>
+      {onBehalfList && <div className="full"><Field label="Employee" req><select required value={f.user_id} onChange={set('user_id')}><option value="">Choose...</option>{onBehalfList.map((e) => <option key={e.user_id} value={e.user_id}>{e.full_name}</option>)}</select></Field></div>}
+      <Field label="Leave type" req><select required value={f.leave_type_id} onChange={set('leave_type_id')}>{types.map((t) => <option key={t.id} value={t.id}>{t.name}{t.is_paid ? '' : ' (unpaid)'}</option>)}</select></Field>
       <label className="check" style={{ alignSelf: 'end' }}><input type="checkbox" checked={f.half_day} onChange={(e) => setF({ ...f, half_day: e.target.checked, end_date: e.target.checked ? f.start_date : f.end_date })} />Half day (single date)</label>
-      <Field label="From"><input required type="date" value={f.start_date} onChange={(e) => setF({ ...f, start_date: e.target.value, end_date: f.half_day ? e.target.value : f.end_date })} /></Field>
+      <Field label="From" req><input required type="date" value={f.start_date} onChange={(e) => setF({ ...f, start_date: e.target.value, end_date: f.half_day ? e.target.value : f.end_date })} /></Field>
       <Field label="To"><input type="date" disabled={f.half_day} min={f.start_date} value={f.half_day ? f.start_date : f.end_date} onChange={set('end_date')} /></Field>
-      <div className="full"><Field label="Reason"><textarea value={f.reason} onChange={set('reason')} required={!onBehalfList} /></Field></div>
+      <div className="full"><Field label="Reason" req><textarea value={f.reason} onChange={set('reason')} required={!onBehalfList} /></Field></div>
       {err && <div className="err full">{err}</div>}
       <button className="btn primary full" disabled={busy || !types.length} style={{ justifyContent: 'center' }}>{onBehalfList ? 'Record leave (approved)' : mode === 'auto' ? 'Apply (approved instantly)' : 'Send for approval'}</button>
       {!onBehalfList && <div className="full" style={dim}>Weekly offs and school holidays are not counted. Going over your balance is allowed, but the extra days are cut from that month's salary.</div>}
@@ -205,7 +205,7 @@ function GrantForm({ types, emps, qs, onDone }) {
         <option value="adjustment">Adjustment (+ or -, to fix a balance)</option></select></Field></div>
       <Field label="Leave type"><select value={f.leave_type_id} onChange={set('leave_type_id')}>{types.map((t) => <option key={t.id} value={t.id}>{t.name}{allot ? ` (${t.annual_quota} days)` : ''}</option>)}</select></Field>
       {allot ? <Field label="Period" hint="Stops giving it twice"><input value={f.period_key} onChange={set('period_key')} /></Field> : <Field label="Days" hint="e.g. 2, 0.5, -1"><input type="number" step="0.5" value={f.days} onChange={set('days')} /></Field>}
-      {!allot && <div className="full"><Field label="Note (visible to employee)"><input required value={f.note} onChange={set('note')} /></Field></div>}
+      {!allot && <div className="full"><Field label="Note (visible to employee)" req><input required value={f.note} onChange={set('note')} /></Field></div>}
       <div className="full"><Field label="Effective date" hint="Leave empty for today. Use an earlier date only to cover a month not yet finalized."><input type="date" value={f.effective_date} onChange={set('effective_date')} /></Field></div>
       {allot && <label className="check full"><input type="checkbox" checked={f.all} onChange={(e) => setF({ ...f, all: e.target.checked })} />All employees</label>}
       {(!allot || !f.all) && <div className="checks full">{emps.map((e) => <label key={e.user_id} className="check"><input type="checkbox" checked={f.user_ids.includes(e.user_id)} onChange={() => pick(e.user_id)} />{e.full_name}</label>)}</div>}
@@ -275,7 +275,7 @@ export function Payroll({ me }) {
 function PayModal({ onClose, onSubmit, all }) {
   const [f, setF] = useState({ payment_date: new Date().toLocaleDateString('en-CA'), payment_method: 'Bank transfer', payment_reference: '' });
   return <Modal title={all ? 'Mark all finalized payslips paid' : 'Record payment'} onClose={onClose}><form className="form" onSubmit={(e) => { e.preventDefault(); onSubmit(f); }}>
-    <Field label="Payment date"><input type="date" required value={f.payment_date} onChange={(e) => setF({ ...f, payment_date: e.target.value })} /></Field>
+    <Field label="Payment date" req><input type="date" required value={f.payment_date} onChange={(e) => setF({ ...f, payment_date: e.target.value })} /></Field>
     <Field label="Method"><select value={f.payment_method} onChange={(e) => setF({ ...f, payment_method: e.target.value })}>{['Bank transfer', 'UPI', 'Cheque', 'Cash'].map((m) => <option key={m}>{m}</option>)}</select></Field>
     <div className="full"><Field label="Reference / transaction no. (optional)"><input value={f.payment_reference} onChange={(e) => setF({ ...f, payment_reference: e.target.value })} /></Field></div>
     <button className="btn primary full" style={{ justifyContent: 'center' }}>Confirm paid</button></form></Modal>;
@@ -285,11 +285,11 @@ function AdjForm({ emps, month, onDone }) {
   const { err, busy, run } = useRun();
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return <form className="form" onSubmit={run(() => onDone(f))}>
-    <div className="full"><Field label="Employee"><select required value={f.user_id} onChange={set('user_id')}><option value="">Choose...</option>{emps.map((e) => <option key={e.user_id} value={e.user_id}>{e.full_name}</option>)}</select></Field></div>
+    <div className="full"><Field label="Employee" req><select required value={f.user_id} onChange={set('user_id')}><option value="">Choose...</option>{emps.map((e) => <option key={e.user_id} value={e.user_id}>{e.full_name}</option>)}</select></Field></div>
     <Field label="Type"><select value={f.kind} onChange={set('kind')}><option value="bonus">Bonus (adds)</option><option value="deduction">Deduction (subtracts)</option></select></Field>
-    <Field label="Month"><input type="month" required value={f.period} onChange={set('period')} /></Field>
-    <div className="full"><Field label="Reason (employee will see it)"><input required value={f.label} onChange={set('label')} placeholder="Diwali bonus / Advance recovery" /></Field></div>
-    <div className="full"><Field label="Amount (₹)"><input required type="number" min="1" step="0.01" value={f.amount} onChange={set('amount')} /></Field></div>
+    <Field label="Month" req><input type="month" required value={f.period} onChange={set('period')} /></Field>
+    <div className="full"><Field label="Reason (employee will see it)" req><input required value={f.label} onChange={set('label')} placeholder="Diwali bonus / Advance recovery" /></Field></div>
+    <div className="full"><Field label="Amount (₹)" req><input required type="number" min="1" step="0.01" value={f.amount} onChange={set('amount')} /></Field></div>
     {err && <div className="err full">{err}</div>}
     <button className="btn primary full" disabled={busy} style={{ justifyContent: 'center' }}>Add</button></form>;
 }
@@ -324,7 +324,7 @@ export function PaySettings({ me }) {
           {t.is_paid && <button className="btn" onClick={() => { const v = prompt(`Yearly days for ${t.name}`, t.annual_quota); if (v !== null) run(() => api.patch(withQs(`/payroll/leave-types/${t.id}`, qs), { annual_quota: v }), 'Updated')(); }}>Quota</button>}
           <button className="btn" onClick={run(() => api.patch(withQs(`/payroll/leave-types/${t.id}`, qs), { is_active: !t.is_active }))}>{t.is_active ? 'Turn off' : 'Turn on'}</button></div>)}
         <form className="row" onSubmit={run(async () => { await api.post(withQs('/payroll/leave-types', qs), nt); setNt({ name: '', annual_quota: 12, is_paid: true }); }, 'Added')}>
-          <input required style={{ flex: '2 1 150px' }} placeholder="Casual leave" value={nt.name} onChange={(e) => setNt({ ...nt, name: e.target.value })} />
+          <input required style={{ flex: '2 1 150px' }} placeholder="Casual leave *" value={nt.name} onChange={(e) => setNt({ ...nt, name: e.target.value })} />
           <input type="number" min="0" step="0.5" style={{ flex: '1 1 90px' }} disabled={!nt.is_paid} value={nt.annual_quota} onChange={(e) => setNt({ ...nt, annual_quota: e.target.value })} aria-label="Days per year" />
           <label className="check"><input type="checkbox" checked={nt.is_paid} onChange={(e) => setNt({ ...nt, is_paid: e.target.checked })} />Paid</label>
           <button className="btn">Add</button></form>

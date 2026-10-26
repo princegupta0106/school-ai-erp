@@ -33,7 +33,7 @@ function ReasonSheet({ title, text, confirmLabel, onClose, onConfirm }) {
   return (
     <Sheet title={title} onClose={onClose}>
       <Dim style={{ marginBottom: 12 }}>{text}</Dim>
-      <Field label="Reason (kept in the history)"><Input maxLength={200} value={reason} onChangeText={setReason} /></Field>
+      <Field req label="Reason (kept in the history)"><Input maxLength={200} value={reason} onChangeText={setReason} /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn kind="danger" title={busy ? 'Please wait...' : confirmLabel} onPress={go} disabled={busy || !reason.trim()} />
     </Sheet>
@@ -49,8 +49,8 @@ function ItemForm({ data, cls, item, onClose, onSaved }) {
   const save = async () => { setBusy(true); setErr(''); try { await onSaved(f); onClose(); } catch (x) { setErr(x.message); setBusy(false); } };
   return (
     <Sheet title={item ? `Edit fee - Class ${cls.name}` : `Add fee - Class ${cls.name}`} onClose={onClose}>
-      <Field label="Fee name"><Input maxLength={80} value={f.name} onChangeText={(t) => setF({ ...f, name: t })} placeholder="e.g. Tuition, Transport, Lab, Admission" /></Field>
-      <Field label="Total for the session (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(t) => setF({ ...f, amount: num(t) })} placeholder="20000" /></Field>
+      <Field req label="Fee name"><Input maxLength={80} value={f.name} onChangeText={(t) => setF({ ...f, name: t })} placeholder="e.g. Tuition, Transport, Lab, Admission" /></Field>
+      <Field req label="Total for the session (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(t) => setF({ ...f, amount: num(t) })} placeholder="20000" /></Field>
       <Field label="Payment term"><Choice value={f.frequency} onChange={(v) => setF({ ...f, frequency: v })} options={data.frequencies.map((x) => ({ value: x.key, label: x.label }))} /></Field>
       {each !== null && <Notice>{fr.count === 1 ? `Paid in one go: ${rupees(amt)}, due on the session start date.` : `Paid in ${fr.count} instalments of about ${rupees(Math.round(each * 100) / 100)} (${TERM_EVERY[f.frequency]}), the first due on the session start date.`}</Notice>}
       {item && <Dim style={{ marginBottom: 12 }}>This changes the fee for every student of Class {cls.name} from now on. Payments already received are kept.</Dim>}
@@ -151,7 +151,7 @@ function PayForm({ d, sc, onClose, onPaid }) {
   return (
     <Sheet title={`Record payment - ${d.student.full_name}`} onClose={onClose}>
       <Notice>Pending {rupees(t.pending)}{t.due_till_date > 0 ? ` · due till date ${rupees(t.due_till_date)}` : ''}. The money goes to the oldest unpaid fees first.</Notice>
-      <Field label="Amount received (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(x) => setF({ ...f, amount: num(x) })} style={[{ fontSize: 20, fontWeight: '700' }, bad && f.amount !== '' && { borderColor: C.bad, backgroundColor: C.badBg }]} /></Field>
+      <Field req label="Amount received (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(x) => setF({ ...f, amount: num(x) })} style={[{ fontSize: 20, fontWeight: '700' }, bad && f.amount !== '' && { borderColor: C.bad, backgroundColor: C.badBg }]} /></Field>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         {t.due_till_date > 0 && <Btn small kind="ghost" title={`Due till date ${rupees(t.due_till_date)}`} onPress={() => setF({ ...f, amount: String(t.due_till_date) })} />}
         <Btn small kind="ghost" title={`Everything pending ${rupees(t.pending)}`} onPress={() => setF({ ...f, amount: String(t.pending) })} />
@@ -177,8 +177,8 @@ function AdjustForm({ d, sc, onClose, onDone }) {
       <Choice value={f.type} onChange={(v) => setF({ ...f, type: v })} options={[{ value: 'discount', label: 'Discount / concession' }, { value: 'charge', label: 'Extra charge' }]} /><Gap />
       <Field label="Applies to" hint={f.item_id ? 'Spread over that fee’s instalments.' : f.type === 'discount' ? 'Taken off the oldest unpaid fees first.' : 'Due immediately.'}>
         <Choice value={f.item_id} onChange={(v) => setF({ ...f, item_id: v })} options={[{ value: '', label: 'General (whole account)' }, ...d.items.map((i) => ({ value: i.id, label: i.name }))]} /></Field>
-      <Field label="Amount (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(x) => setF({ ...f, amount: num(x) })} /></Field>
-      <Field label="Reason (kept in the history)"><Input maxLength={200} value={f.reason} onChangeText={(x) => setF({ ...f, reason: x })} placeholder={f.type === 'discount' ? 'e.g. Sibling concession, scholarship' : 'e.g. Late fine, lost ID card'} /></Field>
+      <Field req label="Amount (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={(x) => setF({ ...f, amount: num(x) })} /></Field>
+      <Field req label="Reason (kept in the history)"><Input maxLength={200} value={f.reason} onChangeText={(x) => setF({ ...f, reason: x })} placeholder={f.type === 'discount' ? 'e.g. Sibling concession, scholarship' : 'e.g. Late fine, lost ID card'} /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn title={busy ? 'Saving...' : f.type === 'discount' ? 'Apply discount' : 'Add charge'} onPress={save} disabled={busy || !f.reason.trim() || !(Number(f.amount) > 0)} />
     </Sheet>

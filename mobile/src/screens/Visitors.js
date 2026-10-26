@@ -50,10 +50,10 @@ export const AddVisitor = scoped(function AddVisitor({ me, sc, go }) {
   return (
     <Pad>
       <Card>
-        <Field label="Visitor name"><Input maxLength={120} value={f.name} onChangeText={set('name')} placeholder="Name" /></Field>
+        <Field req label="Visitor name"><Input maxLength={120} value={f.name} onChangeText={set('name')} placeholder="Name" /></Field>
         <Field label="Purpose (optional)"><Input maxLength={300} value={f.purpose} onChangeText={set('purpose')} placeholder="e.g. Meet principal, parent, delivery" /></Field>
-        <Field label="Date">{f.date ? <DateField value={f.date} onChange={set('date')} /> : <Dim>Loading...</Dim>}</Field>
-        <Field label="Time">{f.time ? <TimeField value={f.time} onChange={set('time')} /> : <Dim>Loading...</Dim>}</Field>
+        <Field req label="Date">{f.date ? <DateField value={f.date} onChange={set('date')} /> : <Dim>Loading...</Dim>}</Field>
+        <Field req label="Time">{f.time ? <TimeField value={f.time} onChange={set('time')} /> : <Dim>Loading...</Dim>}</Field>
         {clock && (f.date !== clock.date || f.time !== clock.time) && <View style={{ alignSelf: 'flex-start', marginBottom: 12 }}><Btn small kind="ghost" title="Use current date & time" onPress={() => setF({ ...f, date: clock.date, time: clock.time })} /></View>}
         <ErrorBox>{err}</ErrorBox>
         <Btn title={busy ? 'Saving...' : 'Add visitor'} onPress={save} disabled={busy || !f.name.trim() || !f.date || !f.time} />

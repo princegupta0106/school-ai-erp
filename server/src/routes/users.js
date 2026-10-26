@@ -6,6 +6,7 @@ import { db, httpError, check, asyncH } from '../db.js';
 import { requireFeature, isSuper, shapeUser, USER_SELECT } from '../auth.js';
 import { ROLES, ALL_FEATURES, SUPER_ONLY, allowedForRole } from '../features.js';
 import { uploadFile, deleteFile, signedUrl } from '../r2.js';
+import { nextLoginId } from '../userIds.js';
 
 const r = Router();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -158,22 +159,30 @@ r.post('/', requireFeature('create_user'), asyncH(async (req, res) => {
   checkRole(req, role);
   const school_id = role === 'super_admin' ? null : (isSuper(req) ? b.school_id : req.user.school_id);
   if (role !== 'super_admin' && !school_id) throw httpError(400, 'Pick a school');
-  const login_id = String(b.login_id || '').trim().toLowerCase();
-  if (!LOGIN_RE.test(login_id)) throw httpError(400, 'ID: 3-40 letters, numbers, . _ -');
+  // school users get an automatic ID (AF001, AF002...). Only a platform super admin (no school) types an ID by hand.
+  const manualId = String(b.login_id || '').trim().toLowerCase();
+  if (!school_id && !LOGIN_RE.test(manualId)) throw httpError(400, 'ID: 3-40 letters, numbers, . _ -');
   if (String(b.password || '').length < 6) throw httpError(400, 'Password needs at least 6 characters');
   const profile = profileFrom(req, b.profile);
+  if (!profile.full_name) throw httpError(400, 'Full name is required');
+  if (role === 'student' && !profile.class_id) throw httpError(400, 'Choose a class for the student');
   if (school_id) await checkClass(school_id, profile.class_id);
   if (role !== 'student') { delete profile.roll_no; } // roll numbers are for students only
   else if (school_id) {
-    const blank = profile.roll_no === null || profile.roll_no === undefined || profile.roll_no === '';
-    if (blank && profile.class_id) profile.roll_no = await nextFreeRoll(school_id, profile.class_id); // new students get the next free roll number automatically
+    profile.roll_no = await nextFreeRoll(school_id, profile.class_id); // roll no. is always automatic: the next free one in the class
     await checkRoll(school_id, profile.class_id, profile.roll_no, null);
   }
 
-  const { data: u, error } = await db.from('users').insert({
-    school_id, login_id, role, password_hash: await bcrypt.hash(String(b.password), 10),
-  }).select('user_id').single();
-  check(error);
+  const password_hash = await bcrypt.hash(String(b.password), 10);
+  let u; let login_id = manualId;
+  for (let tries = 0; tries < 5; tries += 1) {
+    if (school_id) login_id = await nextLoginId(school_id);     // lowest number not taken yet
+    const r2 = await db.from('users').insert({ school_id, login_id, role, password_hash }).select('user_id').single();
+    if (r2.error?.code === '23505' && school_id) continue;      // someone took that number a moment ago: pick the next free one
+    check(r2.error);
+    u = r2.data; break;
+  }
+  if (!u) throw httpError(409, 'Could not make a free user ID, please try again');
   const features = req.user.features.includes('change_features') ? grantable(req, b.features_permission) : [];
   const { error: e2 } = await db.from('profiles').insert({ user_id: u.user_id, school_id, ...profile, features_permission: features });
   if (e2) { await db.from('users').delete().eq('user_id', u.user_id); check(e2); }
@@ -197,10 +206,11 @@ r.patch('/:id', requireFeature('edit_user'), asyncH(async (req, res) => {
     const cur = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles) || {};
     const cls = patch.class_id !== undefined ? patch.class_id : cur.class_id;
     let roll = patch.roll_no !== undefined ? patch.roll_no : cur.roll_no;
-    // moving to another class without choosing a new number: keep the number only if it is free there
-    if (patch.roll_no === undefined && cls !== cur.class_id) {
-      try { await checkRoll(t.school_id, cls, roll, t.user_id); } catch { roll = null; patch.roll_no = null; }
-    } else await checkRoll(t.school_id, cls, roll, t.user_id);
+    // moving to another class: the student gets the next free roll number there (roll no. is never typed by hand)
+    if (cls !== cur.class_id) roll = cls ? await nextFreeRoll(t.school_id, cls) : null;
+    if (roll === null || roll === undefined) roll = cls ? await nextFreeRoll(t.school_id, cls) : null;
+    patch.roll_no = roll;
+    await checkRoll(t.school_id, cls, roll, t.user_id);
     if (!cls) patch.roll_no = null;
   }
   if (Object.keys(patch).length) {

@@ -11,7 +11,7 @@ function PayForm({ all, onSubmit, busy }) {
   const [f, setF] = useState({ payment_date: ymd(new Date()), payment_method: 'Bank transfer', payment_reference: '' });
   return (
     <View>
-      <Field label="Payment date"><DateField value={f.payment_date} onChange={(v) => setF({ ...f, payment_date: v })} /></Field>
+      <Field req label="Payment date"><DateField value={f.payment_date} onChange={(v) => setF({ ...f, payment_date: v })} /></Field>
       <Field label="Method"><Choice value={f.payment_method} onChange={(v) => setF({ ...f, payment_method: v })} options={['Bank transfer', 'UPI', 'Cheque', 'Cash'].map((m) => ({ value: m, label: m }))} /></Field>
       <Field label="Reference / transaction no. (optional)"><Input value={f.payment_reference} onChangeText={(v) => setF({ ...f, payment_reference: v })} /></Field>
       <Btn title={all ? 'Confirm all paid' : 'Confirm paid'} disabled={busy} onPress={() => onSubmit(f)} />
@@ -24,11 +24,11 @@ function AdjForm({ emps, month, onDone }) {
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
   return (
     <View>
-      <Field label="Employee"><Choice value={f.user_id} onChange={set('user_id')} options={emps.map((e) => ({ value: e.user_id, label: e.full_name }))} /></Field>
+      <Field req label="Employee"><Choice value={f.user_id} onChange={set('user_id')} options={emps.map((e) => ({ value: e.user_id, label: e.full_name }))} /></Field>
       <Field label="Type"><Choice value={f.kind} onChange={set('kind')} options={[{ value: 'bonus', label: 'Bonus (adds)' }, { value: 'deduction', label: 'Deduction (subtracts)' }]} /></Field>
-      <Field label="Month"><MonthStepper value={f.period} onChange={set('period')} /></Field>
-      <Field label="Reason (employee will see it)"><Input value={f.label} onChangeText={set('label')} placeholder="Diwali bonus / Advance recovery" /></Field>
-      <Field label="Amount (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={set('amount')} /></Field>
+      <Field req label="Month"><MonthStepper value={f.period} onChange={set('period')} /></Field>
+      <Field req label="Reason (employee will see it)"><Input value={f.label} onChangeText={set('label')} placeholder="Diwali bonus / Advance recovery" /></Field>
+      <Field req label="Amount (₹)"><Input keyboardType="decimal-pad" value={f.amount} onChangeText={set('amount')} /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn title="Add" disabled={busy} onPress={run(async () => { if (!f.user_id) throw new Error('Choose an employee'); if (!f.label.trim() || !(Number(f.amount) > 0)) throw new Error('Enter a reason and an amount'); await onDone(f); })} />
     </View>

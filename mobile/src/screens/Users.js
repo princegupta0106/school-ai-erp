@@ -11,7 +11,7 @@ import { Pad, List, Row } from './Attendance';
 /* ---------------------------------------------------------------- helpers */
 const ROLES = ['school_admin', 'staff', 'parent', 'student', 'other'];
 const JOB_ROLES = ['school_admin', 'staff', 'other'];
-const PF = ['full_name', 'phone', 'email', 'dob', 'gender', 'address', 'admission_no', 'roll_no', 'class_id', 'blood_group', 'emergency_contact_name', 'emergency_contact_phone',
+const PF = ['full_name', 'phone', 'email', 'dob', 'gender', 'address', 'admission_no', 'class_id', 'blood_group', 'emergency_contact_name', 'emergency_contact_phone',
   'father_name', 'mother_name', 'father_phone', 'mother_phone', 'father_occupation', 'mother_occupation', 'employee_id', 'designation', 'department', 'qualification', 'joining_date', 'salary'];
 const DATES = ['dob', 'joining_date'];
 // everything becomes a string for the form (dates are cut to YYYY-MM-DD)
@@ -37,7 +37,7 @@ function ProfileFields({ f, setF, role, classes, canEdit = true, canSalary = fal
   const Dt = (k, label) => <Field label={label}><DateField value={f[k] || ''} disabled={d} onChange={(v) => setF({ ...f, [k]: v })} /></Field>;
   return (<>
     <Sec>Basic details</Sec>
-    {In('full_name', 'Full name', { autoCapitalize: 'words' })}
+    <Field req label="Full name"><Input editable={!d} autoCapitalize="words" value={f.full_name || ''} onChangeText={(t) => setF({ ...f, full_name: t })} /></Field>
     {In('phone', 'Phone', { keyboardType: 'phone-pad' })}
     {In('email', 'Email', { keyboardType: 'email-address', autoCapitalize: 'none' })}
     {Dt('dob', 'Date of birth')}
@@ -58,8 +58,7 @@ function ProfileFields({ f, setF, role, classes, canEdit = true, canSalary = fal
     {role === 'student' && (<>
       <Sec>School details</Sec>
       {In('admission_no', 'Admission no.')}
-      <Field label="Roll no." hint="1 to 100, unique in the class. Leave blank to auto-assign"><Input editable={!d} keyboardType="number-pad" maxLength={3} value={f.roll_no || ''} onChangeText={(t) => setF({ ...f, roll_no: t.replace(/[^0-9]/g, '') })} /></Field>
-      <Field label="Class"><Choice value={f.class_id || ''} onChange={(v) => !d && setF({ ...f, class_id: v })} options={[{ value: '', label: '-' }, ...classes.map((c) => ({ value: c.id, label: cls(c) }))]} /></Field>
+      <Field req label="Class" hint="Roll no. is given automatically"><Choice value={f.class_id || ''} onChange={(v) => !d && setF({ ...f, class_id: v })} options={[{ value: '', label: '-' }, ...classes.map((c) => ({ value: c.id, label: cls(c) }))]} /></Field>
       <Sec>Parents</Sec>
       {In('father_name', "Father's name")}
       {In('father_phone', "Father's phone", { keyboardType: 'phone-pad' })}
@@ -309,7 +308,7 @@ export function UserAdd({ me, go }) {
   const { data: classes } = useApi('/classes');
   const { data: schools } = useApi(sup ? '/schools' : null);
   const { data: all } = useApi(me.features.includes('get_all_users_school') ? '/users' : null);
-  const [a, setA] = useState({ login_id: '', password: '', role: 'student', school_id: '' });
+  const [a, setA] = useState({ password: '', role: 'student', school_id: '' });
   const [f, setF] = useState(pickProfile({})); const [feats, setFeats] = useState([]); const [kids, setKids] = useState([]);
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const sid = sup ? a.school_id : me.school_id;
@@ -318,17 +317,17 @@ export function UserAdd({ me, go }) {
     setBusy(true); setErr('');
     try {
       await api.post('/users', { ...a, profile: f, features_permission: feats, children: a.role === 'parent' ? kids : [] });
-      toast('User created'); setA({ login_id: '', password: '', role: 'student', school_id: a.school_id }); setF(pickProfile({})); setFeats([]); setKids([]); go?.('list');
+      toast('User created'); setA({ password: '', role: 'student', school_id: a.school_id }); setF(pickProfile({})); setFeats([]); setKids([]); go?.('list');
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
-  const ready = a.login_id.trim().length >= 3 && a.password.length >= 6 && (!sup || a.school_id);
+  const ready = !!(f.full_name || '').trim() && a.password.length >= 6 && (!sup || a.school_id) && (a.role !== 'student' || f.class_id);
   return (
     <Pad>
       <Card>
         <Sec>Sign-in</Sec>
-        {sup && <Field label="School"><Choice value={a.school_id} onChange={(v) => setA({ ...a, school_id: v })} options={(schools || []).map((s) => ({ value: s.id, label: s.name }))} /></Field>}
-        <Field label="User ID" hint="3-40 letters, numbers, . _ -"><Input value={a.login_id} onChangeText={(t) => setA({ ...a, login_id: t })} autoCapitalize="none" autoCorrect={false} autoComplete="off" /></Field>
-        <Field label="Password" hint="At least 6 characters"><Input secureTextEntry value={a.password} onChangeText={(t) => setA({ ...a, password: t })} autoCapitalize="none" autoComplete="off" /></Field>
+        {sup && <Field req label="School"><Choice value={a.school_id} onChange={(v) => setA({ ...a, school_id: v })} options={(schools || []).map((s) => ({ value: s.id, label: s.name }))} /></Field>}
+        <Field label="User ID" hint="Made automatically from the school, e.g. AF001"><Input value="Automatic" editable={false} /></Field>
+        <Field req label="Password" hint="At least 6 characters"><Input secureTextEntry value={a.password} onChangeText={(t) => setA({ ...a, password: t })} autoCapitalize="none" autoComplete="off" /></Field>
         <Field label="Role"><Choice value={a.role} onChange={(v) => setA({ ...a, role: v })} options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} /></Field>
         <ProfileFields f={f} setF={setF} role={a.role} classes={(classes || []).filter((c) => c.school_id === sid)} canSalary={me.features.includes('manage_salary')} />
         {a.role === 'parent' && (<><Sec>Parent of</Sec><ChildPicker options={(all || []).filter((x) => x.role === 'student' && x.school_id === sid)} value={kids} onChange={setKids} /></>)}
@@ -377,8 +376,8 @@ export function ClassManager({ me }) {
     <Pad reload={reload} loading={loading} hasData>
       <Card>
         <Text style={{ fontWeight: '800', fontSize: 16, color: C.ink, marginBottom: 10 }}>Add a class</Text>
-        {sup && schools && <Field label="School"><Choice value={sId} onChange={setSchool} options={schools.map((s) => ({ value: s.id, label: s.name }))} /></Field>}
-        <Field label="Class"><Input placeholder="e.g. 5" value={name} onChangeText={setName} /></Field>
+        {sup && schools && <Field req label="School"><Choice value={sId} onChange={setSchool} options={schools.map((s) => ({ value: s.id, label: s.name }))} /></Field>}
+        <Field req label="Class"><Input placeholder="e.g. 5" value={name} onChangeText={setName} /></Field>
         <Field label="Section (optional)"><Input placeholder="e.g. A" value={section} onChangeText={setSection} autoCapitalize="characters" /></Field>
         <Field label="Order (optional)" hint="Used for year-end promotion: students in order 5 move to order 6. Classes without an order are skipped."><Input keyboardType="number-pad" placeholder="1, 2, 3..." value={level} onChangeText={(t) => setLevel(t.replace(/[^0-9]/g, ''))} /></Field>
         <ErrorBox>{err}</ErrorBox>

@@ -40,8 +40,8 @@ function NoticeForm({ me, sid, edit, onClose, onSaved }) {
           <Field label="Classes (students, parents and teachers of these classes will see it)">
             {classes.length === 0 ? <span className="muted">No classes available to you.</span> : <div className="pills">{classes.map((c) => <button type="button" key={c.id} className={`pill ${f.class_ids.includes(c.id) ? 'on' : ''}`} onClick={() => toggle(c.id)}>{clsName(c)}</button>)}</div>}
           </Field>)}
-        <Field label="Title"><input required maxLength={150} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Parent-teacher meeting on Saturday" /></Field>
-        <Field label="Notice"><textarea required rows={6} maxLength={5000} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Write the notice..." /></Field>
+        <Field label="Title" req><input required maxLength={150} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Parent-teacher meeting on Saturday" /></Field>
+        <Field label="Notice" req><textarea required rows={6} maxLength={5000} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Write the notice..." /></Field>
         <label className="check"><input type="checkbox" checked={f.is_pinned} onChange={(e) => setF({ ...f, is_pinned: e.target.checked })} />Pin to the top</label>
         {err && <div className="err">{err}</div>}
         <button className="btn primary big" disabled={busy || !f.title.trim() || !f.body.trim() || (!edit && f.audience === 'class' && f.class_ids.length === 0)} style={{ justifyContent: 'center' }}>{busy ? 'Saving...' : edit ? 'Save changes' : 'Post notice'}</button>
@@ -228,7 +228,7 @@ export const SendNotification = scoped(function SendNotification({ me, sid }) {
         <Field label="Classes (students, parents and teachers of these classes)">
           {classes.length === 0 ? <span className="muted">No classes available to you.</span> : <div className="pills">{classes.map((c) => <button type="button" key={c.id} className={`pill ${f.class_ids.includes(c.id) ? 'on' : ''}`} onClick={() => toggle(c.id)}>{clsName(c)}</button>)}</div>}
         </Field>)}
-      <Field label="Title"><input required maxLength={100} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. School closed tomorrow" /></Field>
+      <Field label="Title" req><input required maxLength={100} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. School closed tomorrow" /></Field>
       <Field label="Message (optional)"><textarea rows={4} maxLength={500} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="A short message..." /></Field>
       {err && <div className="err">{err}</div>}
       <button className="btn primary big" disabled={busy || !f.title.trim() || (f.audience === 'class' && f.class_ids.length === 0)} style={{ justifyContent: 'center' }}>{busy ? 'Sending...' : 'Send notification'}</button>

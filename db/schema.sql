@@ -981,3 +981,7 @@ create index if not exists notifications_unread_idx on notifications(user_id) wh
 create index if not exists notifications_dedupe_idx on notifications(user_id, dedupe_key, created_at desc) where dedupe_key is not null;
 alter table push_tokens    enable row level security;
 alter table notifications  enable row level security;
+
+-- ---- automatic user IDs: 2-letter school prefix (see db/user-id-prefix.sql)
+alter table schools add column if not exists id_prefix text;
+create unique index if not exists schools_id_prefix_uniq on schools (upper(id_prefix)) where id_prefix is not null;

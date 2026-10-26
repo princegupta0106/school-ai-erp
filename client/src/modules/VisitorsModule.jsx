@@ -27,10 +27,10 @@ export const AddVisitor = scoped(function AddVisitor({ me, sid, go }) {
   return (
     <div className="stack" style={{ maxWidth: 560 }}>
       <form className="card form" onSubmit={save}>
-        <div className="full"><Field label="Visitor name"><input autoFocus required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Name" /></Field></div>
+        <div className="full"><Field label="Visitor name" req><input autoFocus required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Name" /></Field></div>
         <div className="full"><Field label="Purpose (optional)"><input value={f.purpose} onChange={(e) => setF({ ...f, purpose: e.target.value })} placeholder="e.g. Meet principal, parent, delivery" /></Field></div>
-        <Field label="Date"><input type="date" required value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-        <Field label="Time"><input type="time" required value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field>
+        <Field label="Date" req><input type="date" required value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+        <Field label="Time" req><input type="time" required value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field>
         {clock && (f.date !== clock.date || f.time !== clock.time) && <div className="full"><button type="button" className="linkbtn" onClick={() => setF({ ...f, date: clock.date, time: clock.time })}>Use current date &amp; time</button></div>}
         {err && <div className="err full">{err}</div>}
         <button className="btn primary full big" disabled={busy || !f.name.trim()} style={{ justifyContent: 'center' }}>{busy ? 'Saving...' : 'Add visitor'}</button>

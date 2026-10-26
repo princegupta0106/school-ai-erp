@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, load } from '../cache.js';
 import { Icon, Modal, Field, Badge, Empty, toast, Loading } from '../ui.jsx';
@@ -6,10 +6,37 @@ import { fetchers } from '../fetchers.js';
 
 const refreshSchools = () => load('schools', fetchers.schools);
 
+// school logo: upload a picture (no links)
+function LogoField({ school, can, onChange }) {
+  const ref = useRef(null); const [busy, setBusy] = useState(false); const [logo, setLogo] = useState(school.logo_url || '');
+  const up = async () => {
+    const file = ref.current.files[0]; if (!file) return;
+    setBusy(true);
+    try { const fd = new FormData(); fd.append('file', file); const r = await api.post(`/schools/${school.id}/logo`, fd); setLogo(r.logo_url || ''); await refreshSchools(); toast('Logo saved'); onChange?.(); }
+    catch (x) { toast(x.message, true); } finally { setBusy(false); ref.current.value = ''; }
+  };
+  const remove = async () => {
+    setBusy(true);
+    try { await api.del(`/schools/${school.id}/logo`); setLogo(''); await refreshSchools(); toast('Logo removed'); } catch (x) { toast(x.message, true); } finally { setBusy(false); }
+  };
+  return (
+    <Field label="School logo" hint="PNG, JPG or WebP, up to 4 MB">
+      <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'center' }}>
+        {logo ? <img src={logo} alt="School logo" style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, border: '1px solid var(--line)', background: '#fff' }} /> : <span style={{ color: 'var(--mute)' }}>No logo yet</span>}
+        {can && <>
+          <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={up} />
+          <button type="button" className="btn" disabled={busy} onClick={() => ref.current.click()}><Icon name="upload" size={16} />{busy ? '...' : logo ? 'Change logo' : 'Upload logo'}</button>
+          {logo && <button type="button" className="btn" disabled={busy} onClick={remove}>Remove</button>}
+        </>}
+      </div>
+    </Field>
+  );
+}
+
 function SchoolForm({ school, me, onSaved }) {
   const can = me.features.includes('edit_school');
   const sup = me.role === 'super_admin';
-  const [f, setF] = useState({ name: school.name || '', code: school.code || '', address: school.address || '', phone: school.phone || '', email: school.email || '', logo_url: school.logo_url || '', is_active: school.is_active });
+  const [f, setF] = useState({ name: school.name || '', code: school.code || '', address: school.address || '', phone: school.phone || '', email: school.email || '', is_active: school.is_active });
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const save = async (e) => {
@@ -19,12 +46,12 @@ function SchoolForm({ school, me, onSaved }) {
   };
   return (
     <form className="form" onSubmit={save}>
-      <div className="full"><Field label="School name"><input value={f.name} onChange={set('name')} disabled={!can} /></Field></div>
-      <Field label="Code"><input value={f.code} onChange={set('code')} disabled={!can || !sup} /></Field>
+      <div className="full"><Field label="School name" req><input required value={f.name} onChange={set('name')} disabled={!can} /></Field></div>
+      <Field label="Code" req={sup}><input value={f.code} onChange={set('code')} disabled={!can || !sup} /></Field>
       <Field label="Phone"><input value={f.phone} onChange={set('phone')} disabled={!can} /></Field>
       <div className="full"><Field label="Email"><input value={f.email} onChange={set('email')} disabled={!can} /></Field></div>
       <div className="full"><Field label="Address"><textarea value={f.address} onChange={set('address')} disabled={!can} /></Field></div>
-      <div className="full"><Field label="Logo URL"><input value={f.logo_url} onChange={set('logo_url')} disabled={!can} /></Field></div>
+      <div className="full"><LogoField school={school} can={can} /></div>
       {sup && can && <label className="check full"><input type="checkbox" checked={f.is_active} onChange={(e) => setF({ ...f, is_active: e.target.checked })} />School is active (turning off blocks everyone in it from signing in)</label>}
       {err && <div className="err full">{err}</div>}
       {can && <button className="btn primary full" disabled={busy} style={{ justifyContent: 'center' }}>Save changes</button>}
@@ -42,8 +69,7 @@ export function SchoolList({ me }) {
     <>
       <div className="grid">{data.map((s) => (
         <button key={s.id} className="mod" onClick={() => setOpen(s)}>
-          <b>{s.name}</b><span>{s.address || 'No address added'}</span>
-          <em><Badge tone={s.is_active ? 'ok' : 'off'}>{s.is_active ? 'Active' : 'Off'}</Badge> &nbsp;code: {s.code}</em>
+          <b>{s.name}</b>
         </button>))}
       </div>
       {open && <Modal title={open.name} onClose={() => setOpen(null)}><SchoolForm key={open.id} school={open} me={me} onSaved={() => setOpen(null)} /></Modal>}
@@ -52,7 +78,7 @@ export function SchoolList({ me }) {
 }
 
 export function SchoolNew({ go }) {
-  const blank = { name: '', code: '', address: '', phone: '', email: '', admin: { login_id: '', password: '', full_name: '' } };
+  const blank = { name: '', code: '', address: '', phone: '', email: '', admin: { password: '', full_name: '' } };
   const [f, setF] = useState(blank); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const setA = (k) => (e) => setF({ ...f, admin: { ...f.admin, [k]: e.target.value } });
@@ -64,15 +90,15 @@ export function SchoolNew({ go }) {
   return (
     <form className="card form" style={{ maxWidth: 760 }} onSubmit={save}>
       <div className="sec">School</div>
-      <Field label="School name"><input required value={f.name} onChange={set('name')} /></Field>
-      <Field label="Code" hint="Short unique name, e.g. dps-pune"><input required value={f.code} onChange={set('code')} /></Field>
+      <Field label="School name" req><input required value={f.name} onChange={set('name')} /></Field>
+      <Field label="Code" req hint="Short unique name, e.g. dps-pune"><input required value={f.code} onChange={set('code')} /></Field>
       <Field label="Phone"><input value={f.phone} onChange={set('phone')} /></Field>
       <Field label="Email"><input value={f.email} onChange={set('email')} /></Field>
       <div className="full"><Field label="Address"><textarea value={f.address} onChange={set('address')} /></Field></div>
       <div className="sec">School admin (gets every feature for this school)</div>
-      <Field label="Admin name"><input value={f.admin.full_name} onChange={setA('full_name')} /></Field>
-      <Field label="Admin login ID"><input required value={f.admin.login_id} onChange={setA('login_id')} autoComplete="off" /></Field>
-      <div className="full"><Field label="Admin password" hint="At least 6 characters"><input required type="password" value={f.admin.password} onChange={setA('password')} autoComplete="new-password" /></Field></div>
+      <Field label="Admin name" req><input required value={f.admin.full_name} onChange={setA('full_name')} /></Field>
+      <Field label="Admin login ID" hint="Made automatically, e.g. AF001"><input disabled value="Automatic" readOnly /></Field>
+      <div className="full"><Field label="Admin password" req hint="At least 6 characters"><input required type="password" value={f.admin.password} onChange={setA('password')} autoComplete="new-password" /></Field></div>
       {err && <div className="err full">{err}</div>}
       <button className="btn primary full" disabled={busy} style={{ justifyContent: 'center' }}>{busy ? 'Creating...' : 'Create school'}</button>
     </form>
@@ -131,7 +157,7 @@ export function Calendar({ me }) {
             {edit && !s.is_current && <button className="icon-btn" aria-label="Delete session" onClick={run(() => api.del(`/calendar/sessions/${s.id}?school_id=${sid}`))}><Icon name="trash" /></button>}
           </div>))}</div>
         {edit && <form className="row" onSubmit={run(async () => { await api.post(`/calendar/sessions?school_id=${sid}`, ns); setNs({ name: '', start_date: '', end_date: '' }); }, 'Session added')}>
-          <input required style={{ flex: '1 1 130px' }} placeholder="2026-2027" value={ns.name} onChange={(e) => setNs({ ...ns, name: e.target.value })} />
+          <input required style={{ flex: '1 1 130px' }} placeholder="2026-2027 *" value={ns.name} onChange={(e) => setNs({ ...ns, name: e.target.value })} />
           <input required type="date" style={{ flex: '1 1 140px' }} value={ns.start_date} onChange={(e) => setNs({ ...ns, start_date: e.target.value })} aria-label="Start date" />
           <input required type="date" style={{ flex: '1 1 140px' }} value={ns.end_date} onChange={(e) => setNs({ ...ns, end_date: e.target.value })} aria-label="End date" />
           <button className="btn"><Icon name="plus" size={16} />Add session</button></form>}
@@ -145,7 +171,7 @@ export function Calendar({ me }) {
             <Badge>{TYPE_LABEL[h.type]}</Badge>
             {edit && <button className="icon-btn" aria-label="Delete" onClick={run(() => api.del(`/calendar/holidays/${h.id}?school_id=${sid}`))}><Icon name="trash" /></button>}</div>))}</div>)}
         {edit && <form className="row" onSubmit={run(async () => { await api.post(`/calendar/holidays?school_id=${sid}`, { ...nh, session_id: active || undefined }); setNh({ title: '', start_date: '', end_date: '', type: 'holiday' }); }, 'Added')}>
-          <input required style={{ flex: '2 1 160px' }} placeholder="Diwali break" value={nh.title} onChange={(e) => setNh({ ...nh, title: e.target.value })} />
+          <input required style={{ flex: '2 1 160px' }} placeholder="Diwali break *" value={nh.title} onChange={(e) => setNh({ ...nh, title: e.target.value })} />
           <input required type="date" style={{ flex: '1 1 140px' }} value={nh.start_date} onChange={(e) => setNh({ ...nh, start_date: e.target.value })} aria-label="From" />
           <input type="date" style={{ flex: '1 1 140px' }} value={nh.end_date} min={nh.start_date} onChange={(e) => setNh({ ...nh, end_date: e.target.value })} aria-label="To (optional)" />
           <select style={{ flex: '1 1 110px' }} value={nh.type} onChange={(e) => setNh({ ...nh, type: e.target.value })}>{Object.entries(TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>

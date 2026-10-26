@@ -217,13 +217,13 @@ function CreateModal({ me, sid, meta, defaults, onClose, onCreated }) {
     <Modal title="New test / exam paper" onClose={onClose}>
       <form className="form" onSubmit={save}>
         <div className="full pills"><button type="button" className={`pill ${kind === 'test' ? 'on' : ''}`} onClick={() => setKind('test')}>Test</button><button type="button" className={`pill ${kind === 'exam' ? 'on' : ''}`} onClick={() => setKind('exam')}>Exam paper</button></div>
-        <Field label="Class"><select required value={f.class_id} onChange={(e) => setF({ ...f, class_id: e.target.value })}><option value="">Choose</option>{meta.classes.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></Field>
-        <Field label="Subject"><select required value={f.subject_id} onChange={(e) => setF({ ...f, subject_id: e.target.value })}><option value="">Choose</option>{meta.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+        <Field label="Class" req><select required value={f.class_id} onChange={(e) => setF({ ...f, class_id: e.target.value })}><option value="">Choose</option>{meta.classes.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></Field>
+        <Field label="Subject" req><select required value={f.subject_id} onChange={(e) => setF({ ...f, subject_id: e.target.value })}><option value="">Choose</option>{meta.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
         {kind === 'exam'
-          ? <div className="full"><Field label="Exam" hint={curExams.length ? '' : 'No exam in the current session. An admin creates them under Academics > Exams.'}><select required value={f.exam_id} onChange={(e) => setF({ ...f, exam_id: e.target.value })}><option value="">Choose</option>{curExams.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field></div>
-          : <div className="full"><Field label="Test title"><input required maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Unit test 1, Chapter 3 quiz" /></Field></div>}
-        <Field label="Date"><input type="date" required value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-        <Field label="Maximum marks"><input type="number" required min="0.5" max="1000" step="any" inputMode="decimal" value={f.max_marks} onChange={(e) => setF({ ...f, max_marks: e.target.value })} placeholder="e.g. 20" /></Field>
+          ? <div className="full"><Field label="Exam" req hint={curExams.length ? '' : 'No exam in the current session. An admin creates them under Academics > Exams.'}><select required value={f.exam_id} onChange={(e) => setF({ ...f, exam_id: e.target.value })}><option value="">Choose</option>{curExams.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field></div>
+          : <div className="full"><Field label="Test title" req><input required maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Unit test 1, Chapter 3 quiz" /></Field></div>}
+        <Field label="Date" req><input type="date" required value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+        <Field label="Maximum marks" req><input type="number" required min="0.5" max="1000" step="any" inputMode="decimal" value={f.max_marks} onChange={(e) => setF({ ...f, max_marks: e.target.value })} placeholder="e.g. 20" /></Field>
         {err && <div className="err full">{err}</div>}
         <button className="btn primary full big" disabled={busy} style={{ justifyContent: 'center' }}>{busy ? 'Creating...' : 'Create and enter marks'}</button>
       </form>
@@ -312,10 +312,10 @@ function EditModal({ me, sid, meta, a, onClose, onSaved }) {
   return (
     <Modal title="Edit details" onClose={onClose}>
       <form className="form" onSubmit={save}>
-        <div className="full"><Field label="Title"><input required maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field></div>
+        <div className="full"><Field label="Title" req><input required maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field></div>
         <Field label="Subject"><select value={f.subject_id} onChange={(e) => setF({ ...f, subject_id: e.target.value })}>{meta.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-        <Field label="Date"><input type="date" required value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-        <div className="full"><Field label="Maximum marks"><input type="number" required min="0.5" max="1000" step="any" value={f.max_marks} onChange={(e) => setF({ ...f, max_marks: e.target.value })} /></Field></div>
+        <Field label="Date" req><input type="date" required value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+        <div className="full"><Field label="Maximum marks" req><input type="number" required min="0.5" max="1000" step="any" value={f.max_marks} onChange={(e) => setF({ ...f, max_marks: e.target.value })} /></Field></div>
         {err && <div className="err full">{err}</div>}
         <button className="btn primary full" disabled={busy} style={{ justifyContent: 'center' }}>{busy ? 'Saving...' : 'Save'}</button>
       </form>
@@ -395,7 +395,7 @@ export const SubjectManager = scoped(function SubjectManager({ me, sid }) {
   return (
     <div className="stack" style={{ maxWidth: 640 }}>
       <form className="card row" onSubmit={add} style={{ alignItems: 'flex-end' }}>
-        <div style={{ flex: 2, minWidth: 160 }}><Field label="New subject"><input required maxLength={60} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Mathematics" /></Field></div>
+        <div style={{ flex: 2, minWidth: 160 }}><Field label="New subject" req><input required maxLength={60} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Mathematics" /></Field></div>
         <div style={{ flex: 1, minWidth: 90 }}><Field label="Code (optional)"><input maxLength={12} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="MATH" /></Field></div>
         <button className="btn primary" disabled={busy}><Icon name="plus" />Add</button>
       </form>
@@ -415,7 +415,7 @@ function SubjectEdit({ me, sid, s, onClose, onSaved }) {
   const save = async (e) => { e.preventDefault(); try { await asend('patch', me, sid, `/subjects/${s.id}`, f); onSaved(); } catch (x) { setErr(x.message); } };
   return (
     <Modal title="Edit subject" onClose={onClose}><form className="form" onSubmit={save}>
-      <div className="full"><Field label="Name"><input required maxLength={60} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field></div>
+      <div className="full"><Field label="Name" req><input required maxLength={60} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field></div>
       <div className="full"><Field label="Code"><input maxLength={12} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></Field></div>
       {err && <div className="err full">{err}</div>}<button className="btn primary full" style={{ justifyContent: 'center' }}>Save</button>
     </form></Modal>
@@ -457,7 +457,7 @@ function ExamForm({ me, sid, meta, x, onClose, onSaved }) {
   };
   return (
     <Modal title={isNew ? 'New exam' : 'Edit exam'} onClose={onClose}><form className="form" onSubmit={save}>
-      <div className="full"><Field label="Exam name"><input required maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Half-yearly, Final, Pre-board" /></Field></div>
+      <div className="full"><Field label="Exam name" req><input required maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Half-yearly, Final, Pre-board" /></Field></div>
       {isNew && <div className="full"><Field label="Session"><select value={f.session_id} onChange={(e) => setF({ ...f, session_id: e.target.value })}>{meta.sessions.length === 0 && <option value="">No session set up</option>}{meta.sessions.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (current)' : ''}</option>)}</select></Field></div>}
       <Field label="Starts (optional)"><input type="date" value={f.start_date} onChange={(e) => setF({ ...f, start_date: e.target.value })} /></Field>
       <Field label="Ends (optional)"><input type="date" value={f.end_date} onChange={(e) => setF({ ...f, end_date: e.target.value })} /></Field>

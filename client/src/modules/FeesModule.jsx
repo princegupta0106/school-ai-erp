@@ -31,7 +31,7 @@ function ReasonModal({ title, text, confirmLabel, onClose, onConfirm }) {
   return (
     <Modal title={title} onClose={onClose}><form className="form" onSubmit={go}>
       <div className="full muted">{text}</div>
-      <div className="full"><Field label="Reason (kept in the history)"><input autoFocus required maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} /></Field></div>
+      <div className="full"><Field label="Reason (kept in the history)" req><input autoFocus required maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} /></Field></div>
       {err && <div className="err full">{err}</div>}
       <button className="btn danger full" disabled={busy || !reason.trim()} style={{ justifyContent: 'center' }}>{busy ? 'Please wait...' : confirmLabel}</button>
     </form></Modal>
@@ -51,8 +51,8 @@ function ItemForm({ data, cls, item, onClose, onSaved }) {
   };
   return (
     <Modal title={item ? `Edit fee - Class ${cls.name}` : `Add fee - Class ${cls.name}`} onClose={onClose}><form className="form" onSubmit={save}>
-      <div className="full"><Field label="Fee name"><input autoFocus required maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Tuition, Transport, Lab, Admission" /></Field></div>
-      <Field label="Total for the session (₹)"><input required type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="20000" /></Field>
+      <div className="full"><Field label="Fee name" req><input autoFocus required maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Tuition, Transport, Lab, Admission" /></Field></div>
+      <Field label="Total for the session (₹)" req><input required type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="20000" /></Field>
       <Field label="Payment term"><select value={f.frequency} onChange={(e) => setF({ ...f, frequency: e.target.value })}>{data.frequencies.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></Field>
       {each !== null && <div className="full notice">{fr.count === 1 ? <>Paid in one go: <b>{rupees(amt)}</b>, due on the session start date.</> : <>Paid in <b>{fr.count} instalments</b> of about <b>{rupees(Math.round(each * 100) / 100)}</b> ({TERM_EVERY[f.frequency]}), the first due on the session start date.</>}</div>}
       {item && <div className="full muted" style={{ fontSize: 13 }}>This changes the fee for every student of Class {cls.name} from now on. Payments already received are kept.</div>}
@@ -163,14 +163,14 @@ function PayModal({ d, me, sid, onClose, onPaid }) {
   return (
     <Modal title={`Record payment - ${d.student.full_name}`} onClose={onClose}><form className="form" onSubmit={save}>
       <div className="full notice">Pending <b>{rupees(t.pending)}</b>{t.due_till_date > 0 && <> - due till date <b>{rupees(t.due_till_date)}</b></>}. The money goes to the oldest unpaid fees first.</div>
-      <div className="full"><Field label="Amount received (₹)"><input autoFocus required type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} className={bad && f.amount !== '' ? 'rollin bad' : ''} style={{ fontSize: 20, fontWeight: 700 }} /></Field></div>
+      <div className="full"><Field label="Amount received (₹)" req><input autoFocus required type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} className={bad && f.amount !== '' ? 'rollin bad' : ''} style={{ fontSize: 20, fontWeight: 700 }} /></Field></div>
       <div className="full row">
         {t.due_till_date > 0 && <button type="button" className="chip" onClick={() => setF({ ...f, amount: String(t.due_till_date) })}>Due till date {rupees(t.due_till_date)}</button>}
         <button type="button" className="chip" onClick={() => setF({ ...f, amount: String(t.pending) })}>Everything pending {rupees(t.pending)}</button>
       </div>
       {amt > t.pending + 0.001 && <div className="err full">That is more than the pending balance.</div>}
       <Field label="Paid by"><select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })}>{MODES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
-      <Field label="Payment date"><input type="date" required max={d.today} value={f.paid_on} onChange={(e) => setF({ ...f, paid_on: e.target.value })} /></Field>
+      <Field label="Payment date" req><input type="date" required max={d.today} value={f.paid_on} onChange={(e) => setF({ ...f, paid_on: e.target.value })} /></Field>
       <div className="full"><Field label="Reference / cheque no. (optional)"><input maxLength={100} value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} placeholder="UPI transaction id, cheque number..." /></Field></div>
       <div className="full"><Field label="Note (optional)"><input maxLength={300} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field></div>
       {err && <div className="err full">{err}</div>}
@@ -195,8 +195,8 @@ function AdjustModal({ d, me, sid, onClose, onDone }) {
       </div>
       <div className="full"><Field label="Applies to" hint={f.item_id ? 'Spread over that fee\u2019s instalments.' : f.type === 'discount' ? 'Taken off the oldest unpaid fees first.' : 'Due immediately.'}>
         <select value={f.item_id} onChange={(e) => setF({ ...f, item_id: e.target.value })}><option value="">General (whole account)</option>{d.items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select></Field></div>
-      <div className="full"><Field label="Amount (₹)"><input autoFocus required type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field></div>
-      <div className="full"><Field label="Reason (kept in the history)"><input required maxLength={200} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder={f.type === 'discount' ? 'e.g. Sibling concession, scholarship, does not use bus' : 'e.g. Late fine, lost ID card'} /></Field></div>
+      <div className="full"><Field label="Amount (₹)" req><input autoFocus required type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field></div>
+      <div className="full"><Field label="Reason (kept in the history)" req><input required maxLength={200} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder={f.type === 'discount' ? 'e.g. Sibling concession, scholarship, does not use bus' : 'e.g. Late fine, lost ID card'} /></Field></div>
       {err && <div className="err full">{err}</div>}
       <button className="btn primary full big" disabled={busy || !f.reason.trim() || !(Number(f.amount) > 0)} style={{ justifyContent: 'center' }}>{busy ? 'Saving...' : f.type === 'discount' ? 'Apply discount' : 'Add charge'}</button>
     </form></Modal>

@@ -23,7 +23,7 @@ function GrantForm({ types, emps, qs, onDone }) {
     <View>
       <Field label="What are you doing?"><Choice value={f.kind} onChange={set('kind')} options={[{ value: 'allotment', label: 'Yearly allotment' }, { value: 'grant', label: 'Extra days' }, { value: 'adjustment', label: 'Adjustment' }]} /></Field>
       <Dim style={{ marginBottom: 12 }}>{allot ? 'Uses the quota of the leave type, once per period.' : f.kind === 'grant' ? 'Bonus leave days.' : 'Plus or minus days, to fix a balance.'}</Dim>
-      <Field label="Leave type"><Choice value={f.leave_type_id} onChange={set('leave_type_id')} options={types.map((t) => ({ value: t.id, label: t.name + (allot ? ` (${t.annual_quota})` : '') }))} /></Field>
+      <Field req label="Leave type"><Choice value={f.leave_type_id} onChange={set('leave_type_id')} options={types.map((t) => ({ value: t.id, label: t.name + (allot ? ` (${t.annual_quota})` : '') }))} /></Field>
       {allot ? <Field label="Period" hint="Stops giving it twice"><Input value={f.period_key} onChangeText={set('period_key')} /></Field>
         : <Field label="Days" hint="e.g. 2, 0.5, -1"><Input keyboardType="numbers-and-punctuation" value={String(f.days)} onChangeText={set('days')} /></Field>}
       {!allot && <Field label="Note (visible to employee)"><Input value={f.note} onChangeText={set('note')} /></Field>}

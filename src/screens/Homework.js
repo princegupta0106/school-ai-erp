@@ -77,8 +77,8 @@ function NewAssignment({ sc, onClose, onSaved }) {
   return (
     <Sheet title="New homework / file" onClose={onClose}>
       <Choice value={f.needs_submission ? 'a' : 's'} onChange={(v) => set('needs_submission')(v === 'a')} options={[{ value: 'a', label: 'Assignment (students submit)' }, { value: 's', label: 'Study file (read only)' }]} /><Gap />
-      <Field label="Class">{!classes ? <Dim>Loading classes...</Dim> : classes.length === 0 ? <Dim>No classes are assigned to you.</Dim> : <Choice value={f.class_id} onChange={set('class_id')} options={classes.map((c) => ({ value: c.id, label: clsName(c) }))} />}</Field>
-      <Field label="Title"><Input maxLength={150} value={f.title} onChangeText={set('title')} placeholder="e.g. Chapter 4 exercise" /></Field>
+      <Field req label="Class">{!classes ? <Dim>Loading classes...</Dim> : classes.length === 0 ? <Dim>No classes are assigned to you.</Dim> : <Choice value={f.class_id} onChange={set('class_id')} options={classes.map((c) => ({ value: c.id, label: clsName(c) }))} />}</Field>
+      <Field req label="Title"><Input maxLength={150} value={f.title} onChangeText={set('title')} placeholder="e.g. Chapter 4 exercise" /></Field>
       <Field label="Subject (optional)"><Input maxLength={60} value={f.subject} onChangeText={set('subject')} placeholder="e.g. Maths" /></Field>
       <Field label="Instructions"><Input multiline style={{ minHeight: 100 }} maxLength={5000} value={f.description} onChangeText={set('description')} placeholder="What should students do?" /></Field>
       {f.needs_submission && <Field label="Last date to submit (optional)">

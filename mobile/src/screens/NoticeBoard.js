@@ -30,8 +30,8 @@ function NoticeForm({ me, qs, sid, edit, onClose, onSaved }) {
         <Field label="Classes" hint="Students, parents and teachers of these classes will see it">
           {!classes ? <Dim>Loading classes...</Dim> : classes.length === 0 ? <Dim>No classes available to you.</Dim> : <Chips values={f.class_ids} onChange={set('class_ids')} options={classes.map((c) => ({ value: c.id, label: clsName(c) }))} />}
         </Field>)}
-      <Field label="Title"><Input maxLength={150} value={f.title} onChangeText={set('title')} placeholder="e.g. Parent-teacher meeting on Saturday" /></Field>
-      <Field label="Notice"><Input multiline style={{ minHeight: 140 }} maxLength={5000} value={f.body} onChangeText={set('body')} placeholder="Write the notice..." /></Field>
+      <Field req label="Title"><Input maxLength={150} value={f.title} onChangeText={set('title')} placeholder="e.g. Parent-teacher meeting on Saturday" /></Field>
+      <Field req label="Notice"><Input multiline style={{ minHeight: 140 }} maxLength={5000} value={f.body} onChangeText={set('body')} placeholder="Write the notice..." /></Field>
       <Check label="Pin to the top" value={f.is_pinned} onChange={set('is_pinned')} />
       <ErrorBox>{err}</ErrorBox>
       <Btn title={busy ? 'Saving...' : edit ? 'Save changes' : 'Post notice'} disabled={busy || bad} onPress={save} />

@@ -68,11 +68,11 @@ function NewAssignment({ me, sid, onClose, onSaved }) {
           <button type="button" className={`pill ${f.needs_submission ? 'on' : ''}`} onClick={() => setF({ ...f, needs_submission: true })}>Assignment (students submit)</button>
           <button type="button" className={`pill ${!f.needs_submission ? 'on' : ''}`} onClick={() => setF({ ...f, needs_submission: false })}>Study file (read only)</button>
         </div>
-        <Field label="Class">
+        <Field label="Class" req>
           {!classes ? <Loading rows={1} /> : classes.length === 0 ? <span className="muted">No classes are assigned to you.</span> :
             <select required value={f.class_id} onChange={(e) => setF({ ...f, class_id: e.target.value })}><option value="">Choose a class</option>{classes.map((c) => <option key={c.id} value={c.id}>{clsName(c)}</option>)}</select>}
         </Field>
-        <Field label="Title"><input required maxLength={150} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Chapter 4 exercise" /></Field>
+        <Field label="Title" req><input required maxLength={150} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Chapter 4 exercise" /></Field>
         <Field label="Subject (optional)"><input maxLength={60} value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder="e.g. Maths" /></Field>
         <Field label="Instructions"><textarea rows={4} maxLength={5000} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="What should students do?" /></Field>
         {f.needs_submission && <Field label="Last date to submit (optional)"><input type="date" value={f.due_date} onChange={(e) => setF({ ...f, due_date: e.target.value })} /></Field>}

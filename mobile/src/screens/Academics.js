@@ -190,13 +190,13 @@ function CreateSheet({ sc, meta, defaults, onClose, onCreated }) {
   return (
     <Sheet title="New test / exam paper" onClose={onClose}>
       <Choice value={kind} onChange={setKind} options={[{ value: 'test', label: 'Test' }, { value: 'exam', label: 'Exam paper' }]} /><Gap />
-      <Field label="Class"><Choice value={f.class_id} onChange={set('class_id')} options={meta.classes.map((c) => ({ value: c.id, label: c.label }))} /></Field>
-      <Field label="Subject"><Choice value={f.subject_id} onChange={set('subject_id')} options={meta.subjects.map((s) => ({ value: s.id, label: s.name }))} /></Field>
+      <Field req label="Class"><Choice value={f.class_id} onChange={set('class_id')} options={meta.classes.map((c) => ({ value: c.id, label: c.label }))} /></Field>
+      <Field req label="Subject"><Choice value={f.subject_id} onChange={set('subject_id')} options={meta.subjects.map((s) => ({ value: s.id, label: s.name }))} /></Field>
       {kind === 'exam'
-        ? <Field label="Exam" hint={curExams.length ? '' : 'No exam in the current session. An admin creates them under Academics > Exams.'}><Choice value={f.exam_id} onChange={set('exam_id')} options={curExams.map((x) => ({ value: x.id, label: x.name }))} /></Field>
-        : <Field label="Test title"><Input maxLength={120} value={f.title} onChangeText={set('title')} placeholder="e.g. Unit test 1, Chapter 3 quiz" /></Field>}
+        ? <Field req label="Exam" hint={curExams.length ? '' : 'No exam in the current session. An admin creates them under Academics > Exams.'}><Choice value={f.exam_id} onChange={set('exam_id')} options={curExams.map((x) => ({ value: x.id, label: x.name }))} /></Field>
+        : <Field req label="Test title"><Input maxLength={120} value={f.title} onChangeText={set('title')} placeholder="e.g. Unit test 1, Chapter 3 quiz" /></Field>}
       <Field label="Date"><DateField value={f.date} onChange={set('date')} /></Field>
-      <Field label="Maximum marks"><Input keyboardType="decimal-pad" value={f.max_marks} onChangeText={(t) => set('max_marks')(t.replace(/[^0-9.]/g, ''))} placeholder="e.g. 20" /></Field>
+      <Field req label="Maximum marks"><Input keyboardType="decimal-pad" value={f.max_marks} onChangeText={(t) => set('max_marks')(t.replace(/[^0-9.]/g, ''))} placeholder="e.g. 20" /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn title={busy ? 'Creating...' : 'Create and enter marks'} onPress={save} disabled={busy || !f.class_id || !f.subject_id || !f.max_marks || (kind === 'exam' ? !f.exam_id : !f.title.trim())} />
     </Sheet>
@@ -290,10 +290,10 @@ function EditSheet({ sc, meta, a, onClose, onSaved }) {
   const save = async () => { setBusy(true); setErr(''); try { onSaved(await api.patch(`/academics/assessments/${a.id}`, { ...f, ...sc })); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
   return (
     <Sheet title="Edit details" onClose={onClose}>
-      <Field label="Title"><Input maxLength={120} value={f.title} onChangeText={set('title')} /></Field>
+      <Field req label="Title"><Input maxLength={120} value={f.title} onChangeText={set('title')} /></Field>
       <Field label="Subject"><Choice value={f.subject_id} onChange={set('subject_id')} options={meta.subjects.map((s) => ({ value: s.id, label: s.name }))} /></Field>
       <Field label="Date"><DateField value={f.date} onChange={set('date')} /></Field>
-      <Field label="Maximum marks"><Input keyboardType="decimal-pad" value={f.max_marks} onChangeText={(t) => set('max_marks')(t.replace(/[^0-9.]/g, ''))} /></Field>
+      <Field req label="Maximum marks"><Input keyboardType="decimal-pad" value={f.max_marks} onChangeText={(t) => set('max_marks')(t.replace(/[^0-9.]/g, ''))} /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn title={busy ? 'Saving...' : 'Save'} onPress={save} disabled={busy || !f.title.trim() || !f.max_marks} />
     </Sheet>
@@ -364,7 +364,7 @@ export const SubjectManager = scoped(function SubjectManager({ sc }) {
   return (
     <Pad reload={reload} hasData>
       <Card>
-        <Field label="New subject"><Input maxLength={60} value={f.name} onChangeText={(t) => setF({ ...f, name: t })} placeholder="e.g. Mathematics" /></Field>
+        <Field req label="New subject"><Input maxLength={60} value={f.name} onChangeText={(t) => setF({ ...f, name: t })} placeholder="e.g. Mathematics" /></Field>
         <Field label="Code (optional)"><Input maxLength={12} autoCapitalize="characters" value={f.code} onChangeText={(t) => setF({ ...f, code: t })} placeholder="MATH" /></Field>
         <Btn title={busy ? 'Adding...' : 'Add subject'} onPress={add} disabled={busy || !f.name.trim()} />
       </Card>
@@ -384,7 +384,7 @@ function SubjectEdit({ sc, s, onClose, onSaved }) {
   const save = async () => { try { await api.patch(`/academics/subjects/${s.id}`, { ...f, ...sc }); onSaved(); } catch (x) { setErr(x.message); } };
   return (
     <Sheet title="Edit subject" onClose={onClose}>
-      <Field label="Name"><Input maxLength={60} value={f.name} onChangeText={(t) => setF({ ...f, name: t })} /></Field>
+      <Field req label="Name"><Input maxLength={60} value={f.name} onChangeText={(t) => setF({ ...f, name: t })} /></Field>
       <Field label="Code"><Input maxLength={12} autoCapitalize="characters" value={f.code} onChangeText={(t) => setF({ ...f, code: t })} /></Field>
       <ErrorBox>{err}</ErrorBox>
       <Btn title="Save" onPress={save} disabled={!f.name.trim()} />
@@ -438,7 +438,7 @@ function ExamForm({ sc, meta, x, onClose, onSaved }) {
   };
   return (
     <Sheet title={isNew ? 'New exam' : 'Edit exam'} onClose={onClose}>
-      <Field label="Exam name"><Input maxLength={80} value={f.name} onChangeText={set('name')} placeholder="e.g. Half-yearly, Final, Pre-board" /></Field>
+      <Field req label="Exam name"><Input maxLength={80} value={f.name} onChangeText={set('name')} placeholder="e.g. Half-yearly, Final, Pre-board" /></Field>
       {isNew && <Field label="Session">{meta.sessions.length === 0 ? <Dim>No session set up</Dim> : <Choice value={f.session_id} onChange={set('session_id')} options={meta.sessions.map((s) => ({ value: s.id, label: `${s.name}${s.is_current ? ' (current)' : ''}` }))} />}</Field>}
       <Field label="Starts (optional)"><OptDate value={f.start_date} onChange={set('start_date')} /></Field>
       <Field label="Ends (optional)"><OptDate value={f.end_date} onChange={set('end_date')} /></Field>

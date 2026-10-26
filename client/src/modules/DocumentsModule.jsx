@@ -76,7 +76,7 @@ function CancelModal({ id, me, sid, onClose, onDone }) {
   return (
     <Modal title="Cancel this document" onClose={onClose}><form className="form" onSubmit={go}>
       <div className="full muted">The document stays in the register as cancelled and can no longer be printed by the student or staff member. Its number is never reused.</div>
-      <div className="full"><Field label="Reason (kept in the history)"><input autoFocus required maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} /></Field></div>
+      <div className="full"><Field label="Reason (kept in the history)" req><input autoFocus required maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} /></Field></div>
       {err && <div className="err full">{err}</div>}
       <button className="btn danger full" disabled={busy || !reason.trim()} style={{ justifyContent: 'center' }}>{busy ? 'Please wait...' : 'Cancel document'}</button>
     </form></Modal>
@@ -243,7 +243,7 @@ export const IssueDocument = scoped(function IssueDocument({ me, sid, go }) {
             {T.fields.some((f) => !f.kind || f.kind === pre.subject.kind) && (
               <div className="card"><div className="sec">Details for this {typeLabel(type).toLowerCase()}</div>
                 <div className="form" style={{ marginTop: 10 }}>{T.fields.filter((f) => !f.kind || f.kind === pre.subject.kind).map((f) => (
-                  <div key={f.key} className={f.wide ? 'full' : ''}><Field label={f.label + (f.required ? ' *' : '')}>
+                  <div key={f.key} className={f.wide ? 'full' : ''}><Field label={f.label} req={f.required}>
                     {f.area ? <textarea rows={3} value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} />
                       : <input type={f.type === 'date' ? 'date' : 'text'} placeholder={f.ph || ''} value={fields[f.key] || ''} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })} />}
                   </Field></div>))}</div></div>)}
