@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from './api.js';
 import { downloadPdf } from './docRender.js';
+import { ask as confirmBox } from './ui.jsx';
 
 // "Ask AI" chat (same widget as the wholesale ERP). It only talks to /api/ai/*: the portal decides what the person may do.
 // Anything that changes data shows a Confirm card first; nothing is saved until the person presses Confirm.
@@ -202,8 +203,8 @@ export default function AssistantChat({ me, ask }) {
     for (const a of pending) await decide(what, a);
   };
 
-  const toggleAuto = (on) => {
-    if (on && !window.confirm('Auto-confirm saves users, passwords, roles and deletions immediately without asking. Turn on?')) return;
+  const toggleAuto = async (on) => {
+    if (on && !(await confirmBox('Auto-confirm saves users, passwords, roles and deletions immediately without asking. Turn on?'))) return;
     setAuto(on);
     try { localStorage.setItem('ai_auto', on ? '1' : '0'); } catch { /* private mode */ }
   };
@@ -219,7 +220,6 @@ export default function AssistantChat({ me, ask }) {
   const first = (me.profile?.full_name || '').split(' ')[0];
 
   return (<>
-    {!open && <button className="ai-fab" onClick={() => setOpen(true)} aria-label="Open AI assistant"><span aria-hidden="true">✨</span><span className="fab-t"> Ask AI</span></button>}
     {open && (
       <div className="ai-panel" role="dialog" aria-label="AI assistant">
         <div className="ai-h">

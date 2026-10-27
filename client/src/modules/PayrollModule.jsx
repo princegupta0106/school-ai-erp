@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api.js';
 import { useData, useApi as useCachedApi } from '../cache.js';
-import { Modal, Field, Badge, Empty, toast, Loading } from '../ui.jsx';
+import { Modal, Field, Badge, Empty, toast, Loading, ask, askText } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -131,7 +131,7 @@ export function MyLeave({ me, action }) {
 // =============================================================== approver: all requests
 export function LeaveRequests({ me }) {
   const { sid, picker, qs } = useSchoolId(me);
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState('');
   const { data, error, reload } = useApi(sid ? withQs(`/payroll/leave${status ? `?status=${status}` : ''}`, qs) : null);
   const { data: st } = useApi(sid ? withQs('/payroll/settings', qs) : null);
   const { data: emps } = useApi(sid && me.features.includes('leave_approve') ? withQs('/payroll/employees', qs) : null);
@@ -140,7 +140,7 @@ export function LeaveRequests({ me }) {
   if (!sid) return <Empty>Create a school first.</Empty>;
   return (
     <div className="stack">
-      <div className="row sp">{picker}<div className="pills scroll">{['pending', 'approved', 'rejected', 'cancelled', ''].map((s) => <button key={s} className={`pill t-${s || 'all'} ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s || 'all'}</button>)}</div>
+      <div className="row sp">{picker}<div className="pills scroll">{['', 'pending', 'approved', 'rejected', 'cancelled'].map((s) => <button key={s} className={`pill t-${s || 'all'} ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s ? s[0].toUpperCase() + s.slice(1) : 'All'}</button>)}</div>
         {can && st && <button className="btn" onClick={() => setRec(true)}>Record leave for someone</button>}</div>
       {st && <div style={dim}>Approval mode: <b>{st.settings.approval_mode === 'auto' ? 'automatic (requests are approved instantly)' : 'manual (needs an approver)'}</b></div>}
       {error && <div className="err">{error}</div>}
@@ -155,7 +155,7 @@ export function LeaveRequests({ me }) {
               <input style={{ width: 140 }} placeholder="Note (optional)" value={note[q.id] || ''} onChange={(e) => setNote({ ...note, [q.id]: e.target.value })} />
               <button className="btn primary" onClick={run(() => api.post(withQs(`/payroll/leave/${q.id}/approve`, qs), { note: note[q.id] }), 'Approved')}>Approve</button>
               <button className="btn danger" onClick={run(() => api.post(withQs(`/payroll/leave/${q.id}/reject`, qs), { note: note[q.id] }), 'Rejected')}>Reject</button></div>}
-            {can && q.status === 'approved' && <button className="btn" onClick={() => confirm('Cancel this approved leave? The balance is restored.') && run(() => api.post(withQs(`/payroll/leave/${q.id}/cancel`, qs)), 'Cancelled')()}>Cancel leave</button>}
+            {can && q.status === 'approved' && <button className="btn" onClick={async () => (await ask('Cancel this approved leave? The balance is restored.')) && run(() => api.post(withQs(`/payroll/leave/${q.id}/cancel`, qs)), 'Cancelled')()}>Cancel leave</button>}
           </div>))}</div>)}
       {rec && st && emps && <Modal title="Record leave for an employee" onClose={() => setRec(false)}><ApplyForm types={st.types.filter((t) => t.is_active)} qs={qs} onBehalfList={emps} onDone={async () => { await reload(); setRec(false); }} /></Modal>}
     </div>
@@ -237,7 +237,7 @@ export function Payroll({ me }) {
       <div className="row sp">{picker}<div className="row"><input type="month" style={{ width: 'auto' }} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
         {manage && <>
           <button className="btn" disabled={busy || !data?.can_generate} title={data?.can_generate ? '' : 'Month has not ended'} onClick={run(() => post('/payroll/payslips/generate', { period: month }), (r) => `Prepared ${r.made} payslip(s)${r.noSalary.length ? `; no salary set for: ${r.noSalary.join(', ')}` : ''}`)}>Prepare / refresh</button>
-          <button className="btn" disabled={busy || !nDraft} onClick={() => confirm(`Finalize ${nDraft} draft payslip(s)? Numbers lock and negative leave balances are settled.`) && run(() => post('/payroll/payslips/finalize-all', { period: month }), (r) => `Finalized ${r.done}${r.failed.length ? `. Skipped: ${r.failed.join(' | ')}` : ''}`)()}>Finalize all</button>
+          <button className="btn" disabled={busy || !nDraft} onClick={async () => (await ask(`Finalize ${nDraft} draft payslip(s)? Numbers lock and negative leave balances are settled.`)) && run(() => post('/payroll/payslips/finalize-all', { period: month }), (r) => `Finalized ${r.done}${r.failed.length ? `. Skipped: ${r.failed.join(' | ')}` : ''}`)()}>Finalize all</button>
           <button className="btn primary" disabled={busy || !nFin} onClick={() => setPay({ all: true })}>Mark all paid</button></>}</div></div>
       {data && !data.can_generate && <div style={dim}>{monthName(`${month}-01`)} hasn't ended. Payroll for a month is prepared after it finishes. You can still add bonuses or deductions now.</div>}
       {error && <div className="err">{error}</div>}
@@ -321,7 +321,7 @@ export function PaySettings({ me }) {
       <div className="card stack"><b>Leave types</b>
         {data.types.map((t) => <div key={t.id} className="doc"><div style={{ flex: 1 }}><b>{t.name}</b><div style={dim}>{t.is_paid ? `${t.annual_quota} days per year` : 'Unpaid: every day is cut from salary'}</div></div>
           {!t.is_active && <Badge tone="off">off</Badge>}
-          {t.is_paid && <button className="btn" onClick={() => { const v = prompt(`Yearly days for ${t.name}`, t.annual_quota); if (v !== null) run(() => api.patch(withQs(`/payroll/leave-types/${t.id}`, qs), { annual_quota: v }), 'Updated')(); }}>Quota</button>}
+          {t.is_paid && <button className="btn" onClick={async () => { const v = await askText(`Yearly days for ${t.name}`, t.annual_quota); if (v !== null) run(() => api.patch(withQs(`/payroll/leave-types/${t.id}`, qs), { annual_quota: v }), 'Updated')(); }}>Quota</button>}
           <button className="btn" onClick={run(() => api.patch(withQs(`/payroll/leave-types/${t.id}`, qs), { is_active: !t.is_active }))}>{t.is_active ? 'Turn off' : 'Turn on'}</button></div>)}
         <form className="row" onSubmit={run(async () => { await api.post(withQs('/payroll/leave-types', qs), nt); setNt({ name: '', annual_quota: 12, is_paid: true }); }, 'Added')}>
           <input required style={{ flex: '2 1 150px' }} placeholder="Casual leave *" value={nt.name} onChange={(e) => setNt({ ...nt, name: e.target.value })} />

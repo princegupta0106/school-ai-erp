@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { api, getToken, setToken, setUnauthorizedHandler } from './api.js';
 import { clearCache, setCacheUser } from './cache.js';
-import { Icon, Modal, Field, toast, initials, ROLE_LABEL, ErrorBoundary, NetBar, Splash } from './ui.jsx';
+import { Icon, Modal, Field, toast, initials, ROLE_LABEL, ErrorBoundary, NetBar, Splash, ScrollFade } from './ui.jsx';
 import { MODULE_UI } from './registry.js';
 import Customize from './Customize.jsx';
 import AssistantChat from './AssistantChat.jsx';
@@ -62,6 +62,16 @@ function ChangePassword({ onClose }) {
       <button className="btn primary full" style={{ justifyContent: 'center' }}>Save password</button>
     </form></Modal>
   );
+}
+
+// The school's own logo (or its first letters when no logo is uploaded yet) in the sidebar - the platform icon only shows for the super admin, who has no school.
+function SchoolMark({ school }) {
+  const [bad, setBad] = useState(false);
+  useEffect(() => setBad(false), [school?.logo_url]);
+  if (!school?.name) return <div className="logo"><Icon name="school" /></div>;
+  if (school.logo_url && !bad) return <div className="logo has-img"><img src={school.logo_url} alt="" onError={() => setBad(true)} /></div>;
+  const ini = school.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  return <div className="logo" aria-hidden="true">{ini}</div>;
 }
 
 export default function App() {
@@ -201,7 +211,8 @@ export default function App() {
     <div className={`shell ${slim ? 'slim' : ''}`}>
       <NetBar />
       <aside className="side">
-        <div className="brand"><div className="logo"><Icon name="school" /></div><div className="brand-t"><b>School Portal</b><small>{me.school?.name || 'Platform'}</small></div><button className="icon-btn slimtop" title={slim ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={slim ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggleSlim}><Icon name={slim ? 'chevron' : 'back'} size={18} /></button></div>
+        <div className="brand"><SchoolMark school={me.school} /><div className="brand-t"><b title={me.school?.name || ''}>{me.school?.name || 'School Portal'}</b>{!me.school?.name && <small>Platform</small>}</div><button className="icon-btn slimtop" title={slim ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={slim ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggleSlim}><Icon name={slim ? 'chevron' : 'back'} size={18} /></button></div>
+        <ScrollFade className="side-scroll">
         {active ? (<>
           <button className="nav" title="All modules" onClick={() => go('')}><Icon name="back" /><span className="nl">All modules</span></button>
           <div className="nav-label">{ui.label}</div>
@@ -211,7 +222,8 @@ export default function App() {
           <div className="nav-label">Modules</div>
           {ordered.map((m) => <button key={m.key} className="nav" title={MODULE_UI[m.key].label} onClick={() => go(m.key)}><Icon name={MODULE_UI[m.key].icon} /><span className="nl">{MODULE_UI[m.key].label}</span></button>)}
         </>)}
-        <div className="grow" /><Actions noOut />
+        </ScrollFade>
+        <div className="side-actions"><Actions noOut /></div>
         <div className="side-me">
           <span className="sm-av">{initials(name)}</span>
           <div className="sm-t"><b>{name}</b><small>{ROLE_LABEL[me.role]}</small></div>
@@ -226,8 +238,9 @@ export default function App() {
             {active && <span className="ic sm" style={{ '--c': ui.color }}><Icon name={ui.icon} size={18} /></span>}
             <div><h1>{title}</h1>{sub && <p>{sub}</p>}</div>
           </div>
-          <SearchBar targets={targets} modules={searchModules} extras={searchExtras} canAsk={me.features.includes('use_assistant')} onGo={go} onAsk={(text) => setAsk({ text, n: Date.now() })} />
+          {!active && <SearchBar targets={targets} modules={searchModules} extras={searchExtras} canAsk={me.features.includes('use_assistant')} onGo={go} onAsk={(text) => setAsk({ text, n: Date.now() })} />}
           <div className="who">
+            {me.features.includes('use_assistant') && <button className="ai-btn" onClick={() => setAsk({ text: '', n: Date.now() })} aria-label="Ask AI" title="Ask AI"><Icon name="sparkle" size={17} /><span>Ask AI</span></button>}
             {active && view && <button className={`icon-btn pinbtn ${isPinned ? 'on' : ''}`} onClick={togglePin} aria-pressed={!!isPinned} title={isPinned ? 'Remove from home shortcuts' : 'Pin to home shortcuts'}><Icon name="pin" size={19} /></button>}
             <div className="meta"><b>{name}</b><small>{ROLE_LABEL[me.role]}</small></div>
             <button className="avatar" onClick={() => setMenu(!menu)} aria-label="Account menu">{initials(name)}</button>
@@ -275,9 +288,9 @@ export default function App() {
         <div className="overlay bottom-sheet" onMouseDown={(e) => e.target === e.currentTarget && setMore(false)}>
           <div className="bsheet" role="dialog" aria-label="All modules">
             <div className="grab" />
-            <div className="bs-grid">{ordered.map((m) => { const u = MODULE_UI[m.key]; return (
+            <ScrollFade className="bs-body"><div className="bs-grid">{ordered.map((m) => { const u = MODULE_UI[m.key]; return (
               <button key={m.key} style={{ '--c': u.color }} onClick={() => go(m.key)}><span className="ic"><Icon name={u.icon} size={22} /></span><span>{u.label}</span></button>); })}</div>
-            <div className="bs-actions"><Actions /></div>
+            <div className="bs-actions"><Actions /></div></ScrollFade>
           </div>
         </div>
       )}

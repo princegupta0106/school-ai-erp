@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Modal, Empty, Field, toast, Loading } from '../ui.jsx';
+import { Icon, Modal, Empty, Field, toast, Loading, ask } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 // ---------------------------------------------------------------- helpers
@@ -92,7 +92,7 @@ export const FeeStructure = scoped(function FeeStructure({ me, sid }) {
   const cls = data.classes.find((c) => c.name === clsName);
   const body = (it) => ({ ...it, class_name: cls.name, session_id: data.session.id, ...scopeQ(me, sid) });
   const del = async (it) => {
-    if (!confirm(`Remove "${it.name}" from Class ${cls.name}? Every student of this class will no longer be charged for it.`)) return;
+    if (!(await ask(`Remove "${it.name}" from Class ${cls.name}? Every student of this class will no longer be charged for it.`))) return;
     try { await api.del(`/fees/structure/items/${it.id}${qs(scopeQ(me, sid))}`); toast('Fee removed'); load(); } catch (x) { toast(x.message, true); }
   };
   const withFees = data.classes.filter((c) => c.items.length).length;

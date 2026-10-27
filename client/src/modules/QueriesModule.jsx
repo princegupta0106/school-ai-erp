@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Field, Modal, Badge, toast, Loading } from '../ui.jsx';
+import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const sq = (me, sid) => (me.role === 'super_admin' ? { school_id: sid } : {});
@@ -111,7 +111,7 @@ function QueryDetail({ me, sid, id, meta, onClose, onChanged }) {
     setBusy(true);
     try { await api.patch(`/queries/${id}`, { ...sq(me, sid), status_id: statusId ?? x.status_id, note }); setNote(''); setStatusId(null); toast('Saved'); await refresh(); onChanged(); } catch (e) { toast(e.message, true); } finally { setBusy(false); }
   };
-  const del = async () => { if (!confirm(`Delete ${refNo(x.ref_no)} for ${x.name}? This cannot be undone.`)) return; try { await api.del(`/queries/${id}${qs(sq(me, sid))}`); toast('Deleted'); onChanged(); onClose(); } catch (e) { toast(e.message, true); } };
+  const del = async () => { if (!(await ask(`Delete ${refNo(x.ref_no)} for ${x.name}? This cannot be undone.`))) return; try { await api.del(`/queries/${id}${qs(sq(me, sid))}`); toast('Deleted'); onChanged(); onClose(); } catch (e) { toast(e.message, true); } };
   return (
     <Modal title={x ? `${refNo(x.ref_no)} - ${x.type_name}` : 'Query'} onClose={onClose} wide>
       {error ? <div className="err">{error}</div> : !x ? <Loading /> : (
@@ -148,8 +148,8 @@ export const QuerySettings = scoped(function QuerySettings({ me, sid }) {
   if (!meta) return <Loading />;
   const q = sq(me, sid);
   const toggle = async (t) => { try { await api.patch(`/queries/types/${t.id}`, { ...q, is_active: !t.is_active }); refresh(); } catch (x) { toast(x.message, true); } };
-  const delType = async (t) => { if (!confirm(`Delete the form "${t.name}"?`)) return; try { await api.del(`/queries/types/${t.id}${qs(q)}`); toast('Deleted'); refresh(); } catch (x) { toast(x.message, true); } };
-  const delStatus = async (s) => { if (!confirm(`Delete the status "${s.name}"?`)) return; try { await api.del(`/queries/statuses/${s.id}${qs(q)}`); toast('Deleted'); refresh(); } catch (x) { toast(x.message, true); } };
+  const delType = async (t) => { if (!(await ask(`Delete the form "${t.name}"?`))) return; try { await api.del(`/queries/types/${t.id}${qs(q)}`); toast('Deleted'); refresh(); } catch (x) { toast(x.message, true); } };
+  const delStatus = async (s) => { if (!(await ask(`Delete the status "${s.name}"?`))) return; try { await api.del(`/queries/statuses/${s.id}${qs(q)}`); toast('Deleted'); refresh(); } catch (x) { toast(x.message, true); } };
   const makeDefault = async (s) => { try { await api.patch(`/queries/statuses/${s.id}`, { ...q, is_default: true }); refresh(); } catch (x) { toast(x.message, true); } };
   return (
     <div className="stack" style={{ maxWidth: 760 }}>

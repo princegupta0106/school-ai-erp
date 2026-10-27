@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, useApi, setCached } from '../cache.js';
-import { Icon, Modal, Empty, Field, Badge, toast, Loading } from '../ui.jsx';
+import { Icon, Modal, Empty, Field, Badge, toast, Loading, ask } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 import { DESIGNS, designOf, TYPES, TYPE_LIST, PLACEHOLDERS, buildHTML, printHTML, defaultFields, resolveTemplate, sampleContent, fmtDate } from '../docRender.js';
 
@@ -383,7 +383,7 @@ export const Templates = scoped(function Templates({ me, sid }) {
     } catch (x) { toast(x.message, true); } finally { setBusy(false); }
   };
   const reset = async () => {
-    if (!confirm('Go back to the built-in wording and design for this document?')) return;
+    if (!(await ask('Go back to the built-in wording and design for this document?'))) return;
     setBusy(true);
     try { setCached(metaKey(sid), await api.del(`/documents/templates/${type}${qs(scopeQ(me, sid))}`)); toast('Reset to default'); } catch (x) { toast(x.message, true); } finally { setBusy(false); }
   };

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Field, toast, Loading } from '../ui.jsx';
+import { Icon, Empty, Field, toast, Loading, ask } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const sq = (me, sid) => (me.role === 'super_admin' ? { school_id: sid } : {});
@@ -46,7 +46,7 @@ export const VisitorList = scoped(function VisitorList({ me, sid }) {
   const { data: d, error: err, refresh: reload } = useApi(`/visitors?${new URLSearchParams({ ...sq(me, sid), ...(date ? { date } : {}) })}`, true, { keepPrevious: true });
   const canDel = me.features.includes('delete_visitor');
   const rows = useMemo(() => (d?.visitors || []).filter((v) => !q || `${v.name} ${v.purpose || ''}`.toLowerCase().includes(q.toLowerCase())), [d, q]);
-  const del = async (v) => { if (!confirm(`Delete the entry for ${v.name}?`)) return; try { await api.del(`/visitors/${v.id}?${new URLSearchParams(sq(me, sid))}`); toast('Entry deleted'); reload(); } catch (x) { toast(x.message, true); } };
+  const del = async (v) => { if (!(await ask(`Delete the entry for ${v.name}?`))) return; try { await api.del(`/visitors/${v.id}?${new URLSearchParams(sq(me, sid))}`); toast('Entry deleted'); reload(); } catch (x) { toast(x.message, true); } };
 
   if (err) return <div className="err">{err}</div>;
   if (!d) return <Loading />;

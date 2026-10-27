@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, useApi } from '../cache.js';
-import { Icon, Modal, Empty, toast, Loading } from '../ui.jsx';
+import { Icon, Modal, Empty, toast, Loading, ask } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const ST = {
@@ -157,7 +157,7 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
   const can = !!sh?.can_edit;
   const set = (id, status) => { setMarks((m) => ({ ...m, [id]: status })); setTouched(true); };
   const setAll = (status) => { setMarks(Object.fromEntries(students.map((s) => [s.student_id, status]))); setTouched(true); };
-  const back = () => { if (touched && dirty && !confirm('You have unsaved changes. Leave without saving?')) return; onBack(); };
+  const back = async () => { if (touched && dirty && !(await ask('You have unsaved changes. Leave without saving?'))) return; onBack(); };
 
   const toggle = (id) => set(id, marks[id] === 'present' ? 'absent' : 'present');
 
@@ -383,12 +383,12 @@ export const RollNumbers = scoped(function Rolls({ me, sid }) {
 
   const run = async (fn, ok) => { setBusy(true); setErr(''); try { init(await fn()); toast(ok); } catch (x) { setErr(x.message); toast(x.message, true); } finally { setBusy(false); } };
   const save = () => run(() => send('put', me, sid, '/rolls', { class_id: classId, items: d.students.map((s) => ({ student_id: s.student_id, roll_no: vals[s.student_id] === '' ? null : Number(vals[s.student_id]) })) }), 'Roll numbers saved');
-  const auto = (mode) => {
-    if (dirty && !confirm('Discard your unsaved edits?')) return;
-    if (mode === 'name' && d.students.some((s) => s.roll_no) && !confirm('This renumbers EVERY student 1, 2, 3... in A-Z order of name. Continue?')) return;
+  const auto = async (mode) => {
+    if (dirty && !(await ask('Discard your unsaved edits?'))) return;
+    if (mode === 'name' && d.students.some((s) => s.roll_no) && !(await ask('This renumbers EVERY student 1, 2, 3... in A-Z order of name. Continue?'))) return;
     run(() => send('post', me, sid, '/rolls/auto', { class_id: classId, mode }), mode === 'name' ? 'Numbered A-Z' : 'Missing roll numbers filled');
   };
-  const pickClass = (id) => { if (dirty && !confirm('Discard your unsaved edits?')) return; setClassId(id); };
+  const pickClass = async (id) => { if (dirty && !(await ask('Discard your unsaved edits?'))) return; setClassId(id); };
 
   if (!cl) return <Loading />;
   if (!cl.classes.length) return <Empty>No classes available.</Empty>;

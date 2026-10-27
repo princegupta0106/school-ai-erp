@@ -121,3 +121,49 @@ export class ErrorBoundary extends React.Component {
     );
   }
 }
+
+// A fixed-height scroll area. A soft fade shows on the edge where more content is hidden (bottom while at the top, top once scrolled).
+export function ScrollFade({ className = '', children, ...rest }) {
+  const ref = React.useRef(null); const [f, setF] = React.useState({ t: false, b: false });
+  const calc = () => { const e = ref.current; if (!e) return; const t = e.scrollTop > 4; const b = e.scrollHeight - e.scrollTop - e.clientHeight > 4; setF((o) => (o.t === t && o.b === b ? o : { t, b })); };
+  React.useEffect(() => {
+    calc(); const e = ref.current; if (!e) return undefined;
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(calc);
+    if (ro) { ro.observe(e); Array.from(e.children).forEach((c) => ro.observe(c)); }
+    window.addEventListener('resize', calc);
+    return () => { ro && ro.disconnect(); window.removeEventListener('resize', calc); };
+  });
+  return <div ref={ref} onScroll={calc} className={`sf ${f.t ? 'sf-t' : ''} ${f.b ? 'sf-b' : ''} ${className}`} {...rest}>{children}</div>;
+}
+
+// Clean confirm / text prompts (replace the browser's confirm() and prompt()). Both return a Promise.
+function dlg(build) {
+  return new Promise((res) => {
+    const wrap = document.createElement('div'); wrap.className = 'dlg-scrim';
+    const box = document.createElement('div'); box.className = 'dlg'; box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-modal', 'true');
+    wrap.appendChild(box); document.body.appendChild(wrap);
+    const done = (v) => { document.removeEventListener('keydown', key, true); wrap.remove(); res(v); };
+    const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    document.addEventListener('keydown', key, true);
+    wrap.addEventListener('mousedown', (e) => { if (e.target === wrap) done(null); });
+    build(box, done);
+  });
+}
+const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+export function ask(msg, opts = {}) {
+  const danger = opts.danger ?? /^(delete|remove)/i.test(msg);
+  const yes = opts.yes || (/^remove/i.test(msg) ? 'Remove' : danger ? 'Delete' : 'Continue');
+  return dlg((box, done) => {
+    box.appendChild(mk('h3', '', opts.title || 'Please confirm')); box.appendChild(mk('p', '', msg));
+    const row = mk('div', 'dlg-b'); const n = mk('button', 'btn', 'Cancel'); const y = mk('button', `btn ${danger ? 'danger solid' : 'primary'}`, yes);
+    n.onclick = () => done(false); y.onclick = () => done(true); row.append(n, y); box.appendChild(row); y.focus();
+  }).then((v) => v === true);
+}
+export function askText(label, value = '', opts = {}) {
+  return dlg((box, done) => {
+    box.appendChild(mk('h3', '', label)); const inp = mk('input'); inp.value = value == null ? '' : String(value); box.appendChild(inp);
+    const row = mk('div', 'dlg-b'); const n = mk('button', 'btn', 'Cancel'); const y = mk('button', 'btn primary', opts.yes || 'Save');
+    n.onclick = () => done(null); y.onclick = () => done(inp.value); inp.onkeydown = (e) => { if (e.key === 'Enter') done(inp.value); };
+    row.append(n, y); box.appendChild(row); inp.focus(); inp.select();
+  });
+}

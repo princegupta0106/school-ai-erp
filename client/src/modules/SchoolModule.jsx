@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, load } from '../cache.js';
-import { Icon, Modal, Field, Badge, Empty, toast, Loading } from '../ui.jsx';
+import { Icon, Modal, Field, Badge, Empty, toast, Loading, ask } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const refreshSchools = () => load('schools', fetchers.schools);
@@ -209,7 +209,7 @@ export function Promotion({ me }) {
   };
   const preview = async () => { const r = await call(true); if (r) setPlan(r); };
   const promote = async () => {
-    if (!confirm(`Promote ${plan.moving + plan.graduating} students and start ${ns.name}? This cannot be undone.`)) return;
+    if (!(await ask(`Promote ${plan.moving + plan.graduating} students and start ${ns.name}? This cannot be undone.`))) return;
     const r = await call(false);
     if (r) { toast('Promotion done'); setPlan(null); await Promise.all([load(`sessions:${sid}`, () => fetchers.sessions(sid)), load('users', fetchers.users).catch(() => {})]); }
   };

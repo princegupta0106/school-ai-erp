@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useData, useApi } from '../cache.js';
-import { Icon, Modal, Empty, Field, toast, Loading } from '../ui.jsx';
+import { Icon, Modal, Empty, Field, toast, Loading, ask } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 /* ------------------------------------------------------------------ helpers */
@@ -259,9 +259,9 @@ function MarksSheet({ me, sid, meta, id, onBack }) {
       apply(await asend('put', me, sid, `/assessments/${id}/marks`, { items })); toast('Marks saved');
     } catch (x) { toast(x.message, true); } finally { setBusy(false); }
   };
-  const back = () => { if (dirty && !confirm('You have unsaved marks. Leave without saving?')) return; onBack(); };
+  const back = async () => { if (dirty && !(await ask('You have unsaved marks. Leave without saving?'))) return; onBack(); };
   const del = async () => {
-    if (!confirm(`Delete "${a.title}" (${a.subject_name}, Class ${a.class_label}) and all its marks?`)) return;
+    if (!(await ask(`Delete "${a.title}" (${a.subject_name}, Class ${a.class_label}) and all its marks?`))) return;
     try { await adel(me, sid, `/assessments/${id}`); toast('Deleted'); onBack(); } catch (x) { toast(x.message, true); }
   };
 
@@ -391,7 +391,7 @@ export const SubjectManager = scoped(function SubjectManager({ me, sid }) {
     e.preventDefault(); setBusy(true);
     try { await asend('post', me, sid, '/subjects', f); setF({ name: '', code: '' }); await refresh(); toast('Subject added'); } catch (x) { toast(x.message, true); } finally { setBusy(false); }
   };
-  const del = async (s) => { if (!confirm(`Delete subject ${s.name}?`)) return; try { await adel(me, sid, `/subjects/${s.id}`); await refresh(); toast('Deleted'); } catch (x) { toast(x.message, true); } };
+  const del = async (s) => { if (!(await ask(`Delete subject ${s.name}?`))) return; try { await adel(me, sid, `/subjects/${s.id}`); await refresh(); toast('Deleted'); } catch (x) { toast(x.message, true); } };
   return (
     <div className="stack" style={{ maxWidth: 640 }}>
       <form className="card row" onSubmit={add} style={{ alignItems: 'flex-end' }}>
@@ -429,7 +429,7 @@ export const ExamManager = scoped(function ExamManager({ me, sid }) {
   if (error) return <div className="err">{error}</div>;
   if (!meta) return <Loading />;
   const sessName = (id) => meta.sessions.find((s) => s.id === id)?.name || 'No session';
-  const del = async (x) => { if (!confirm(`Delete exam "${x.name}"?`)) return; try { await adel(me, sid, `/exams/${x.id}`); await refresh(); toast('Deleted'); } catch (e) { toast(e.message, true); } };
+  const del = async (x) => { if (!(await ask(`Delete exam "${x.name}"?`))) return; try { await adel(me, sid, `/exams/${x.id}`); await refresh(); toast('Deleted'); } catch (e) { toast(e.message, true); } };
   const groups = [...new Set(meta.exams.map((e) => e.session_id))];
   return (
     <div className="stack" style={{ maxWidth: 700 }}>

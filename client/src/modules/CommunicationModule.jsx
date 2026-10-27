@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Modal, Field, Empty, toast, initials, Loading } from '../ui.jsx';
+import { Icon, Modal, Field, Empty, toast, initials, Loading, ask } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const base = '/communication';
@@ -64,7 +64,7 @@ function Notice({ n, me, sid, onChanged, onEdit }) {
         {n.can_edit && <div className="row" style={{ gap: 0, flexWrap: 'nowrap' }}>
           <button className="icon-btn" aria-label={n.is_pinned ? 'Unpin' : 'Pin'} onClick={() => run(() => api.patch(`${base}/announcements/${n.id}${qs(sq(me, sid))}`, { is_pinned: !n.is_pinned }), n.is_pinned ? 'Unpinned' : 'Pinned')}><Icon name="pin" size={18} /></button>
           <button className="icon-btn" aria-label="Edit" onClick={() => onEdit(n)}><Icon name="edit" size={18} /></button>
-          <button className="icon-btn" aria-label="Delete" onClick={() => confirm('Delete this notice?') && run(() => api.del(`${base}/announcements/${n.id}${qs(sq(me, sid))}`), 'Notice deleted')}><Icon name="trash" size={18} /></button>
+          <button className="icon-btn" aria-label="Delete" onClick={async () => (await ask('Delete this notice?')) && run(() => api.del(`${base}/announcements/${n.id}${qs(sq(me, sid))}`), 'Notice deleted')}><Icon name="trash" size={18} /></button>
         </div>}
       </div>
       <h3>{n.title}</h3>

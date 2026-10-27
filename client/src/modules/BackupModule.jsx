@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { Icon, Empty, toast, Loading, Badge } from '../ui.jsx';
+import { Icon, Empty, toast, Loading, Badge, ask } from '../ui.jsx';
 
 const when = (t) => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 const size = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round((n || 0) / 1024))} KB`);
@@ -45,20 +45,20 @@ export function Backup() {
   const run = async (fn) => { try { setJob(await fn()); } catch (e) { toast(e.message, true); } };
 
   const create = () => run(() => api.post('/backup'));
-  const restore = (b) => {
-    if (!confirm(`Restore the school from the backup of ${when(b.created_at)}?\n\nAll current data of this school will be REPLACED by the data in the backup${b.has_files ? ' and its files put back' : ''}.\nA safety copy of the current data is saved first.`)) return;
+  const restore = async (b) => {
+    if (!(await ask(`Restore the school from the backup of ${when(b.created_at)}?\n\nAll current data of this school will be REPLACED by the data in the backup${b.has_files ? ' and its files put back' : ''}.\nA safety copy of the current data is saved first.`))) return;
     run(() => api.post(`/backup/${b.id}/restore`));
   };
-  const restoreFiles = () => {
+  const restoreFiles = async () => {
     if (!dbFile) return toast('Choose the database file first', true);
-    if (!confirm('Restore the school from these files?\n\nAll current data of this school will be REPLACED. A safety copy of the current data is saved first.')) return;
+    if (!(await ask('Restore the school from these files?\n\nAll current data of this school will be REPLACED. A safety copy of the current data is saved first.'))) return;
     const fd = new FormData();
     fd.append('database', dbFile);
     if (zipFile) fd.append('files', zipFile);
     run(async () => { const j = await api.post('/backup/restore-upload', fd); setDbFile(null); setZipFile(null); return j; });
   };
   const del = async (b) => {
-    if (!confirm(`Delete the saved backup of ${when(b.created_at)}? This cannot be undone.`)) return;
+    if (!(await ask(`Delete the saved backup of ${when(b.created_at)}? This cannot be undone.`))) return;
     try { await api.del(`/backup/${b.id}`); await load(); toast('Deleted'); } catch (e) { toast(e.message, true); }
   };
   const get = async (b, which) => { try { await api.download(`/backup/${b.id}/${which}`, `${which}-${b.id}`); } catch (e) { toast(e.message, true); } };

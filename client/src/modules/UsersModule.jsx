@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, load } from '../cache.js';
-import { Icon, Modal, Field, Badge, Empty, toast, initials, ROLE_LABEL, Loading } from '../ui.jsx';
+import { Icon, Modal, Field, Badge, Empty, toast, initials, ROLE_LABEL, Loading, ask } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const ROLES = ['school_admin', 'staff', 'parent', 'student', 'other'];
@@ -106,7 +106,7 @@ function UserDrawer({ me, user: initial, onClose, classes, students = [] }) {
   }, 'Document uploaded');
   const delDoc = (id) => run('d', () => api.del(`/users/${user.user_id}/documents/${id}`), 'Document removed')();
   const remove = async () => {
-    if (!confirm(`Delete ${user.profile.full_name || user.login_id}? This cannot be undone.`)) return;
+    if (!(await ask(`Delete ${user.profile.full_name || user.login_id}? This cannot be undone.`))) return;
     try { await api.del(`/users/${user.user_id}`); await refreshUsers(); toast('User deleted'); onClose(); } catch (x) { setErr(x.message); }
   };
   const docs = user.profile.documents || [];
@@ -255,7 +255,7 @@ export function ClassManager({ me }) {
     e.preventDefault(); setErr('');
     try { await api.post('/classes', { name, section, level, school_id: school }); setName(''); setSection(''); setLevel(''); await load('classes', fetchers.classes); } catch (x) { setErr(x.message); }
   };
-  const del = async (id) => { if (confirm('Delete this class? Students in it will have no class.')) { await api.del(`/classes/${id}`).catch((x) => toast(x.message, true)); load('classes', fetchers.classes); } };
+  const del = async (id) => { if ((await ask('Delete this class? Students in it will have no class.'))) { await api.del(`/classes/${id}`).catch((x) => toast(x.message, true)); load('classes', fetchers.classes); } };
   const sName = (id) => (schools || []).find((s) => s.id === id)?.name;
   return (
     <div className="stack" style={{ maxWidth: 640 }}>
