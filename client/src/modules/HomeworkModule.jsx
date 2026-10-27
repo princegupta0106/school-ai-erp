@@ -151,7 +151,7 @@ export const Homework = scoped(function Homework({ me, sid }) {
   if (error) return <div className="err">{error}</div>;
   if (!list) return <Loading />;
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       <button className="btn primary big" style={{ alignSelf: 'flex-start' }} onClick={() => setForm(true)}><Icon name="plus" size={18} />New homework / file</button>
       {list.length === 0 ? <Empty>Nothing posted yet.</Empty> : list.map((a) => (
         <article key={a.id} className="notice-card">
@@ -250,7 +250,7 @@ export function MyHomework() {
   if (error) return <div className="err">{error}</div>;
   if (!list) return <Loading />;
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       {list.length === 0 ? <Empty>No homework yet.</Empty> : list.map((a) => {
         const st = statusOf(a);
         return (

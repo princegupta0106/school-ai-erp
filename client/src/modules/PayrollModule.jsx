@@ -306,7 +306,7 @@ export function PaySettings({ me }) {
   if (!data || !f) return <Loading />;
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       {picker}
       <form className="card form" onSubmit={run(() => api.put(withQs('/payroll/settings', qs), f), 'Saved')}>
         <div className="sec">Approval</div>

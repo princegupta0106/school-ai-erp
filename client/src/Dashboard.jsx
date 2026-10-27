@@ -227,14 +227,14 @@ function AuditCard({ me, go, span, onHide }) {
     <Card span={span} onHide={onHide} title="Audit log" icon="shield" action={<button className="linkbtn" onClick={() => go('audit')}>See all</button>}>
       {!data ? <div className="muted small">Loading…</div> : (
         <>
-          <div className="spark">
+          {logs.length > 0 && <div className="spark">
             <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
               <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--d-blue)" stopOpacity=".35" /><stop offset="1" stopColor="var(--d-blue)" stopOpacity="0" /></linearGradient></defs>
               <path d={`${line} L${W},${H} L0,${H} Z`} fill="url(#ag)" />
               <path d={line} fill="none" stroke="var(--d-blue)" strokeWidth="2.2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             </svg>
             <small className="muted">Activity · last 12 hours</small>
-          </div>
+          </div>}
           <div className="alist">
             {logs.slice(0, 5).map((l) => (
               <div className="arow" key={l.id}>

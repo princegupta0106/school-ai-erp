@@ -20,7 +20,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v) => typeof v === 'string' && UUID.test(v);
 
 export const AUDIT_MODULES = {
-  auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors',
+  auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', queries: 'Queries',
   fees: 'Fees', communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', ai: 'AI assistant', audit: 'Audit logs', backup: 'Backup & restore', system: 'Other',
 };
 
@@ -28,7 +28,7 @@ export const AUDIT_MODULES = {
 const NAMED = {
   class: ['classes', 'name'], session: ['academic_sessions', 'name'], holiday: ['holidays', 'title'],
   subject: ['subjects', 'name'], exam: ['exams', 'name'], assessment: ['assessments', 'title'],
-  visitor: ['visitors', 'name'], announcement: ['announcements', 'title'], fee_item: ['fee_items', 'name'],
+  visitor: ['visitors', 'name'], query: ['queries', 'name'], query_type: ['query_types', 'name'], query_status: ['query_statuses', 'name'], announcement: ['announcements', 'title'], fee_item: ['fee_items', 'name'],
   leave_type: ['leave_types', 'name'], assignment: ['assignments', 'title'],
 };
 
@@ -88,6 +88,17 @@ const RULES = [
   // ---- visitors
   R('POST', '/visitors', 'visitors.add', (c) => `Added visitor${q(nm(c))}`, { entity: 'visitor' }),
   R('DELETE', '/visitors/:id', 'visitors.delete', (c) => `Deleted visitor entry${q(nm(c))}`, { entity: 'visitor' }),
+
+  // ---- queries
+  R('POST', '/queries', 'queries.add', (c) => `Recorded ${c.res?.type_name || 'query'}${q(nm(c))}`, { entity: 'query' }),
+  R('PATCH', '/queries/types/:id', 'queries.form.update', (c) => `Edited query form${q(nm(c))}`, { entity: 'query_type' }),
+  R('DELETE', '/queries/types/:id', 'queries.form.delete', (c) => `Deleted query form${q(nm(c))}`, { entity: 'query_type' }),
+  R('POST', '/queries/types', 'queries.form.create', (c) => `Created query form${q(nm(c))}`, { entity: 'query_type' }),
+  R('PATCH', '/queries/statuses/:id', 'queries.status.update', (c) => `Edited query status${q(nm(c))}`, { entity: 'query_status' }),
+  R('DELETE', '/queries/statuses/:id', 'queries.status.delete', (c) => `Deleted query status${q(nm(c))}`, { entity: 'query_status' }),
+  R('POST', '/queries/statuses', 'queries.status.create', (c) => `Created query status${q(nm(c))}`, { entity: 'query_status' }),
+  R('PATCH', '/queries/:id', 'queries.update', (c) => `Updated query${q(nm(c))}${c.body?.status_id ? ' (status changed)' : ''}`, { entity: 'query' }),
+  R('DELETE', '/queries/:id', 'queries.delete', (c) => `Deleted query${q(nm(c))}`, { entity: 'query' }),
 
   // ---- communication (message text is never stored)
   R('POST', '/communication/announcements', 'communication.notice.post', (c) => `Posted notice${q(nm(c))}`, { entity: 'announcement' }),

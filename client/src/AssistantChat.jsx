@@ -211,7 +211,7 @@ export default function AssistantChat({ me }) {
   const first = (me.profile?.full_name || '').split(' ')[0];
 
   return (<>
-    {!open && <button className="ai-fab" onClick={() => setOpen(true)} aria-label="Open AI assistant">✨ Ask AI</button>}
+    {!open && <button className="ai-fab" onClick={() => setOpen(true)} aria-label="Open AI assistant"><span aria-hidden="true">✨</span><span className="fab-t"> Ask AI</span></button>}
     {open && (
       <div className="ai-panel" role="dialog" aria-label="AI assistant">
         <div className="ai-h">
@@ -259,7 +259,7 @@ export default function AssistantChat({ me }) {
             <input ref={pick} type="file" multiple accept={ACCEPT} hidden onChange={addFiles} />
             <button type="button" className="btn" onClick={() => pick.current?.click()} disabled={busy || files.length >= MAX_FILES} title="Attach files to a homework (PDF, photo, Word, Excel, PowerPoint)" aria-label="Attach files">📎</button>
           </>}
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={files.length ? 'Which class is this for?' : 'Type or speak a command…'} autoComplete="off" maxLength={2000} />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={files.length ? 'Which class is this for?' : 'Type a command…'} autoComplete="off" maxLength={2000} />
           {SR && <button type="button" className="btn" onClick={mic} title="Speak" aria-label="Speak">{listening ? '…' : '🎤'}</button>}
           <button className="btn primary" disabled={busy || (!text.trim() && !files.length)}>Send</button>
         </form>

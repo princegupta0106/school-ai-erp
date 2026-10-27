@@ -52,6 +52,16 @@ export const MODULES = {
       delete_visitor: { label: 'Delete visitor entry' },
     },
   },
+  queries: {
+    label: 'Queries',
+    features: {
+      add_query: { label: 'Record a query / enquiry (admission, general, internal ...)' },
+      view_queries: { label: 'See all queries of the school' },
+      update_query: { label: 'Change query status & add notes' },
+      delete_query: { label: 'Delete a query' },
+      manage_query_settings: { label: 'Manage query forms & statuses' },
+    },
+  },
   fees: {
     label: 'Fees',
     features: {

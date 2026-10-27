@@ -150,7 +150,8 @@ export default function App() {
   const View = view?.component;
   const name = me.profile.full_name || me.login_id;
   const title = active ? ui.label : `${greeting()}, ${name.split(' ')[0]}`;
-  const sub = active ? (views.length > 1 ? (view?.title || view?.label) : (me.school?.name || '')) : (me.school?.name || 'Platform');
+  const subView = view?.title || view?.label;
+  const sub = active ? (views.length > 1 && subView && subView !== ui.label ? subView : (me.school?.name || '')) : (me.school?.name || 'Platform');
 
   // customisation: which cards show, in what order, and the pinned shortcuts
   const targets = allTargets(me, MODULE_UI);

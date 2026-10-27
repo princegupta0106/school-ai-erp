@@ -88,7 +88,7 @@ export const NoticeBoard = scoped(function NoticeBoard({ me, sid }) {
   if (!d) return <Loading />;
   const all = [...d.pinned, ...d.items];
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       {canPost && <button className="btn primary big" style={{ alignSelf: 'flex-start' }} onClick={() => setForm({})}><Icon name="plus" size={18} />New notice</button>}
       {all.length === 0 ? <Empty>No notices yet.</Empty> : all.map((n) => <Notice key={n.id} n={n} me={me} sid={sid} onChanged={load} onEdit={setForm} />)}
       {d.more && <button className="btn" style={{ alignSelf: 'center' }} onClick={older} disabled={busy}>{busy ? 'Loading...' : 'Load older notices'}</button>}

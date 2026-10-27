@@ -29,6 +29,7 @@ const TABLES = [
   { t: 'schools', own: 'id' },
   { t: 'classes' }, { t: 'academic_sessions' }, { t: 'users' }, { t: 'profiles' }, { t: 'parent_students' },
   { t: 'holidays' }, { t: 'class_teachers' }, { t: 'student_attendance' }, { t: 'visitors' },
+  { t: 'query_types' }, { t: 'query_statuses' }, { t: 'queries' }, { t: 'query_notes' },
   { t: 'announcements' }, { t: 'announcement_classes' },
   { t: 'conversations' }, { t: 'messages', via: { parent: 'conversations', col: 'conversation_id' } },
   { t: 'fee_items' }, { t: 'student_fee_accounts' }, { t: 'fee_adjustments' }, { t: 'fee_counters' }, { t: 'fee_payments' },

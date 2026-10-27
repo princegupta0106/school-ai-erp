@@ -216,7 +216,7 @@ export function Promotion({ me }) {
   const same = plan && plan.session === current.name;
 
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       {picker}
       <div className="card form">
         <div className="sec">Closing session: {current.name}</div>

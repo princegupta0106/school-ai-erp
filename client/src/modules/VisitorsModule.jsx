@@ -52,7 +52,7 @@ export const VisitorList = scoped(function VisitorList({ me, sid }) {
   if (!d) return <Loading />;
   const isToday = d.date === d.today;
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       <div className="card row sp">
         <div><b style={{ fontSize: 17 }}>{isToday ? 'Today' : fmtDate(d.date)}</b><div className="muted" style={{ fontSize: 14 }}>{isToday ? `${fmtDate(d.today)} - ` : ''}{d.visitors.length} visitor{d.visitors.length === 1 ? '' : 's'}</div></div>
         <div className="row">

@@ -7,6 +7,7 @@ import { UserList, UserAdd, ClassManager } from './modules/UsersModule.jsx';
 import { TakeAttendance, AttendanceReports, ClassTeachers, RollNumbers } from './modules/AttendanceModule.jsx';
 
 import { AddVisitor, VisitorList } from './modules/VisitorsModule.jsx';
+import { NewQuery, QueryList, QuerySettings } from './modules/QueriesModule.jsx';
 import { NoticeBoard, Messages, SendNotification } from './modules/CommunicationModule.jsx';
 import { FeeStructure, StudentFees, MyFees } from './modules/FeesModule.jsx';
 import { TestsAndMarks, AcademicReports, SubjectManager, ExamManager, MyMarks } from './modules/AcademicsModule.jsx';
@@ -70,6 +71,14 @@ export const MODULE_UI = {
     views: [
       { key: 'list', label: 'Visitors', need: ['view_visitors'], component: VisitorList, prefetch: (me) => own(me) && prefetchApi('/visitors') },
       { key: 'add', label: 'Add visitor', need: ['add_visitor'], component: AddVisitor },
+    ],
+  },
+  queries: {
+    label: 'Queries', desc: 'Admission enquiries, general and internal queries with status tracking', color: '#d97706', icon: 'chat',
+    views: [
+      { key: 'list', label: 'Queries', need: ['view_queries', 'add_query'], component: QueryList },
+      { key: 'new', label: 'New query', need: ['add_query'], component: NewQuery },
+      { key: 'settings', label: 'Forms & statuses', need: ['manage_query_settings'], component: QuerySettings },
     ],
   },
   fees: {

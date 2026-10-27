@@ -50,7 +50,7 @@ export function StudentAcademics({ me, sid, studentId, mode, onBack }) {
   const s = d.summary;
   const meta = { sessions: d.sessions };
   return (
-    <div className="stack" style={{ maxWidth: 900 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       <div className="card row sp">
         <div className="row">
           {onBack && <button className="icon-btn" onClick={onBack} aria-label="Back"><Icon name="back" /></button>}
@@ -152,7 +152,7 @@ export function MyMarks({ me }) {
   if (!kids) return <Loading />;
   if (!kids.length) return <Empty>No student is linked to your account yet. Ask the school office.</Empty>;
   return (
-    <div className="stack" style={{ maxWidth: 900 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       {kids.length > 1 && <div className="pills scroll">{kids.map((k) => <button key={k.user_id} className={`pill ${pick === k.user_id ? 'on' : ''}`} onClick={() => setPick(k.user_id)}>{k.profile?.full_name || k.login_id}</button>)}</div>}
       {pick && <StudentAcademics key={pick} me={me} studentId={pick} mode="my" />}
     </div>

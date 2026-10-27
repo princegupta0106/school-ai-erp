@@ -98,7 +98,7 @@ export const FeeStructure = scoped(function FeeStructure({ me, sid }) {
   const withFees = data.classes.filter((c) => c.items.length).length;
 
   return (
-    <div className="stack" style={{ maxWidth: 860 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       <div className="card row sp">
         <div><b style={{ fontSize: 17 }}>Fees for session</b><div className="muted" style={{ fontSize: 14 }}>{withFees} of {data.classes.length} class{data.classes.length === 1 ? '' : 'es'} have fees set</div></div>
         <div className="row">
@@ -225,7 +225,7 @@ function Account({ me, sid, studentId, family, onBack, backLabel }) {
   const live = d.payments.filter((p) => p.status === 'received');
 
   return (
-    <div className="stack" style={{ maxWidth: 860 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       {header}
       <div className="card row sp">
         <div>
@@ -319,7 +319,7 @@ export const StudentFees = scoped(function StudentFees({ me, sid }) {
 
   if (picked) return <Account me={me} sid={sid} studentId={picked.student_id} onBack={() => setPicked(null)} backLabel="Students" />;
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       <div className="row">
         <div style={{ position: 'relative', flex: 1, minWidth: 220 }}><input autoFocus placeholder="Search by name, ID, admission or roll no." value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 36 }} /><span style={{ position: 'absolute', left: 11, top: 10, color: 'var(--mute)' }}><Icon name="search" size={18} /></span></div>
         <select aria-label="Class" style={{ width: 'auto' }} value={classId} onChange={(e) => setClassId(e.target.value)}><option value="">All classes</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
@@ -348,7 +348,7 @@ export function MyFees({ me }) {
   if (kids.length === 0) return <Empty>No student is linked to your account yet. Ask the school office.</Empty>;
   if (open) return <Account me={me} family studentId={open} onBack={single ? null : () => setOpen(null)} backLabel="My children" />;
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
+    <div className="stack" style={{ maxWidth: 1040 }}>
       <div className="grid">{kids.map((k) => (
         <button key={k.student_id} className="mod" onClick={() => setOpen(k.student_id)}>
           <b>{k.full_name}</b><span>{k.class_label ? `Class ${k.class_label}` : 'No class'}</span>
