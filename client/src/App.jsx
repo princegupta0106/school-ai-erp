@@ -5,6 +5,7 @@ import { Icon, Modal, Field, toast, initials, ROLE_LABEL, ErrorBoundary, NetBar,
 import { MODULE_UI } from './registry.js';
 import Customize from './Customize.jsx';
 import AssistantChat from './AssistantChat.jsx';
+import SearchBar from './SearchBar.jsx';
 import Dashboard from './Dashboard.jsx';
 import { usePrefs, allTargets, effectiveShortcuts, orderedModules } from './prefs.js';
 
@@ -81,6 +82,7 @@ export default function App() {
   const [pw, setPw] = useState(false);
   const [more, setMore] = useState(false);
   const [cz, setCz] = useState(false);
+  const [ask, setAsk] = useState(null); // { text, n } -> opens the AI assistant and sends this
   const [slim, setSlim] = useState(() => { try { return localStorage.getItem('portal.sidebar') === 'slim'; } catch { return false; } });
   const toggleSlim = () => setSlim((v) => { const n = !v; try { localStorage.setItem('portal.sidebar', n ? 'slim' : 'wide'); } catch {} return n; });
   const [prefs, updatePrefs] = usePrefs(me || {});
@@ -177,6 +179,17 @@ export default function App() {
     {!noOut && <button className="nav" onClick={signOut}><Icon name="logout" /><span className="nl">Sign out</span></button>}
   </>);
 
+  // everything the search bar can find: screens the person may open + app actions
+  const searchModules = Object.fromEntries(mods.map((m) => [m.key, MODULE_UI[m.key]]));
+  const searchExtras = [
+    { id: 'a:theme', label: theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode', kw: 'theme dark light mode appearance night colour', icon: theme === 'light' ? 'moon' : 'sun', hint: 'Action', run: toggleTheme },
+    { id: 'a:customize', label: 'Customize home', kw: 'customize shortcuts pin hide cards layout order dashboard', icon: 'sliders', hint: 'Action', run: () => setCz(true) },
+    { id: 'a:password', label: 'Change password', kw: 'password security change reset account', icon: 'key', hint: 'Action', run: () => setPw(true) },
+    { id: 'a:home', label: 'Home', kw: 'home dashboard start main', icon: 'home', hint: 'Go to', kind: 'nav', path: '' },
+    { id: 'a:signout', label: 'Sign out', kw: 'logout log out exit leave', icon: 'logout', hint: 'Action', run: signOut },
+    ...(me.features.includes('use_assistant') ? [{ id: 'a:ai', label: 'AI assistant', kw: 'ai assistant help chatbot ask question', icon: 'sparkle', hint: 'Action', run: () => setAsk({ text: '', n: Date.now() }) }] : []),
+  ];
+
   const ModTile = ({ m }) => { const u = MODULE_UI[m.key]; return (
     <button className="mod" style={{ '--c': u.color }} onClick={() => go(m.key)} onPointerEnter={() => warmModule(me, m.key)} onTouchStart={() => warmModule(me, m.key)}>
       <span className="ic"><Icon name={u.icon} size={22} /></span>
@@ -213,6 +226,7 @@ export default function App() {
             {active && <span className="ic sm" style={{ '--c': ui.color }}><Icon name={ui.icon} size={18} /></span>}
             <div><h1>{title}</h1>{sub && <p>{sub}</p>}</div>
           </div>
+          <SearchBar targets={targets} modules={searchModules} extras={searchExtras} canAsk={me.features.includes('use_assistant')} onGo={go} onAsk={(text) => setAsk({ text, n: Date.now() })} />
           <div className="who">
             {active && view && <button className={`icon-btn pinbtn ${isPinned ? 'on' : ''}`} onClick={togglePin} aria-pressed={!!isPinned} title={isPinned ? 'Remove from home shortcuts' : 'Pin to home shortcuts'}><Icon name="pin" size={19} /></button>}
             <div className="meta"><b>{name}</b><small>{ROLE_LABEL[me.role]}</small></div>
@@ -268,7 +282,7 @@ export default function App() {
         </div>
       )}
 
-      {me.features.includes('use_assistant') && <AssistantChat me={me} />}
+      {me.features.includes('use_assistant') && <AssistantChat me={me} ask={ask} />}
       {pw && <ChangePassword onClose={() => setPw(false)} />}
       {cz && <Customize me={me} prefs={prefs} update={updatePrefs} onClose={() => setCz(false)} />}
     </div>

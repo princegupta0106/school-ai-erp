@@ -100,7 +100,7 @@ function ActionCard({ a, busy, onDecide }) {
   );
 }
 
-export default function Assistant({ me, onClose }) {
+export default function Assistant({ me, onClose, initial }) {
   const [items, setItems] = useState([]);   // {k:'u'|'a'|'e'|'card'|'choices', ...}
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -157,6 +157,9 @@ export default function Assistant({ me, onClose }) {
       setItems((x) => [...x, { k: 'e', text: e.message }]);
     } finally { setBusy(false); }
   };
+
+  // a question handed over by the search bar (no screen matched it): send it as soon as the chat opens
+  useEffect(() => { if (initial) send(initial); }, []); // eslint-disable-line
 
   const decide = async (what, a) => {
     setBusy(true);

@@ -38,6 +38,7 @@ const P = {
   down: 'm6 9 6 6 6-6',
   bolt: 'M13 2 3 14h9l-1 8 10-12h-9z',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
+  sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z',
 };
 export const Icon = ({ name, size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={P[name]} /></svg>

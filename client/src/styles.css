@@ -863,3 +863,19 @@ input[type=file]::file-selector-button{margin-right:10px;border:1px solid var(--
 input[type=file]::file-selector-button:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
 /* action icons inside table cells sit side by side instead of stacking */
 td .icon-btn,.ft .icon-btn{display:inline-grid;vertical-align:middle}
+
+/* ---- global search bar ---- */
+.sbar{position:relative;flex:1 1 auto;max-width:460px;min-width:0;display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:0 12px;height:40px;color:var(--mute)}
+.sbar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.sbar input{border:0;background:none;padding:0;height:100%;min-width:0;flex:1;box-shadow:none;outline:none;color:var(--ink)}
+.sbar .sclear{width:26px;height:26px}
+.sres{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:80;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(8,30,18,.22);padding:6px;max-height:min(70vh,420px);overflow:auto}
+.shead{padding:7px 10px;font-size:12px;color:var(--mute);font-weight:600}
+.sitem{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;border-radius:10px;padding:8px 10px;color:var(--ink)}
+.sitem.on{background:var(--soft)}
+.sitem .st{flex:1;min-width:0;display:flex;flex-direction:column}
+.sitem .st b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sitem small{color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sitem .sic{flex:none;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.sitem.ai{border-top:1px solid var(--line);border-radius:0 0 10px 10px;margin-top:4px}
+@media (max-width:820px){.top{flex-wrap:wrap}.sbar{order:3;flex:1 1 100%;max-width:none;margin:4px 0 2px}.sres{max-height:min(60vh,380px)}}

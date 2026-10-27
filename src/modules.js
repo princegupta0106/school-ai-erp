@@ -82,7 +82,7 @@ export const MODULE_UI = {
 
 // Safety net for a server that is older than this app: add the permissions every role gets by default on the current
 // server, so their screens still show up (a screen on an old server then says the server needs updating).
-const MIRROR = { student: ['view_my_homework'], staff: ['manage_homework'], school_admin: ['manage_homework', 'send_notification', 'send_school_notification'], super_admin: ['manage_homework', 'send_notification', 'send_school_notification'] };
+const MIRROR = { student: ['view_my_homework'], staff: ['manage_homework'], school_admin: ['manage_homework', 'send_notification', 'send_school_notification', 'add_query', 'view_queries', 'update_query', 'delete_query', 'manage_query_settings'], super_admin: ['manage_homework', 'send_notification', 'send_school_notification', 'add_query', 'view_queries', 'update_query', 'delete_query', 'manage_query_settings'] };
 export const withClientDefaults = (me) => ({ ...me, features: [...new Set([...(me.features || []), ...(MIRROR[me.role] || [])])] });
 
 // Modules this person can open, worked out from the features they hold (me.features) rather than only trusting the

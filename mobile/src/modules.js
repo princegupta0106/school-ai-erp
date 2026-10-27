@@ -15,6 +15,7 @@ import { UserList, UserAdd, ClassManager } from './screens/Users';
 import { IssueDocument, IssuedList, Templates, Letterhead, MyDocuments } from './screens/Documents';
 import { MyHomework, Homework } from './screens/Homework';
 import { VisitorList, AddVisitor } from './screens/Visitors';
+import { QueryList, NewQuery, QuerySettings } from './screens/Queries';
 import { AuditLogs } from './screens/Audit';
 import { Backup } from './screens/Backup';
 import { SchoolList, SchoolNew, Calendar, Promotion } from './screens/School';
@@ -40,6 +41,10 @@ export const MODULE_UI = {
   visitors: { label: 'Visitors', color: '#7c3aed', icon: 'users', views: [
     { key: 'list', label: 'Visitors', need: ['view_visitors'], component: VisitorList },
     { key: 'add', label: 'Add visitor', need: ['add_visitor'], component: AddVisitor }] },
+  queries: { label: 'Queries', color: '#d97706', icon: 'chat', views: [
+    { key: 'list', label: 'Queries', need: ['view_queries', 'add_query'], component: QueryList },
+    { key: 'new', label: 'New query', need: ['add_query'], component: NewQuery },
+    { key: 'settings', label: 'Forms & statuses', need: ['manage_query_settings'], component: QuerySettings }] },
   fees: { label: 'Fees', color: '#059669', icon: 'rupee', views: [
     { key: 'my', label: 'My fees', need: ['view_my_fees'], component: MyFees },
     { key: 'students', label: 'Student fees', need: ['view_student_fees', 'collect_fees', 'adjust_fees'], component: StudentFees },
@@ -77,7 +82,7 @@ export const MODULE_UI = {
 
 // Safety net for a server that is older than this app: add the permissions every role gets by default on the current
 // server, so their screens still show up (a screen on an old server then says the server needs updating).
-const MIRROR = { student: ['view_my_homework'], staff: ['manage_homework'], school_admin: ['manage_homework', 'send_notification', 'send_school_notification'], super_admin: ['manage_homework', 'send_notification', 'send_school_notification'] };
+const MIRROR = { student: ['view_my_homework'], staff: ['manage_homework'], school_admin: ['manage_homework', 'send_notification', 'send_school_notification', 'add_query', 'view_queries', 'update_query', 'delete_query', 'manage_query_settings'], super_admin: ['manage_homework', 'send_notification', 'send_school_notification', 'add_query', 'view_queries', 'update_query', 'delete_query', 'manage_query_settings'] };
 export const withClientDefaults = (me) => ({ ...me, features: [...new Set([...(me.features || []), ...(MIRROR[me.role] || [])])] });
 
 // Modules this person can open, worked out from the features they hold (me.features) rather than only trusting the
@@ -132,6 +137,7 @@ export function prefetchUrls(me, mKey, vKey) {
   if (mKey === 'documents') return vKey === 'my' ? ['/documents/my'] : vKey === 'issued' ? ['/documents/issued?page=0'] : vKey === 'issue' ? ['/documents/meta'] : [];
   if (mKey === 'audit') return ['/audit'];
   if (mKey === 'visitors') return vKey === 'list' ? ['/visitors'] : [];
+  if (mKey === 'queries') return vKey === 'list' ? ['/queries', '/queries/meta'] : ['/queries/meta'];
   if (mKey === 'homework') return vKey === 'my' ? ['/homework/my'] : vKey === 'manage' ? ['/homework/assignments'] : [];
   if (mKey === 'fees') return vKey === 'my' ? ['/fees/my'] : vKey === 'students' ? ['/fees/students', '/fees/classes'] : vKey === 'structure' ? ['/fees/structure'] : [];
   if (mKey === 'academics') return vKey === 'my' ? (me.role === 'student' ? [`/academics/my?student_id=${me.user_id}`] : ['/users/my-children']) : vKey === 'tests' ? ['/academics/meta', '/academics/assessments'] : ['/academics/meta'];

@@ -9,7 +9,7 @@ import { downloadAndShare } from '../download';
 import { qs, Pad, List } from './Attendance';
 
 const MODULES = {
-  auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', fees: 'Fees',
+  auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', queries: 'Queries', fees: 'Fees',
   communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', audit: 'Audit logs', backup: 'Backup & restore', system: 'Other',
 };
 const KIND = { change: 'Change', view: 'Viewed', auth: 'Sign-in' };

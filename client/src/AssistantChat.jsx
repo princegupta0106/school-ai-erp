@@ -101,7 +101,7 @@ function Card({ a, busy, onDecide }) {
   );
 }
 
-export default function AssistantChat({ me }) {
+export default function AssistantChat({ me, ask }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);       // {k:'u'|'a'|'e'|'card'|'choices', ...}
   const [text, setText] = useState('');
@@ -112,6 +112,7 @@ export default function AssistantChat({ me }) {
   const [files, setFiles] = useState([]);          // chosen, not sent yet (uploaded when the message is sent)
   const [picked, setPicked] = useState('');
   const pick = useRef(null);
+  const askSeen = useRef(0);
   const canAttach = (me.features || []).includes('manage_homework');
   const end = useRef(null);
   const SR = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
@@ -180,6 +181,13 @@ export default function AssistantChat({ me }) {
       setItems((x) => [...x.filter((i) => i.k !== 'step'), { k: 'e', text: e.message }]);
     } finally { setBusy(false); }
   };
+
+  // the search bar hands over a question it could not answer with a screen: open the chat and send it
+  useEffect(() => {
+    if (!ask || ask.n === askSeen.current) return;
+    askSeen.current = ask.n; setOpen(true);
+    if (ask.text && !busy) send(ask.text);
+  }, [ask]); // eslint-disable-line
 
   const decide = async (what, a) => {
     setBusy(true);

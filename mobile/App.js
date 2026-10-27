@@ -17,6 +17,7 @@ import Login from './src/screens/Login';
 import Customize from './src/screens/Customize';
 import ChangePassword from './src/screens/ChangePassword';
 import Assistant from './src/screens/Assistant';
+import SearchSheet, { SearchPill } from './src/SearchSheet';
 import Permissions from './src/screens/Permissions';
 import Dashboard from './src/screens/Dashboard';
 
@@ -90,6 +91,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
   const { height: winH } = useWindowDimensions();
   const [prefs, updatePrefs] = usePrefs(me);
   const [inbox, setInbox] = useState(false); const [ai, setAi] = useState(false);
+  const [aiAsk, setAiAsk] = useState(''); const [find, setFind] = useState(false); // search sheet + a question handed to the AI
   const { data: nd, reload: reloadNotes } = useApi('/notifications?limit=30');
   const unread = nd?.unread || 0;
 
@@ -177,6 +179,8 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
         <Pressable onPress={() => setMore(true)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.blueSoft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.info, fontWeight: '700' }}>{initials(name)}</Text></Pressable>
       </View>
 
+      <SearchPill onPress={() => setFind(true)} />
+
       {active && views.length > 1 && (
         <View style={{ borderBottomWidth: 1, borderColor: C.line }}>
           <ScrollFade horizontal fade={C.bg} size={26} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 14, gap: 8, paddingBottom: 10 }}>
@@ -234,7 +238,18 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
           <Icon name="sparkle" size={18} color="#fff" /><Text style={{ color: '#fff', fontWeight: '800' }}>Ask AI</Text>
         </Pressable>
       )}
-      {ai && <Assistant me={me} onClose={() => setAi(false)} />}
+      {find && <SearchSheet targets={targets} modules={Object.fromEntries(mods.filter((m) => MODULE_UI[m.key]).map((m) => [m.key, MODULE_UI[m.key]]))} canAsk={me.features.includes('use_assistant')} onClose={() => setFind(false)} onGo={go} onAsk={(t) => { setAiAsk(t); setAi(true); }}
+        extras={[
+          { id: 'a:home', kind: 'nav', path: '', label: 'Home', hint: 'Go to', kw: 'home dashboard start main', icon: 'home' },
+          { id: 'a:notif', label: 'Notifications', hint: 'Action', kw: 'notifications inbox bell alerts unread', icon: 'bell', run: () => setInbox(true) },
+          { id: 'a:theme', label: themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', hint: 'Action', kw: 'theme dark light mode appearance night colour', icon: themeMode === 'dark' ? 'sun' : 'moon', run: () => chooseTheme(themeMode === 'dark' ? 'light' : 'dark') },
+          { id: 'a:customize', label: 'Customize home', hint: 'Action', kw: 'customize shortcuts pin hide cards layout order dashboard', icon: 'sliders', run: () => setCz(true) },
+          { id: 'a:perm', label: 'App permissions', hint: 'Action', kw: 'permissions notifications allow battery background alerts', icon: 'shield', run: () => setPerm(true) },
+          { id: 'a:password', label: 'Change password', hint: 'Action', kw: 'password security change reset account', icon: 'key', run: () => setPw(true) },
+          { id: 'a:signout', label: 'Sign out', hint: 'Action', kw: 'logout log out exit leave', icon: 'logout', run: logout },
+          ...(me.features.includes('use_assistant') ? [{ id: 'a:ai', label: 'AI assistant', hint: 'Action', kw: 'ai assistant help chatbot ask question', icon: 'sparkle', run: () => { setAiAsk(''); setAi(true); } }] : []),
+        ]} />}
+      {ai && <Assistant me={me} initial={aiAsk} onClose={() => { setAi(false); setAiAsk(''); }} />}
       {inbox && <Notifications data={nd} reload={reloadNotes} onClose={() => setInbox(false)} onOpen={openNote} />}
       {cz && <Customize me={me} prefs={prefs} update={updatePrefs} onClose={() => setCz(false)} />}
       {pw && <ChangePassword onClose={() => setPw(false)} />}

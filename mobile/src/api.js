@@ -11,6 +11,7 @@ export const loadToken = async () => { token = await AsyncStorage.getItem('token
 export const setToken = async (t) => { token = t; if (t) await AsyncStorage.setItem('token', t); else await AsyncStorage.removeItem('token'); };
 
 async function request(method, url, body) {
+  const sentToken = token; // which session this request belongs to
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
@@ -20,9 +21,10 @@ async function request(method, url, body) {
   catch { throw new Error(`Cannot reach the server at ${API_URL}. Is it running, and is your phone on the same Wi-Fi?`); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401 && !url.startsWith('/auth/login')) onUnauthorized();
+    // only sign out when the request carried the CURRENT session's token - a late 401 from a request sent before sign-in must not kick a fresh session out
+    if (res.status === 401 && !url.startsWith('/auth/login') && sentToken && sentToken === token) onUnauthorized();
     // the phone app is newer than the server it talks to: say so instead of a bare "Not found"
-    if (res.status === 404 && /^\/(homework|notifications)/.test(url) && (data.error || 'Not found') === 'Not found') throw new Error('Your server does not have this feature yet. Ask your admin to deploy the latest server version, then try again.');
+    if (res.status === 404 && /^\/(homework|notifications|queries)/.test(url) && (data.error || 'Not found') === 'Not found') throw new Error('Your server does not have this feature yet. Ask your admin to deploy the latest server version, then try again.');
     throw new Error(data.error || `Request failed (${res.status})`);
   }
   if (method !== 'GET' && !url.startsWith('/auth/login') && !url.startsWith('/audit/navigate')) mutSubs.forEach((f) => f(method, url));
