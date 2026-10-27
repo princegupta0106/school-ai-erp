@@ -59,7 +59,7 @@ function Card({ title, icon, onHide, action, children }) {
         <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: `${C.brand}22`, alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} size={15} color={C.brand} /></View>
         <Text style={{ flex: 1, fontWeight: '700', color: C.ink, fontSize: 14.5 }} numberOfLines={1}>{title}</Text>
         {action}
-        <Pressable onPress={onHide} hitSlop={10} accessibilityLabel={`Remove ${title}`}><Icon name="x" size={17} color={C.mute} /></Pressable>
+        {onHide ? <Pressable onPress={onHide} hitSlop={10} accessibilityLabel={`Remove ${title}`}><Icon name="x" size={17} color={C.mute} /></Pressable> : null}
       </View>
       {children}
     </View>
@@ -200,34 +200,41 @@ function NoticeCard({ go, onHide }) {
   );
 }
 
-function Stats({ me, go, hidden, order, onHide }) {
+// Home: a quiet summary strip, then the visual cards (donut, graph, lists)
+function Summary({ me, go, hidden }) {
   const att = useApi(has(me, 'view_attendance_reports') ? '/attendance/reports/daily' : null);
   const leave = useApi(has(me, 'leave_approve', 'leave_view_all') ? '/payroll/leave?status=pending' : null);
-  const notes = useApi(has(me, ...NOTICE_F) ? '/communication/announcements?limit=5' : null);
   const kids = useKids(me);
   const kidAtt = useApi(kid(me) && kids[0] ? `/attendance/my?student_id=${kids[0].user_id}` : null);
-  const ks = kidAtt.data?.summary; const t = att.data?.totals;
-  const items = [
-    kid(me) && ks && { id: 'stat-att', label: me.role === 'parent' && kids.length > 1 ? `${kidName(kids[0])}'s attendance` : 'Attendance', val: ks.total ? `${ks.percent}%` : '—', icon: 'attendance', c: D.green, to: me.role === 'student' ? '' : '' },
-    kid(me) && ks && { id: 'stat-days', label: 'Days absent', val: ks.absent, icon: 'users', c: D.red, to: '' },
-    t && { id: 'stat-marked', label: 'Students marked', val: `${t.marked}/${t.students}`, icon: 'users', c: D.blue, to: 'attendance' },
-    t && { id: 'stat-absent', label: 'Absent today', val: t.absent, icon: 'attendance', c: D.red, to: 'attendance/reports' },
-    Array.isArray(leave.data) && { id: 'stat-leave', label: 'Pending leave', val: leave.data.length, icon: 'wallet', c: D.amber, to: 'payroll' },
-    notes.data && { id: 'stat-notices', label: 'Notices', val: (notes.data.pinned?.length || 0) + (notes.data.items?.length || 0), icon: 'megaphone', c: D.purple, to: 'communication' },
-  ].filter(Boolean).filter((x) => !hidden.includes(x.id)).sort((a, b) => pos(order, a.id) - pos(order, b.id));
-  if (!items.length) return null;
+  const t = att.data?.totals; const ks = kidAtt.data?.summary;
+  const cells = [
+    kid(me) && ks && { id: 'stat-att', label: 'Attendance', val: ks.total ? `${ks.percent}%` : '—', c: pctCol(ks.percent || 0) },
+    kid(me) && ks && { id: 'stat-days', label: 'Days absent', val: ks.absent, c: ks.absent ? D.red : C.mute },
+    t && { id: 'stat-marked', label: 'Marked', val: `${t.marked}/${t.students}`, c: C.brand, to: 'attendance' },
+    t && { id: 'stat-absent', label: 'Absent', val: t.absent, c: t.absent ? D.red : C.mute, to: 'attendance/reports' },
+    Array.isArray(leave.data) && { id: 'stat-leave', label: 'Leave to review', val: leave.data.length, c: leave.data.length ? D.amber : C.mute, to: 'payroll' },
+  ].filter(Boolean).filter((x) => !hidden.includes(x.id)).slice(0, 3);
+  if (!cells.length) return null;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-      {items.map((s, i) => {
-        const full = items.length === 1 || (items.length % 2 === 1 && i === items.length - 1);
-        return (
-          <Pressable key={s.id} onPress={() => s.to && go(s.to)} style={{ flexBasis: full ? '100%' : '47%', flexGrow: 1, backgroundColor: `${s.c}18`, borderRadius: 16, borderWidth: 1, borderColor: `${s.c}33`, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: `${s.c}2A`, alignItems: 'center', justifyContent: 'center' }}><Icon name={s.icon} size={19} color={s.c} /></View>
-            <View style={{ flex: 1 }}><Text style={{ fontSize: 20, fontWeight: '800', color: C.ink }}>{s.val}</Text><Text style={{ fontSize: 12, color: C.mute }} numberOfLines={1}>{s.label}</Text></View>
-            <Pressable onPress={() => onHide(s.id)} hitSlop={10} accessibilityLabel={`Remove ${s.label}`} style={{ alignSelf: 'flex-start' }}><Icon name="x" size={15} color={C.mute} /></Pressable>
-          </Pressable>
-        );
-      })}
+    <View style={{ flexDirection: 'row', backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, marginBottom: 20, ...SH }}>
+      {cells.map((x, i) => (
+        <Pressable key={x.id} onPress={() => x.to && go(x.to)} style={{ flex: 1, paddingVertical: 16, alignItems: 'center', borderLeftWidth: i ? 1 : 0, borderColor: C.line }}>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: x.c, letterSpacing: -0.5 }}>{x.val}</Text>
+          <Text style={{ fontSize: 12, color: C.mute, marginTop: 2 }} numberOfLines={1}>{x.label}</Text>
+        </Pressable>))}
+    </View>
+  );
+}
+
+export default function Dashboard({ me, go, prefs, update }) {
+  const hidden = prefs.dashHidden || []; const order = prefs.dashOrder || [];
+  const hide = (id) => { update((p) => ({ ...p, dashHidden: [...new Set([...(p.dashHidden || []), id])] })); };
+  const all = dashItems(me);
+  const cards = all.filter((x) => x.group === 'card' && !hidden.includes(x.id)).sort((a, b) => pos(order, a.id) - pos(order, b.id));
+  return (
+    <View style={{ marginBottom: 6 }}>
+      <Summary me={me} go={go} hidden={hidden} />
+      {cards.map((x) => <x.C key={x.id} me={me} go={go} onHide={() => hide(x.id)} />)}
     </View>
   );
 }
@@ -249,16 +256,3 @@ export function dashItems(me) {
   ].filter(Boolean);
 }
 
-export default function Dashboard({ me, go, prefs, update }) {
-  const hidden = prefs.dashHidden || []; const order = prefs.dashOrder || [];
-  const hide = (id) => { update((p) => ({ ...p, dashHidden: [...new Set([...(p.dashHidden || []), id])] })); };
-  const all = dashItems(me);
-  const cards = all.filter((x) => x.group === 'card' && !hidden.includes(x.id)).sort((a, b) => pos(order, a.id) - pos(order, b.id));
-  if (!cards.length && !all.some((x) => x.group === 'stat' && !hidden.includes(x.id))) return null;
-  return (
-    <View style={{ marginBottom: 10 }}>
-      <Stats me={me} go={go} hidden={hidden} order={order} onHide={hide} />
-      {cards.map((x) => <x.C key={x.id} me={me} go={go} onHide={() => hide(x.id)} />)}
-    </View>
-  );
-}

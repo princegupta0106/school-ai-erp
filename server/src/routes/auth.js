@@ -5,6 +5,7 @@ import { db, httpError, check, asyncH } from '../db.js';
 import { authenticate, signToken, shapeUser, USER_SELECT } from '../auth.js';
 import { modulesFor, catalog } from '../features.js';
 import { setAudit } from '../audit.js';
+import { toDisplay } from '../r2.js';
 
 const r = Router();
 
@@ -13,11 +14,12 @@ async function mePayload(user) {
   const { documents, extra, ...profileLite } = profile;
   // the two lookups don't depend on each other, so run them together (one round trip to Supabase instead of two)
   const [schoolRes, prefsRes] = await Promise.all([
-    user.school_id ? db.from('schools').select('id,name,code,is_active').eq('id', user.school_id).maybeSingle() : Promise.resolve({ data: null }),
+    user.school_id ? db.from('schools').select('id,name,code,is_active,logo_url').eq('id', user.school_id).maybeSingle() : Promise.resolve({ data: null }),
     // saved home-screen layout (null until the person customises it; also null if the column isn't added yet)
     db.from('users').select('ui_prefs').eq('user_id', user.user_id).maybeSingle(),
   ]);
   const school = schoolRes.data; const pr = prefsRes.data;
+  if (school?.logo_url) { try { school.logo_url = await toDisplay(school.logo_url); } catch { school.logo_url = null; } }   // private-bucket file -> 1-hour link; a broken logo must never block sign-in
   return { ...u, school, profile: profileLite, ui_prefs: pr?.ui_prefs ?? null, modules: modulesFor(user.features), catalog: catalog() };
 }
 

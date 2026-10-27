@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from functools import lru_cache
 
-import prompt_rules, toolkit        # token-saving layer: per-module tools + rules, compact schemas, trimmed history
+import classref, prompt_rules, toolkit        # token-saving layer: per-module tools + rules, compact schemas, trimmed history
 
 CFG = {}          # filled by init()
 _lock = threading.Lock()
@@ -348,18 +348,73 @@ def classes_of(ctx, school_id=None):
     return [c for c in rows if not school_id or c.get("school_id") == school_id]
 
 
-def resolve_class(ctx, label, school_id=None):
-    rows = classes_of(ctx, school_id)
-    w = norm(label)
-    w = re.sub(r"^class\s+", "", w)
-    comp = lambda s: norm(s).replace(" ", "")
-    exact = [c for c in rows if comp(class_label(c)) == comp(w) or norm(c.get("name")) == w]
-    hit = exact or [c for c in rows if comp(w) in comp(class_label(c))]
+def class_like(label, want):
+    """True when `label` ("1 A", "10 B") is what the user meant by `want` ("1", "1a", "class 1 A", "10th").
+    The class NAME is compared as a whole value, so "1" fits 1 A / 1 B but NOT 10 A, 11 A, 12 A or 21 A."""
+    return classref.label_matches(label, want)
+
+
+def match_classes(rows, label):
+    """Every class row the user's words point at: "10" -> all sections of 10, "10 B" -> only 10 B."""
+    return classref.match_classes(rows, label)
+
+
+def pick_one_class(rows, label, available=None, who="class"):
+    """Exactly one class row for `label`, else a clear error (no class / which section?)."""
+    if not classref.parse_class_ref(label).name:
+        raise ErpError(f"Which class? {', '.join(class_label(c) for c in rows) or 'none available to you'}")
+    hit = match_classes(rows, label)
     if len(hit) == 1:
         return hit[0]
     if not hit:
+        raise ErpError(f'No class "{label}" available to you. Classes: {", ".join(class_label(c) for c in rows) or "none"}')
+    raise ErpError(f"Which class? {', '.join(class_label(c) for c in hit)}. Ask which one (ask_choice).")
+
+
+def resolve_classes(ctx, label, school_id=None):
+    """All classes (sections) the user means. For lists like 'who is in class 10' (every section) or '10 B' (one)."""
+    rows = classes_of(ctx, school_id)
+    hit = match_classes(rows, label)
+    if not hit:
         raise ErpError(f'No class "{label}". Existing classes: {", ".join(class_label(c) for c in rows) or "none yet"}')
-    raise ErpError(f"Which class? {', '.join(class_label(c) for c in hit)}")
+    return hit
+
+
+def resolve_class(ctx, label, school_id=None):
+    """ONE class (used when creating / moving a student, where a section is needed)."""
+    rows = classes_of(ctx, school_id)
+    if not classref.parse_class_ref(label).name or not match_classes(rows, label):
+        raise ErpError(f'No class "{label}". Existing classes: {", ".join(class_label(c) for c in rows) or "none yet"}')
+    return pick_one_class(rows, label)
+
+
+def fee_group(ctx, sid, label, groups=None):
+    """Fees are set per class NAME (all sections share them). 'class 10', '10th', '10 B' -> the fee group named '10'.
+    Returns (group_dict_from_/fees/structure, section_or_empty)."""
+    if groups is None:
+        groups = (api("GET", fpath("/fees/structure", sid), ctx["token"]) or {}).get("classes", [])
+    want = classref.parse_class_ref(label)
+    hit = [g for g in groups if classref.canon_name(g["name"]) == want.name]
+    if not hit:
+        raise ErpError(f'No class "{label}" in the fee structure. Classes with fees: {", ".join(g["name"] for g in groups) or "none"}')
+    g = hit[0]
+    if want.section and g.get("sections") and want.section not in [str(x).upper() for x in g["sections"]]:
+        raise ErpError(f'Class {g["name"]} has no section {want.section}. Sections: {", ".join(g["sections"])}')
+    return g, want.section
+
+
+def fee_class_filter(ctx, sid, label):
+    """class_name for the portal's pending / collection filters: it wants the fee-group name ('10'), not '10 B' / 'class 10'."""
+    label = (label or "").strip()
+    if not label:
+        return None
+    try:
+        groups = (api("GET", fpath("/fees/structure", sid), ctx["token"]) or {}).get("classes", [])
+    except ErpError:
+        groups = None                                  # structure unreadable: still send the cleaned-up class name
+    if groups is None:
+        return classref.parse_class_ref(label).name or label
+    return fee_group(ctx, sid, label, groups)[0]["name"]
 
 
 def flat(u, cmap):
@@ -406,8 +461,8 @@ def t_search_users(a, ctx):
     if a.get("role"):
         rows = [r for r in rows if r["role"] == a["role"]]
     if a.get("class_name"):
-        c = class_label(resolve_class(ctx, a["class_name"], sid))
-        rows = [r for r in rows if r.get("class") == c]
+        labels = {class_label(c) for c in resolve_classes(ctx, a["class_name"], sid)}
+        rows = [r for r in rows if r.get("class") in labels]
     st, res = rank(q, rows, ["name", "login_id", "admission_no"], limit=int(a.get("limit") or 5), phone_field="phone")
     return {"match_status": st, "query": q, "results": [brief(r) for r in res],
             "hint": {"single_clear": "Only one strong candidate. Use it if it really is who the user meant.",
@@ -421,8 +476,8 @@ def t_list_users(a, ctx):
     if a.get("role"):
         rows = [r for r in rows if r["role"] == a["role"]]
     if a.get("class_name"):
-        c = class_label(resolve_class(ctx, a["class_name"], sid))
-        rows = [r for r in rows if r.get("class") == c]
+        labels = {class_label(c) for c in resolve_classes(ctx, a["class_name"], sid)}
+        rows = [r for r in rows if r.get("class") in labels]
     if a.get("active") is not None:
         rows = [r for r in rows if r["active"] == bool(a["active"])]
     by = {}
@@ -701,16 +756,17 @@ def t_link_children(a, ctx):
 
 
 def t_create_class(a, ctx):
-    nm = str(a.get("name") or "").strip()
+    nm = classref.clean_stored_name(a.get("name"))       # "Class 10" / "10th" are stored as "10"; the screens add the word Class
+    sec = classref.clean_stored_section(a.get("section"))
     if not nm:
         raise ErpError("name is required")
     sid = school_id_for(ctx, a)
     if is_super(ctx) and not sid:
         raise ErpError("A super admin must say which school. Ask the user.")
-    label = f"{nm} {a.get('section') or ''}".strip()
+    label = f"{nm} {sec}".strip()
     if any(norm(class_label(c)) == norm(label) for c in classes_of(ctx, sid)):
         raise ErpError(f"Class {label} already exists.")
-    return _register(ctx, "create_class", f"Add class {label}", [f"Class {label}"], "", {"name": nm, "section": str(a.get("section") or "").strip(), "school_id": sid, "label": label})
+    return _register(ctx, "create_class", f"Add class {label}", [f"Class {label}"], "", {"name": nm, "section": sec, "school_id": sid, "label": label})
 
 
 def t_change_features(a, ctx):
@@ -913,9 +969,7 @@ def t_find_fee_student(a, ctx):
     sid = fee_sid(ctx, a)
     rows = fee_student_rows(ctx, sid)
     if a.get("class_name"):
-        comp = lambda s: norm(s).replace(" ", "")
-        w = re.sub(r"^class\s+", "", norm(a["class_name"]))
-        rows = [r for r in rows if comp(r.get("class") or "") == comp(w) or comp(r.get("class") or "").startswith(comp(w))]
+        rows = [r for r in rows if class_like(r.get("class") or "", a["class_name"])]
     st, res = rank(q, rows, ["name", "login_id", "admission_no"], limit=int(a.get("limit") or 5))
     keep = lambda r: {k: r[k] for k in ("id", "name", "class", "roll_no", "admission_no", "login_id", "match_score") if r.get(k) not in (None, "")}
     return {"match_status": st, "query": q, "results": [keep(r) for r in res],
@@ -939,7 +993,7 @@ def t_student_fees(a, ctx):
 
 def t_pending_fees(a, ctx):
     sid = fee_sid(ctx, a)
-    q = {"session_id": fee_session_id(ctx, a, sid), "class_name": (a.get("class_name") or "").strip() or None,
+    q = {"session_id": fee_session_id(ctx, a, sid), "class_name": fee_class_filter(ctx, sid, a.get("class_name")),
          "due_now": "1" if a.get("due_now") else None, "sort": a.get("sort") if a.get("sort") in ("amount", "class", "name") else None,
          "limit": min(int(a.get("limit") or 15), 40)}
     if a.get("min_pending") not in (None, ""):
@@ -949,7 +1003,10 @@ def t_pending_fees(a, ctx):
     out = api("GET", fpath("/fees/pending", sid, **q), ctx["token"])
     s = out["summary"]
     rows = []
+    sec_want = classref.parse_class_ref(a.get("class_name") or "")
     for r in out.get("rows", []):
+        if sec_want.section and not classref.label_matches(r.get("class_label") or "", sec_want):
+            continue                                   # "pending fees of 10 B": the portal filters by class, the section is kept here
         row = {"student_id": r["student_id"], "name": r["full_name"], "class": r["class_label"], "roll_no": r.get("roll_no"),
                "pending": r["pending"], "due_till_date": r["due_till_date"], "oldest_due": r.get("oldest_due_date")}
         if a.get("with_contacts", True) and r.get("contacts"):
@@ -964,7 +1021,7 @@ def t_pending_fees(a, ctx):
 
 def t_fee_collection(a, ctx):
     sid = fee_sid(ctx, a)
-    q = {"limit": min(int(a.get("limit") or 15), 40), "class_name": (a.get("class_name") or "").strip() or None}
+    q = {"limit": min(int(a.get("limit") or 15), 40), "class_name": fee_class_filter(ctx, sid, a.get("class_name"))}
     if a.get("period"):
         if a["period"] not in FEE_PERIODS:
             raise ErpError(f"period must be one of: {', '.join(FEE_PERIODS)}")
@@ -996,15 +1053,14 @@ def t_fee_collection(a, ctx):
 def t_fee_structure(a, ctx):
     sid = fee_sid(ctx, a)
     out = api("GET", fpath("/fees/structure", sid, session_id=fee_session_id(ctx, a, sid)), ctx["token"])
-    want = re.sub(r"^class\s+", "", norm(a.get("class_name") or ""))
+    want_g, want_sec = (fee_group(ctx, sid, a["class_name"], out.get("classes", [])) if (a.get("class_name") or "").strip() else (None, ""))
     classes = []
     for g in out.get("classes", []):
-        if want and norm(g["name"]) != want:
+        if want_g and g["name"] != want_g["name"]:
             continue
         classes.append({"class": g["name"], "sections": g.get("sections") or None, "students": g.get("students"), "total_per_year": g["total"],
+                        **({"note": f"Fees are the same for every section of class {g['name']}, including {want_sec}."} if want_sec else {}),
                         "fees": [{"item_id": i["id"], "name": i["name"], "amount": i["amount"], "term": i["frequency"]} for i in g.get("items", [])] or "NO FEES SET"})
-    if want and not classes:
-        raise ErpError(f'No class "{a.get("class_name")}" in the fee structure.')
     return {"session": out["session"]["name"], "classes": classes}
 
 
@@ -1154,7 +1210,7 @@ def _structure_item(ctx, sid, session_id, item_id):
 
 def t_add_fee_item(a, ctx):
     sid = fee_sid(ctx, a, need=True)
-    cls = re.sub(r"^class\s+", "", str(a.get("class_name") or "").strip(), flags=re.I)
+    cls = str(a.get("class_name") or "").strip()
     name = str(a.get("name") or "").strip()
     if not cls or not name:
         raise ErpError("class_name and name are required")
@@ -1163,9 +1219,7 @@ def t_add_fee_item(a, ctx):
     amount = fee_amount(a.get("amount"), "Fee amount")
     session_id = fee_session_id(ctx, a, sid)
     out = api("GET", fpath("/fees/structure", sid, session_id=session_id), ctx["token"])
-    g = next((x for x in out.get("classes", []) if norm(x["name"]) == norm(cls)), None)
-    if not g:
-        raise ErpError(f'No class "{cls}". Classes with fees: {", ".join(x["name"] for x in out.get("classes", []))}')
+    g, _sec = fee_group(ctx, sid, cls, out.get("classes", []))
     if any(norm(i["name"]) == norm(name) for i in g.get("items", [])):
         raise ErpError(f"Class {g['name']} already has a fee called {name}. Use update_fee_item to change it.")
     body = {"class_name": g["name"], "name": name, "amount": amount, "frequency": a["frequency"]}
@@ -2008,18 +2062,10 @@ def att_class_rows(ctx, sid):
 
 
 def att_class(ctx, sid, label, rows=None):
+    """ONE class from the rows this person may use. Whole-value match ("1" never matches 10 / 11 / 12);
+    a class name with several sections ("10") asks which section."""
     rows = att_class_rows(ctx, sid) if rows is None else rows
-    w = re.sub(r"^class\s+", "", norm(label))
-    if not w:
-        raise ErpError(f"Which class? {', '.join(class_label(c) for c in rows) or 'none available to you'}")
-    comp = lambda s: norm(s).replace(" ", "")
-    exact = [c for c in rows if comp(class_label(c)) == comp(w)]
-    hit = exact or [c for c in rows if norm(c.get("name")) == w] or [c for c in rows if comp(w) in comp(class_label(c))]
-    if len(hit) == 1:
-        return hit[0]
-    if not hit:
-        raise ErpError(f'No class "{label}" available to you. Classes: {", ".join(class_label(c) for c in rows) or "none"}')
-    raise ErpError(f"Which class? {', '.join(class_label(c) for c in hit)}")
+    return pick_one_class(rows, label)
 
 
 def _tally_line(t):
@@ -2521,14 +2567,14 @@ def doc_template(meta, t, kind):
 
 def doc_class(ctx, sid, label):
     rows = doc_meta(ctx, sid).get("classes") or []
-    comp = lambda s: norm(s).replace(" ", "")
-    w = re.sub(r"^class\s+", "", norm(label))
-    hit = [c for c in rows if comp(c["label"]) == comp(w)] or [c for c in rows if comp(c["label"]).startswith(comp(w))]
+    if not classref.parse_class_ref(label).name:
+        raise ErpError(f"Which class? {', '.join(c['label'] for c in rows) or 'none'}")
+    hit = classref.match_classes(rows, label)
     if len(hit) == 1:
         return hit[0]
     if not hit:
         raise ErpError(f'No class "{label}". Classes: {", ".join(c["label"] for c in rows) or "none"}')
-    raise ErpError(f"Which class? {', '.join(c['label'] for c in hit)}")
+    raise ErpError(f"Which class? {', '.join(c['label'] for c in hit)}. Ask which one (ask_choice).")
 
 
 def _check_words(text, t):
@@ -3307,7 +3353,7 @@ def t_get_fee_report(a, ctx):
         raise ErpError("report must be pending or collection")
     if fmt not in ("pdf", "csv"):
         raise ErpError("format must be pdf or csv")
-    q = {"format": fmt, "class_name": (a.get("class_name") or "").strip() or None}
+    q = {"format": fmt, "class_name": fee_class_filter(ctx, sid, a.get("class_name"))}
     if kind == "pending":
         q["session_id"] = fee_session_id(ctx, a, sid)
         q["due_now"] = "1" if a.get("due_now") else None

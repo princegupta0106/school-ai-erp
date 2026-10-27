@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db, httpError, check, asyncH } from '../db.js';
 import { requireFeature, isSuper } from '../auth.js';
+import { cleanClassName, cleanSection } from '../classNames.js';
 
 const r = Router();
 const READ = ['get_all_users_school', 'get_user', 'create_user', 'edit_user'];
@@ -15,11 +16,11 @@ r.get('/', requireFeature(...READ), asyncH(async (req, res) => {
 
 r.post('/', requireFeature('edit_user'), asyncH(async (req, res) => {
   const school_id = isSuper(req) ? req.body.school_id : req.user.school_id;
-  const name = String(req.body.name || '').trim();
+  const name = cleanClassName(req.body.name);
   if (!school_id || !name) throw httpError(400, 'Class name is required');
   const level = req.body.level !== undefined && req.body.level !== '' ? Number(req.body.level) : (/^\d+$/.test(name) ? Number(name) : null);
   if (level !== null && !Number.isInteger(level)) throw httpError(400, 'Order must be a whole number');
-  const { data, error } = await db.from('classes').insert({ school_id, name, level, section: String(req.body.section || '').trim() }).select().single();
+  const { data, error } = await db.from('classes').insert({ school_id, name, level, section: cleanSection(req.body.section) }).select().single();
   check(error);
   res.status(201).json(data);
 }));

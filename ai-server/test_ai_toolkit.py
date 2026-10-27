@@ -47,7 +47,7 @@ class Mapping(unittest.TestCase):
             self.assertIn(m, prompt_rules.BLURB)
             self.assertTrue(prompt_rules.RULES_BY_MODULE[m])
         covered = {n for v in prompt_rules.RULES_BY_MODULE.values() for n in v} | {4, 22}
-        self.assertEqual(covered, set(range(1, 23)))
+        self.assertEqual(covered, set(range(1, 24)))
 
 
 class Prompt(unittest.TestCase):

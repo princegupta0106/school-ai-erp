@@ -6,7 +6,7 @@ import { api, loadToken, setToken, setUnauthorizedHandler } from './src/api';
 import { C, SH, live, initials, ROLE_LABEL, greeting, applyTheme, resolveTheme, loadThemeMode, saveThemeMode } from './src/theme';
 import { Icon } from './src/icons';
 import { MODULE_UI, viewsFor, allTargets, effectiveShortcuts, prefetchUrls, visibleModules, dockModules, withClientDefaults } from './src/modules';
-import { Press, Pane, ScrollFade } from './src/ui';
+import { Press, Pane, ScrollFade, Notifier } from './src/ui';
 import { initCache, clearCache, prefetch } from './src/cache';
 import { usePrefs } from './src/prefs';
 import { useApi } from './src/useApi';
@@ -81,7 +81,7 @@ export default function App() {
     (async () => { const m = await loadThemeMode(); applyTheme(m); setThemeMode(m); if (await loadToken()) { try { await signedIn(await api.get('/auth/me')); } catch { await setToken(null); } } setBooting(false); })();
   }, [logout, signedIn]);
   if (booting) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: C.bg }}><ActivityIndicator size="large" color={C.brand} /></View>;
-  return <SafeAreaProvider><StatusBar style={resolveTheme(themeMode) === 'dark' ? 'light' : 'dark'} />{me ? <Shell me={me} logout={logout} themeMode={themeMode} chooseTheme={chooseTheme} /> : <Login onDone={signedIn} />}</SafeAreaProvider>;
+  return <SafeAreaProvider><StatusBar style={resolveTheme(themeMode) === 'dark' ? 'light' : 'dark'} />{me ? <Shell me={me} logout={logout} themeMode={themeMode} chooseTheme={chooseTheme} /> : <Login onDone={signedIn} />}<Notifier /></SafeAreaProvider>;
 }
 
 function Shell({ me, logout, themeMode, chooseTheme }) {
@@ -166,12 +166,12 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}>
         {active && <Pressable onPress={() => go('')} hitSlop={10}><Icon name="back" size={24} color={C.ink} /></Pressable>}
-        {active && <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: tint(ui.color), alignItems: 'center', justifyContent: 'center' }}><Icon name={ui.icon} color={ui.color} size={18} /></View>}
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 22, fontWeight: '700', color: C.ink, letterSpacing: -0.4 }} numberOfLines={1}>{active ? ui.label : `${greeting()}, ${name.split(' ')[0]}`}</Text>
           <Text style={{ fontSize: 12, color: C.mute }} numberOfLines={1}>{active ? (views.length > 1 ? view?.label : me.school?.name || '') : (me.school?.name || 'Platform')}</Text>
         </View>
         {active && view && <Pressable onPress={togglePin} hitSlop={10}><Icon name="pin" size={20} color={isPinned ? C.brand : C.mute} /></Pressable>}
+        {me.features.includes('use_assistant') && <Pressable onPress={() => { setAiAsk(''); setAi(true); }} hitSlop={6} accessibilityLabel="Ask AI" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.soft, borderWidth: 1, borderColor: C.brand, alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkle" size={19} color={C.brand} /></Pressable>}
         <Pressable onPress={() => setInbox(true)} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', ...SH }}>
           <Icon name="bell" size={19} color={C.brand} />
           {unread > 0 && <View style={{ position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: C.bad, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{unread > 99 ? '99+' : unread}</Text></View>}
@@ -179,7 +179,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
         <Pressable onPress={() => setMore(true)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.blueSoft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.info, fontWeight: '700' }}>{initials(name)}</Text></Pressable>
       </View>
 
-      <SearchPill onPress={() => setFind(true)} />
+      {!active && <SearchPill onPress={() => setFind(true)} />}
 
       {active && views.length > 1 && (
         <View style={{ borderBottomWidth: 1, borderColor: C.line }}>
@@ -218,7 +218,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
             <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: C.line, marginBottom: 12 }} />
             <View style={{ marginBottom: 12 }}><Text style={{ fontWeight: '700', color: C.ink, fontSize: 16 }}>{name}</Text><Text style={{ color: C.mute }}>{ROLE_LABEL[me.role]}{me.school ? ` · ${me.school.name}` : ''}</Text></View>
             {/* shadow/fade at the top and bottom edge shows when more modules are hidden and can be scrolled to */}
-            <ScrollFade fade={C.bg} size={34} style={{ maxHeight: Math.max(160, Math.min(380, winH * 0.32)) }} showsVerticalScrollIndicator={false}><View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingBottom: 14 }}>{mods.map((m) => <Tile key={m.key} m={m} onPress={() => go(m.key)} />)}</View></ScrollFade>
+            <ScrollFade fade={C.bg} size={34} style={{ maxHeight: winH * 0.6 }} showsVerticalScrollIndicator={false}><View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingBottom: 14 }}>{mods.map((m) => <Tile key={m.key} m={m} onPress={() => go(m.key)} />)}</View>
             <View style={{ paddingVertical: 10 }}>
               <Text style={{ color: C.mute, fontSize: 12, fontWeight: '700', marginBottom: 8 }}>APPEARANCE</Text>
               <View style={{ flexDirection: 'row', backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 3 }}>
@@ -230,14 +230,10 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
             </View>
             {[['sliders', 'Customize home', () => { setMore(false); setCz(true); }], ['shield', 'App permissions', () => { setMore(false); setPerm(true); }], ['key', 'Change password', () => { setMore(false); setPw(true); }], ['logout', 'Sign out', logout]].map(([ic, l, fn]) => (
               <Pressable key={l} onPress={fn} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }}><Icon name={ic} size={20} color={C.mute} /><Text style={{ color: C.ink, fontWeight: '500' }}>{l}</Text></Pressable>))}
+            </ScrollFade>
           </Pressable>
         </Pressable>
       </Modal>
-      {me.features.includes('use_assistant') && !ai && (
-        <Pressable onPress={() => setAi(true)} accessibilityLabel="Open AI assistant" style={{ position: 'absolute', right: 14, bottom: 76, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.brand, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 12, elevation: 6, shadowColor: '#0E5A52', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } }}>
-          <Icon name="sparkle" size={18} color="#fff" /><Text style={{ color: '#fff', fontWeight: '800' }}>Ask AI</Text>
-        </Pressable>
-      )}
       {find && <SearchSheet targets={targets} modules={Object.fromEntries(mods.filter((m) => MODULE_UI[m.key]).map((m) => [m.key, MODULE_UI[m.key]]))} canAsk={me.features.includes('use_assistant')} onClose={() => setFind(false)} onGo={go} onAsk={(t) => { setAiAsk(t); setAi(true); }}
         extras={[
           { id: 'a:home', kind: 'nav', path: '', label: 'Home', hint: 'Go to', kw: 'home dashboard start main', icon: 'home' },

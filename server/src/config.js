@@ -9,6 +9,15 @@ const need = (k) => {
   return process.env[k];
 };
 
+// AI_URL may be typed without "https://" or with a trailing slash / "/api" - make it a clean base address.
+const DEFAULT_RENDER_AI = 'https://school-ai-erp-ogqz.onrender.com';
+function aiUrl() {
+  let u = String(process.env.AI_URL || '').trim();
+  if (!u) u = process.env.RENDER ? DEFAULT_RENDER_AI : `http://127.0.0.1:${process.env.AI_PORT || 8001}`;
+  if (!/^https?:\/\//i.test(u)) u = `${/^(localhost|127\.|0\.0\.0\.0)/i.test(u) ? 'http' : 'https'}://${u}`;
+  return u.replace(/\/+$/, '').replace(/\/api$/i, '');
+}
+
 export const cfg = {
   port: Number(process.env.PORT || 3000),
   timezone: process.env.SCHOOL_TIMEZONE || 'Asia/Kolkata', // decides what "today" means for attendance
@@ -30,9 +39,9 @@ export const cfg = {
     // so those old links are recognised and re-signed. New files never use it.
     publicUrl: (process.env.R2_PUBLIC_URL || '').replace(/\/$/, ''),
   },
-  // the Python AI service (ai-server/). The portal forwards /api/ai/* to it; it listens on this machine only.
-  // The AI service. On Render it is the separate service below (hardcoded, nothing to configure); on your own PC it is local.
-  // AI_URL in the environment overrides both, if you ever move the service.
-  ai: { url: (process.env.AI_URL || (process.env.RENDER ? 'https://school-ai-erp-1.onrender.com' : `http://127.0.0.1:${process.env.AI_PORT || 8001}`)).replace(/\/$/, '') },
+  // The Python AI service (ai-server/). The portal forwards /api/ai/* to it.
+  //   AI_URL=https://school-ai-erp-ogqz.onrender.com   <- set this in the backend's environment when the AI runs somewhere else (Render etc.)
+  // Not set: on Render it falls back to the address below, on your own PC to http://127.0.0.1:<AI_PORT, default 8001>.
+  ai: { url: aiUrl() },
   clientDist: path.resolve(here, '../../client/dist'),
 };

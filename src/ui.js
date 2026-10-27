@@ -1,12 +1,51 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, Modal as RNModal, ScrollView, ActivityIndicator, Platform, Switch, Alert, Animated, Easing, Keyboard, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, Pressable, Modal as RNModal, ScrollView, ActivityIndicator, Platform, Switch, Animated, Easing, Keyboard, KeyboardAvoidingView } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, SH, live, ymd, monthName, shiftMonth } from './theme';
 
-export const toast = (msg, bad) => Alert.alert(bad ? 'Error' : 'Done', msg);
-export const confirmAsk = (msg, onYes) => Alert.alert('Please confirm', msg, [{ text: 'No', style: 'cancel' }, { text: 'Yes', onPress: onYes }]);
+// ---- Notifications: a small pill at the top for results, a clean dialog for questions (no system alerts) ----
+const hosts = []; const subs = new Set(); let nstate = { t: null, ask: null };
+const emit = () => subs.forEach((f) => f());
+export const toast = (msg, bad) => {
+  const id = Math.random(); nstate = { ...nstate, t: { id, msg: String(msg || ''), bad: !!bad } }; emit();
+  setTimeout(() => { if (nstate.t?.id === id) { nstate = { ...nstate, t: null }; emit(); } }, bad ? 4200 : 2400);
+};
+// confirmAsk(message, onYes, { title, yes, danger })
+export const confirmAsk = (msg, onYes, opts = {}) => { nstate = { ...nstate, ask: { msg, onYes, ...opts } }; emit(); };
+const closeAsk = () => { nstate = { ...nstate, ask: null }; emit(); };
+// Mount one in the app root and one inside every full-screen Modal; only the newest one draws, so it is never hidden behind a sheet.
+export function Notifier() {
+  const me = useRef({}).current; const [, tick] = useState(0); const ins = useSafeAreaInsets(); const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => { hosts.push(me); const f = () => tick((n) => n + 1); subs.add(f); emit(); return () => { hosts.splice(hosts.indexOf(me), 1); subs.delete(f); emit(); }; }, [me]);
+  const t = nstate.t; const ask = nstate.ask;
+  useEffect(() => { if (t) { v.setValue(0); Animated.timing(v, { toValue: 1, duration: 180, useNativeDriver: true }).start(); } }, [t?.id]); // eslint-disable-line
+  if (hosts[hosts.length - 1] !== me) return null;
+  const danger = ask ? (ask.danger ?? /^(delete|remove)/i.test(ask.msg)) : false;
+  return (
+    <>
+      {t && (
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: ins.top + 10, left: 16, right: 16, alignItems: 'center', zIndex: 999, elevation: 30, opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }] }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: 440, backgroundColor: t.bad ? C.bad : C.ink, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.bad ? '#fff' : C.ok }} />
+            <Text style={{ color: t.bad ? '#fff' : C.bg, fontWeight: '600', fontSize: 14, flexShrink: 1 }}>{t.msg}</Text>
+          </View>
+        </Animated.View>)}
+      {ask && (
+        <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: C.scrim, alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 1000, elevation: 40 }}>
+          <View style={{ width: '100%', maxWidth: 360, backgroundColor: C.card, borderRadius: 20, padding: 20 }}>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: C.ink }}>{ask.title || 'Please confirm'}</Text>
+            <Text style={{ color: C.mute, fontSize: 14.5, lineHeight: 21, marginTop: 8 }}>{ask.msg}</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+              <View style={{ flex: 1 }}><Btn kind="ghost" title="Cancel" onPress={closeAsk} /></View>
+              <View style={{ flex: 1 }}><Btn kind={danger ? 'danger' : undefined} title={ask.yes || (/^remove/i.test(ask.msg) ? 'Remove' : danger ? 'Delete' : 'Continue')} onPress={() => { const f = ask.onYes; closeAsk(); f && f(); }} /></View>
+            </View>
+          </View>
+        </View>)}
+    </>
+  );
+}
 
 export const Card = ({ children, style }) => <View style={[s.card, style]}>{children}</View>;
 export const Dim = ({ children, style }) => <Text style={[{ color: C.mute, fontSize: 13 }, style]}>{children}</Text>;
@@ -104,6 +143,7 @@ export function Sheet({ title, onClose, children }) {
       <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
         <View style={s.sheetHead}><Text style={{ fontSize: 18, fontWeight: '700', color: C.ink, flex: 1 }}>{title}</Text><Pressable onPress={onClose}><Text style={{ color: C.brand, fontSize: 16, fontWeight: '600' }}>Close</Text></Pressable></View>
         <KbView><ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">{children}</ScrollView></KbView>
+        <Notifier />
       </SafeAreaView>
     </RNModal>
   );

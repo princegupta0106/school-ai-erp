@@ -1,7 +1,7 @@
 // Checks for new notifications while the app is in the background or closed (Android runs it about every 15+ minutes),
 // and shows them in the notification bar. Needs the installed APK / a development build - it does nothing in Expo Go.
 // Instant delivery to a fully closed app is only possible with Firebase push; this is the no-Firebase alternative.
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, loadToken } from './api';
 import { alertNew } from './push';
@@ -36,11 +36,7 @@ export async function askBackgroundPermission() {
   try {
     if (await AsyncStorage.getItem('bg.asked')) return;
     await AsyncStorage.setItem('bg.asked', '1');
-    Alert.alert(
-      'Get notifications in the background',
-      'To receive school notifications when the app is closed, allow it to run in the background. On the next screen choose "Allow".',
-      [{ text: 'Not now', style: 'cancel' }, { text: 'Continue', onPress: () => openBatterySettings() }],
-    );
+    require('./ui').confirmAsk('To receive school notifications when the app is closed, allow it to run in the background. On the next screen choose "Allow".', () => openBatterySettings(), { title: 'Get notifications in the background', yes: 'Continue' });
   } catch { /* ignore */ }
 }
 export async function openBatterySettings() {

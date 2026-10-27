@@ -9,7 +9,7 @@ import ApplyForm from './ApplyForm';
 
 export default function LeaveRequests({ me }) {
   const { sid, picker, qs } = useSchoolId(me);
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState('');
   const { data, error, loading, reload } = useApi(sid ? withQs(`/payroll/leave${status ? `?status=${status}` : ''}`, qs) : null);
   const { data: st } = useApi(sid ? withQs('/payroll/settings', qs) : null);
   const can = me.features.includes('leave_approve');
@@ -20,7 +20,7 @@ export default function LeaveRequests({ me }) {
   return (
     <ScrollView contentContainerStyle={{ padding: 16 }} refreshControl={<RefreshControl refreshing={loading && !!data} onRefresh={reload} />} keyboardShouldPersistTaps="handled">
       {picker}
-      <Choice value={status} onChange={setStatus} options={['pending', 'approved', 'rejected', 'cancelled', ''].map((x) => ({ value: x, label: x || 'all' }))} />
+      <Choice value={status} onChange={setStatus} options={['', 'pending', 'approved', 'rejected', 'cancelled'].map((x) => ({ value: x, label: x ? x[0].toUpperCase() + x.slice(1) : 'All' }))} />
       <View style={{ height: 12 }} />
       {can && st && emps && <><Btn kind="ghost" title="Record leave for someone" onPress={() => setRec(true)} /><View style={{ height: 12 }} /></>}
       {st && <Dim style={{ marginBottom: 12 }}>Approval mode: {st.settings.approval_mode === 'auto' ? 'automatic (requests are approved instantly)' : 'manual (needs an approver)'}</Dim>}

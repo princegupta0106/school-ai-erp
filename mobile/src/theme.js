@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---- Themes. `C` and `SH` are mutated in place by applyTheme(), so every screen that reads them while rendering picks up the new look.
-export const LIGHT = { bg: '#F4F1EA', card: '#fff', ink: '#141B22', mute: '#5F666B', line: '#E4DFD3', brand: '#0E5A52', soft: '#DFEEE3', ok: '#1E6B3F', bad: '#C23B32', warn: '#B76E0A', info: '#2F58B5', side: '#14202A', sideOn: '#2B363F', blueSoft: '#DCE8F8',
-  okBg: '#dcfce7', badBg: '#fee2e2', warnBg: '#fef3c7', infoBg: '#dbeafe', muteBg: '#EFEBE2', badLine: '#f5c6c2', skel: '#E2DDD0', hint: '#9A9A93', scrim: '#0006', shadow: '#14202A', shadowOpacity: 0.07 };
-export const DARK = { bg: '#11181E', card: '#1A242C', ink: '#E8ECEF', mute: '#9AA5AE', line: '#2A363F', brand: '#23978A', soft: '#1E3A36', ok: '#4CC38A', bad: '#F0716A', warn: '#E0A33A', info: '#7BA2F5', side: '#0C1217', sideOn: '#2B363F', blueSoft: '#1F3354',
+export const LIGHT = { bg: '#F1F3F9', card: '#fff', ink: '#171A2E', mute: '#60657C', line: '#E1E5F0', brand: '#4A4FD8', soft: '#E7E8FC', ok: '#13795B', bad: '#C93B4B', warn: '#B4690E', info: '#2F6FD6', side: '#1B1F3B', sideOn: '#2A2F55', blueSoft: '#E7E8FC',
+  okBg: '#DDF3EA', badBg: '#FBE4E7', warnBg: '#FCEBD0', infoBg: '#DEEAFB', muteBg: '#ECEEF6', badLine: '#F3C5CB', skel: '#E1E5F0', hint: '#9A9A93', scrim: '#0006', shadow: '#1B1F3B', shadowOpacity: 0.05 };
+export const DARK = { bg: '#0F1220', card: '#171B30', ink: '#E9EBF7', mute: '#9AA0BC', line: '#252A45', brand: '#8E94FF', soft: '#232851', ok: '#4CC38A', bad: '#F0716A', warn: '#E0A33A', info: '#7BA2F5', side: '#0A0D1A', sideOn: '#252A45', blueSoft: '#232851',
   okBg: '#173326', badBg: '#3D1D1B', warnBg: '#3A2D12', infoBg: '#1B2B4A', muteBg: '#25303A', badLine: '#6B2F2B', skel: '#2A363F', hint: '#6F7B85', scrim: '#000A', shadow: '#000', shadowOpacity: 0.35 };
 export const C = { ...LIGHT };
 // soft card shadow used on every white surface
-export const SH = { shadowColor: '#14202A', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 };
+export const SH = { shadowColor: '#1B1F3B', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 };
 
 // styles that are built once at load must still follow the theme: wrap the factory in live() and every property read re-runs it
 // Object.freeze matters: React Native's dev mode (Expo Go) deep-freezes style objects by redefining their properties, which throws

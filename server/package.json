@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node --test test/feeInsights.test.js test/fees-routes.test.js test/homework-chat.test.js test/ai-downloads.test.js test/r2-signed.test.js"
+    "test": "node --test test/feeInsights.test.js test/fees-routes.test.js test/homework-chat.test.js test/ai-downloads.test.js test/r2-signed.test.js test/class-names.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",

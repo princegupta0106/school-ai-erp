@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, Modal, Platform, Switch, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, TextInput, Modal, Platform, Switch, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -8,7 +8,7 @@ import { downloadAndShare } from '../download';
 import { shareDocumentPdf } from '../docPrint';
 import { C, SH } from '../theme';
 import { Icon } from '../icons';
-import { KeyboardSafe } from '../ui';
+import { KeyboardSafe, toast, confirmAsk, Notifier } from '../ui';
 
 // "Ask AI" chat (same behaviour as the web app). Reading things (counts, lists, searches) happens straight away.
 // Anything that CHANGES data shows a Confirm card first; nothing is saved until the person taps Confirm
@@ -121,11 +121,11 @@ export default function Assistant({ me, onClose }) {
       if (r.canceled) return;
       const got = r.assets.map((a) => ({ uri: a.uri, name: a.name, size: a.size || 0, type: mimeOf(a) }));
       const big = got.filter((f) => f.size > MAX_BYTES);
-      if (big.length) Alert.alert('File too big', `${big.map((f) => f.name).join(', ')}: each file must be under 10 MB.`);
+      if (big.length) toast(`${big.map((f) => f.name).join(', ')}: each file must be under 10 MB.`, true);
       const ok = got.filter((f) => f.size <= MAX_BYTES && !files.some((x) => x.name === f.name && x.size === f.size));
-      if (files.length + ok.length > MAX_FILES) Alert.alert('Too many files', `Up to ${MAX_FILES} files at a time.`);
+      if (files.length + ok.length > MAX_FILES) toast(`Up to ${MAX_FILES} files at a time.`, true);
       setFiles([...files, ...ok].slice(0, MAX_FILES));
-    } catch (e) { Alert.alert('Could not pick a file', e.message); }
+    } catch (e) { toast(e.message, true); }
   };
 
   const send = async (t) => {
@@ -171,7 +171,7 @@ export default function Assistant({ me, onClose }) {
   const toggleAuto = (on) => {
     const apply = () => { setAuto(on); AsyncStorage.setItem(AUTO_KEY, on ? '1' : '0').catch(() => {}); };
     if (!on) return apply();
-    Alert.alert('Turn on auto-confirm?', 'Changes (users, passwords, roles, deletions) will be saved immediately without asking.', [{ text: 'No', style: 'cancel' }, { text: 'Turn on', style: 'destructive', onPress: apply }]);
+    confirmAsk('Changes (users, passwords, roles, deletions) will be saved immediately without asking.', apply, { title: 'Turn on auto-confirm?', yes: 'Turn on', danger: true });
   };
   const reset = () => { setConv(null); setItems([]); setFiles([]); };
   const chips = SUGGEST.filter((s) => (me.features || []).includes(s.need)).slice(0, 4);
@@ -244,6 +244,7 @@ export default function Assistant({ me, onClose }) {
           </SafeAreaView>
         </KeyboardSafe>
       </SafeAreaView>
+      <Notifier />
     </Modal>
   );
 }
