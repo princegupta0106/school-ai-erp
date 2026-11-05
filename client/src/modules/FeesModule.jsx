@@ -99,8 +99,8 @@ export const FeeStructure = scoped(function FeeStructure({ me, sid }) {
 
   return (
     <div className="stack" style={{ maxWidth: 1040 }}>
-      <div className="card row sp">
-        <div><b style={{ fontSize: 17 }}>Fees for session</b><div className="muted" style={{ fontSize: 14 }}>{withFees} of {data.classes.length} class{data.classes.length === 1 ? '' : 'es'} have fees set</div></div>
+      <div className="toolbar">
+        <div><b className="pg-title">Fees for session</b><div className="muted" style={{ fontSize: 14 }}>{withFees} of {data.classes.length} class{data.classes.length === 1 ? '' : 'es'} have fees set</div></div>
         <div className="row">
           <select aria-label="Session" style={{ width: 'auto' }} value={data.session.id} onChange={(e) => setSessionId(e.target.value)}>{data.sessions.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (current)' : ''}</option>)}</select>
           {data.sessions.length > 1 && <button className="btn" onClick={() => setModal({ type: 'copy' })}>Copy from another session</button>}
@@ -112,7 +112,7 @@ export const FeeStructure = scoped(function FeeStructure({ me, sid }) {
         {cls && (
           <div className="card stack" style={{ gap: 12 }}>
             <div className="row sp">
-              <div><b style={{ fontSize: 17 }}>Class {cls.name}</b><div className="muted" style={{ fontSize: 14 }}>{cls.sections.length ? `Sections ${cls.sections.join(', ')} - ` : ''}{cls.students} student{cls.students === 1 ? '' : 's'}. Same fees for every section.</div></div>
+              <div><b className="pg-title">Class {cls.name}</b><div className="muted" style={{ fontSize: 14 }}>{cls.sections.length ? `Sections ${cls.sections.join(', ')} - ` : ''}{cls.students} student{cls.students === 1 ? '' : 's'}. Same fees for every section.</div></div>
               <button className="btn primary" onClick={() => setModal({ type: 'item' })}><Icon name="plus" size={16} />Add fee</button>
             </div>
             {cls.items.length === 0 ? <Empty>No fees for Class {cls.name} yet. Add the first one, for example Tuition.</Empty> : (
@@ -227,9 +227,9 @@ function Account({ me, sid, studentId, family, onBack, backLabel }) {
   return (
     <div className="stack" style={{ maxWidth: 1040 }}>
       {header}
-      <div className="card row sp">
+      <div className="toolbar">
         <div>
-          <b style={{ fontSize: 18 }}>{s.full_name}</b>
+          <b className="pg-title">{s.full_name}</b>
           <div className="muted" style={{ fontSize: 14 }}>{s.class_label ? `Class ${s.class_label}` : 'No class assigned'}{s.roll_no ? ` - Roll ${s.roll_no}` : ''}{s.admission_no ? ` - Adm. ${s.admission_no}` : ''}</div>
         </div>
         {d.sessions.length > 1 ? <select aria-label="Session" style={{ width: 'auto' }} value={d.session.id} onChange={(e) => setSessionId(e.target.value)}>{d.sessions.map((x) => <option key={x.id} value={x.id}>{x.name}{x.is_current ? ' (current)' : ''}{x.pending > 0 ? ` - ${rupees(x.pending)} pending` : ''}</option>)}</select> : <span className="chip">{d.session.name}</span>}

@@ -25,7 +25,7 @@ const barColor = (p) => ({ hi: '#10b981', mid: '#3b82f6', lo: '#f59e0b', bad: '#
 const Grade = ({ g, p }) => (g ? <span className={`ex-g ${tone(p)}`}>{g}</span> : <span className="muted">-</span>);
 const Mini = ({ p }) => <span className="ex-bar2"><i style={{ width: `${Math.min(100, p ?? 0)}%`, background: barColor(p) }} /></span>;
 const Tile = ({ label, value, a, b }) => <div className="ex-tile" style={{ '--t1': a, '--t2': b }}><small>{label}</small><b>{value}</b></div>;
-const Hero = ({ title, text }) => <div className="ex-hero"><h2>{title}</h2><p>{text}</p></div>;
+const Hero = () => null; // description banner removed
 const labelOf = (c) => c.label || `${c.name}${c.section ? ` ${c.section}` : ''}`;
 const CCOL = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#db2777', '#7c3aed', '#2563eb', '#ea580c'];
 

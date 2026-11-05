@@ -94,7 +94,7 @@ export function MyLeave({ me, action }) {
             <div style={{ fontSize: 28, fontWeight: 700, color: balTone(b.balance) }}>{b.balance}</div>
             <div style={dim}>{b.balance < 0 ? 'Over by ' + Math.abs(b.balance) + ' day(s): extra days are cut from salary' : 'days available'}{b.pending ? ` · ${b.pending} pending` : ''}</div></div>))}
       </div>
-      <div className="row sp"><div className="pills scroll">{[['leave', 'Leave history'], ['pay', 'Salary & payslips'], ['book', 'Balance history']].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
+      <div className="toolbar"><div className="pills scroll">{[['leave', 'Leave history'], ['pay', 'Salary & payslips'], ['book', 'Balance history']].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
         <button className="btn primary" onClick={() => setApply(true)}><span>Apply for leave</span></button></div>
 
       {tab === 'leave' && <div className="card stack" style={{ gap: 0 }}>
@@ -140,7 +140,7 @@ export function LeaveRequests({ me }) {
   if (!sid) return <Empty>Create a school first.</Empty>;
   return (
     <div className="stack">
-      <div className="row sp">{picker}<div className="pills scroll">{['', 'pending', 'approved', 'rejected', 'cancelled'].map((s) => <button key={s} className={`pill t-${s || 'all'} ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s ? s[0].toUpperCase() + s.slice(1) : 'All'}</button>)}</div>
+      <div className="toolbar">{picker}<div className="pills scroll">{['', 'pending', 'approved', 'rejected', 'cancelled'].map((s) => <button key={s} className={`pill t-${s || 'all'} ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s ? s[0].toUpperCase() + s.slice(1) : 'All'}</button>)}</div>
         {can && st && <button className="btn" onClick={() => setRec(true)}>Record leave for someone</button>}</div>
       {st && <div style={dim}>Approval mode: <b>{st.settings.approval_mode === 'auto' ? 'automatic (requests are approved instantly)' : 'manual (needs an approver)'}</b></div>}
       {error && <div className="err">{error}</div>}
@@ -175,7 +175,7 @@ export function Balances({ me }) {
   if (!sid) return <Empty>Create a school first.</Empty>;
   return (
     <div className="stack">
-      <div className="row sp">{picker}{canGrant && <button className="btn primary" onClick={() => setGrant(true)}>Grant / allot leave</button>}</div>
+      <div className="toolbar">{picker}{canGrant && <button className="btn primary" onClick={() => setGrant(true)}>Grant / allot leave</button>}</div>
       {error && <div className="err">{error}</div>}
       {!data || !st ? <Loading /> : (
         <div className="card" style={{ overflowX: 'auto' }}><table><thead><tr><th>Employee</th>{types.map((t) => <th key={t.id}>{t.name}</th>)}<th /></tr></thead><tbody>
@@ -234,7 +234,7 @@ export function Payroll({ me }) {
   const post = (url, body) => api.post(withQs(url, qs), body);
   return (
     <div className="stack">
-      <div className="row sp">{picker}<div className="row"><input type="month" style={{ width: 'auto' }} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
+      <div className="toolbar">{picker}<div className="row"><input type="month" style={{ width: 'auto' }} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
         {manage && <>
           <button className="btn" disabled={busy || !data?.can_generate} title={data?.can_generate ? '' : 'Month has not ended'} onClick={run(() => post('/payroll/payslips/generate', { period: month }), (r) => `Prepared ${r.made} payslip(s)${r.noSalary.length ? `; no salary set for: ${r.noSalary.join(', ')}` : ''}`)}>Prepare / refresh</button>
           <button className="btn" disabled={busy || !nDraft} onClick={async () => (await ask(`Finalize ${nDraft} draft payslip(s)? Numbers lock and negative leave balances are settled.`)) && run(() => post('/payroll/payslips/finalize-all', { period: month }), (r) => `Finalized ${r.done}${r.failed.length ? `. Skipped: ${r.failed.join(' | ')}` : ''}`)()}>Finalize all</button>

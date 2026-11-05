@@ -78,7 +78,7 @@ export const QueryList = scoped(function QueryList({ me, sid }) {
   const st = (id) => meta.statuses.find((s) => s.id === id);
   return (
     <div className="stack" style={{ maxWidth: 1040 }}>
-      <div className="card row" style={{ flexWrap: 'wrap', gap: 8 }}>
+      <div className="toolbar">
         <div style={{ position: 'relative', flex: 1, minWidth: 180 }}><input placeholder="Search name, phone or subject" value={term} onChange={(e) => setTerm(e.target.value)} style={{ paddingLeft: 36 }} /><span style={{ position: 'absolute', left: 11, top: 10, color: 'var(--mute)' }}><Icon name="search" size={18} /></span></div>
         <select style={{ width: 'auto' }} value={flt.open ? 'open' : flt.status_id} onChange={(e) => setFlt({ ...flt, open: e.target.value === 'open' ? '1' : '', status_id: e.target.value === 'open' ? '' : e.target.value })}>
           <option value="">All statuses</option><option value="open">Not finished</option>{meta.statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -116,7 +116,7 @@ function QueryDetail({ me, sid, id, meta, onClose, onChanged }) {
     <Modal title={x ? `${refNo(x.ref_no)} - ${x.type_name}` : 'Query'} onClose={onClose} wide>
       {error ? <div className="err">{error}</div> : !x ? <Loading /> : (
         <div className="stack">
-          <div className="row sp"><div><b style={{ fontSize: 17 }}>{x.name}</b><div className="muted" style={{ fontSize: 14 }}>{x.phone || 'No phone'} - {fmtDT(x.created_at)}{x.created_by_name ? ` - by ${x.created_by_name}` : ''}</div></div><StatusBadge s={st(x.status_id)} /></div>
+          <div className="row sp"><div><b className="pg-title">{x.name}</b><div className="muted" style={{ fontSize: 14 }}>{x.phone || 'No phone'} - {fmtDT(x.created_at)}{x.created_by_name ? ` - by ${x.created_by_name}` : ''}</div></div><StatusBadge s={st(x.status_id)} /></div>
           {x.subject && <div><small className="muted">Subject</small><div><b>{x.subject}</b></div></div>}
           {Object.keys(x.data || {}).length > 0 && (
             <div className="card form" style={{ background: 'var(--bg)' }}>{(type?.fields || Object.keys(x.data).map((k) => ({ key: k, label: k }))).filter((q) => x.data[q.key]).map((q) => <div key={q.key}><small className="muted">{q.label}</small><div>{x.data[q.key]}</div></div>)}</div>)}
@@ -153,7 +153,7 @@ export const QuerySettings = scoped(function QuerySettings({ me, sid }) {
   const makeDefault = async (s) => { try { await api.patch(`/queries/statuses/${s.id}`, { ...q, is_default: true }); refresh(); } catch (x) { toast(x.message, true); } };
   return (
     <div className="stack" style={{ maxWidth: 760 }}>
-      <div className="row sp"><b style={{ fontSize: 17 }}>Forms</b><button className="btn primary" onClick={() => setEditType({})}><Icon name="plus" />New form</button></div>
+      <div className="page-head"><div className="ph-t"><b>Forms</b><span>What people fill in when they raise a query</span></div><div className="ph-a"><button className="btn primary" onClick={() => setEditType({})}><Icon name="plus" />New form</button></div></div>
       <div className="card" style={{ padding: 0 }}>{meta.types.map((t) => (
         <div key={t.id} className="drow" style={{ cursor: 'default', opacity: t.is_active ? 1 : 0.55 }}>
           <div style={{ flex: 1 }}><b>{t.name}</b><small>{t.audience === 'internal' ? 'Internal' : 'Parents / visitors'} - {t.fields.length} extra question{t.fields.length === 1 ? '' : 's'}{t.is_active ? '' : ' - switched off'}</small></div>
@@ -161,7 +161,7 @@ export const QuerySettings = scoped(function QuerySettings({ me, sid }) {
           <button className="icon-btn" aria-label={`Edit ${t.name}`} onClick={() => setEditType(t)}><Icon name="edit" /></button>
           <button className="icon-btn" aria-label={`Delete ${t.name}`} onClick={() => delType(t)}><Icon name="trash" /></button>
         </div>))}</div>
-      <div className="row sp"><b style={{ fontSize: 17 }}>Statuses</b><button className="btn primary" onClick={() => setEditStatus({})}><Icon name="plus" />New status</button></div>
+      <div className="page-head" style={{ marginTop: 8 }}><div className="ph-t"><b>Statuses</b><span>Stages a response moves through</span></div><div className="ph-a"><button className="btn primary" onClick={() => setEditStatus({})}><Icon name="plus" />New status</button></div></div>
       <div className="card" style={{ padding: 0 }}>{meta.statuses.map((s) => (
         <div key={s.id} className="drow" style={{ cursor: 'default' }}>
           <div style={{ flex: 1 }}><Badge tone={s.color}>{s.name}</Badge> <small style={{ display: 'inline', marginLeft: 8 }}>{s.is_closed ? 'Counts as finished' : 'Still open'}{s.is_default ? ' - used for new queries' : ''}</small></div>

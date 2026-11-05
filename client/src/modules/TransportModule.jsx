@@ -242,9 +242,9 @@ export const Vehicles = scoped(function Vehicles({ me, sid }) {
   if (!data) return <Loading />;
   return (
     <div className="tr">
-      <div className="row sp">
-        <div><b style={{ fontSize: 17 }}>{data.length} bus{data.length === 1 ? '' : 'es'}</b><div className="muted" style={{ fontSize: 13 }}>Seats used, driver and document dates for every bus</div></div>
-        {manage && <button className="btn primary" onClick={() => setEdit('new')}><Icon name="plus" size={16} /> Add bus</button>}
+      <div className="page-head">
+        <div className="ph-t"><b>{data.length} bus{data.length === 1 ? '' : 'es'}</b><span>Seats used, driver and document dates for every bus</span></div>
+        {manage && <div className="ph-a"><button className="btn primary" onClick={() => setEdit('new')}><Icon name="plus" size={16} /> Add bus</button></div>}
       </div>
       {data.length === 0 ? <Empty>No buses yet.{manage && ' Tap "Add bus" to start.'}</Empty> : (
         <div className="tr-grid">
@@ -438,7 +438,7 @@ export const Routes = scoped(function Routes({ me, sid, go }) {
   return (
     <div className="tr">
       <div className="row sp">
-        <div><b style={{ fontSize: 17 }}>{routes.length} route{routes.length === 1 ? '' : 's'}</b><div className="muted" style={{ fontSize: 13 }}>Tap a route to see and edit its stops</div></div>
+        <div><b className="pg-title">{routes.length} route{routes.length === 1 ? '' : 's'}</b><div className="muted" style={{ fontSize: 13 }}>Tap a route to see and edit its stops</div></div>
         {manage && <button className="btn primary" onClick={() => setForm(true)}><Icon name="plus" size={16} /> Add route</button>}
       </div>
       {routes.length === 0 ? <Empty>No routes yet.{manage && ' Tap "Add route" to start.'}</Empty> : (

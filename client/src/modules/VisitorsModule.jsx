@@ -53,8 +53,8 @@ export const VisitorList = scoped(function VisitorList({ me, sid }) {
   const isToday = d.date === d.today;
   return (
     <div className="stack" style={{ maxWidth: 1040 }}>
-      <div className="card row sp">
-        <div><b style={{ fontSize: 17 }}>{isToday ? 'Today' : fmtDate(d.date)}</b><div className="muted" style={{ fontSize: 14 }}>{isToday ? `${fmtDate(d.today)} - ` : ''}{d.visitors.length} visitor{d.visitors.length === 1 ? '' : 's'}</div></div>
+      <div className="toolbar">
+        <div><b className="pg-title">{isToday ? 'Today' : fmtDate(d.date)}</b><div className="muted" style={{ fontSize: 14 }}>{isToday ? `${fmtDate(d.today)} - ` : ''}{d.visitors.length} visitor{d.visitors.length === 1 ? '' : 's'}</div></div>
         <div className="row">
           {!isToday && <button className="btn" onClick={() => setDate('')}>Today</button>}
           <input type="date" aria-label="Date" style={{ width: 'auto' }} value={d.date} onChange={(e) => e.target.value && setDate(e.target.value === d.today ? '' : e.target.value)} />

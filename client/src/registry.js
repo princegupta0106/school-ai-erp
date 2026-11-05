@@ -84,9 +84,9 @@ export const MODULE_UI = {
   queries: {
     label: 'Queries', desc: 'Admission enquiries, general and internal queries with status tracking', color: '#d97706', icon: 'chat',
     views: [
-      { key: 'list', label: 'Queries', need: ['view_queries', 'add_query'], component: QueryList },
-      { key: 'new', label: 'New query', need: ['add_query'], component: NewQuery },
-      { key: 'settings', label: 'Forms & statuses', need: ['manage_query_settings'], component: QuerySettings },
+      { key: 'list', label: 'Responses', need: ['view_queries', 'add_query'], component: QueryList },
+      { key: 'new', label: 'New response', need: ['add_query'], component: NewQuery },
+      { key: 'settings', label: 'Forms', need: ['manage_query_settings'], component: QuerySettings },
     ],
   },
   admissions: {

@@ -133,21 +133,18 @@ export const TimetableHome = scoped(function TimetableHome({ me, sid, go }) {
       </div>
 
       <div className="card stack" style={{ gap: 10 }}>
-        <div className="row sp"><b>Teacher workload</b>
-          <div className="pills"><button className={`pill ${sort === 'load' ? 'on' : ''}`} onClick={() => setSort('load')}>Busiest first</button><button className={`pill ${sort === 'name' ? 'on' : ''}`} onClick={() => setSort('name')}>A to Z</button></div></div>
-        <Hint>Bar = periods a week given in the teacher's profile. Red means over the limit of {w.max_load}.</Hint>
-        {rows.length === 0 ? <Empty>No teachers yet.</Empty> : rows.map((x, i) => {
-          const col = PALETTE[i % PALETTE.length];
+        <div className="page-head"><div className="ph-t"><b>Teacher workload</b><span>Bar = periods a week given in the teacher's profile. Red means over the limit of {w.max_load}.</span></div>
+          <div className="ph-a"><div className="pills"><button className={`pill ${sort === 'load' ? 'on' : ''}`} onClick={() => setSort('load')}>Busiest first</button><button className={`pill ${sort === 'name' ? 'on' : ''}`} onClick={() => setSort('name')}>A to Z</button></div></div></div>
+        {rows.length === 0 ? <Empty>No teachers yet.</Empty> : <div>{rows.map((x, i) => {
+          const col = PALETTE[i % PALETTE.length]; const over = x.assigned > w.max_load;
           return (
-            <div key={x.teacher_id} className="tt-load">
-              <span className="avatar" style={{ background: `color-mix(in srgb,${col} 18%,var(--card))`, color: col, borderColor: `color-mix(in srgb,${col} 40%,transparent)` }}>{initials(x.t.name)}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="row sp"><b>{x.t.name}</b><span className={x.assigned > w.max_load ? 'tt-over' : 'muted'}>{x.assigned} / {w.max_load}</span></div>
-                <Bar value={x.assigned} max={w.max_load} color={col} />
-                <small className="muted">{x.classes} class{x.classes === 1 ? '' : 'es'} - {x.subjects} subject{x.subjects === 1 ? '' : 's'} - {x.scheduled} placed in timetable - {x.free} free periods</small>
-              </div>
+            <div key={x.teacher_id} className="wl-row">
+              <span className="avatar" style={{ background: `color-mix(in srgb,${col} 16%,var(--card))`, color: col, borderColor: `color-mix(in srgb,${col} 35%,transparent)` }}>{initials(x.t.name)}</span>
+              <div className="wl-name">{x.t.name}<small>{x.classes} class{x.classes === 1 ? '' : 'es'} - {x.subjects} subject{x.subjects === 1 ? '' : 's'} - {x.scheduled} placed - {x.free} free</small></div>
+              <div className="wl-bar"><i className={over ? 'over' : ''} style={{ width: `${Math.min(100, (x.assigned / (w.max_load || 1)) * 100)}%` }} /></div>
+              <span className={`wl-n ${over ? 'tt-over' : ''}`}>{x.assigned} / {w.max_load}</span>
             </div>);
-        })}
+        })}</div>}
       </div>
     </div>
   );

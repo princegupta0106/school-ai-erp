@@ -89,7 +89,7 @@ export const NoticeBoard = scoped(function NoticeBoard({ me, sid }) {
   const all = [...d.pinned, ...d.items];
   return (
     <div className="stack" style={{ maxWidth: 1040 }}>
-      {canPost && <button className="btn primary big" style={{ alignSelf: 'flex-start' }} onClick={() => setForm({})}><Icon name="plus" size={18} />New notice</button>}
+      <div className="page-head"><div className="ph-t"><b>Notice board</b><span>Announcements for the school, classes and staff</span></div>{canPost && <div className="ph-a"><button className="btn primary" onClick={() => setForm({})}><Icon name="plus" size={16} />New notice</button></div>}</div>
       {all.length === 0 ? <Empty>No notices yet.</Empty> : all.map((n) => <Notice key={n.id} n={n} me={me} sid={sid} onChanged={load} onEdit={setForm} />)}
       {d.more && <button className="btn" style={{ alignSelf: 'center' }} onClick={older} disabled={busy}>{busy ? 'Loading...' : 'Load older notices'}</button>}
       {form && <NoticeForm me={me} sid={sid} edit={form.id ? form : null} onClose={() => setForm(null)} onSaved={load} />}
@@ -188,7 +188,7 @@ export function Messages({ me }) {
   return (
     <div className={`chatwrap ${active ? 'has-active' : ''}`}>
       <div className="chatlist">
-        <button className="btn primary big" style={{ justifyContent: 'center' }} onClick={() => setPicking(true)}><Icon name="plus" size={18} />New message</button>
+        <div className="page-head"><div className="ph-t"><b>Messages</b><span>Chat with parents, staff and students</span></div><div className="ph-a"><button className="btn primary" onClick={() => setPicking(true)}><Icon name="plus" size={16} />New message</button></div></div>
         {list.length === 0 ? <Empty>No chats yet. Start one with "New message".</Empty> : (
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>{list.map((c) => (
             <button key={c.id} className={`drow crow ${active?.id === c.id ? 'on' : ''}`} onClick={() => open(c)}>
