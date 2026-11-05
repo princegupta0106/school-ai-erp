@@ -16,6 +16,7 @@ import { IssueDocument, IssuedList, Templates, Letterhead, MyDocuments } from '.
 import { MyHomework, Homework } from './screens/Homework';
 import { VisitorList, AddVisitor } from './screens/Visitors';
 import { QueryList, NewQuery, QuerySettings } from './screens/Queries';
+import { AdmissionsHome, EnquiryList as AdmEnquiries, AddEnquiry, AdmissionReports } from './screens/Admissions';
 import { AuditLogs } from './screens/Audit';
 import { Backup } from './screens/Backup';
 import { SchoolList, SchoolNew, Calendar, Promotion } from './screens/School';
@@ -45,6 +46,11 @@ export const MODULE_UI = {
     { key: 'list', label: 'Queries', need: ['view_queries', 'add_query'], component: QueryList },
     { key: 'new', label: 'New query', need: ['add_query'], component: NewQuery },
     { key: 'settings', label: 'Forms & statuses', need: ['manage_query_settings'], component: QuerySettings }] },
+  admissions: { label: 'Admissions', color: '#16a34a', icon: 'userplus', views: [
+    { key: 'home', label: 'Overview', need: ['view_enquiries'], component: AdmissionsHome },
+    { key: 'list', label: 'Enquiries', need: ['view_enquiries'], component: AdmEnquiries },
+    { key: 'add', label: 'Add enquiry', need: ['add_enquiry'], component: AddEnquiry },
+    { key: 'reports', label: 'Reports', need: ['view_admission_reports'], component: AdmissionReports }] },
   fees: { label: 'Fees', color: '#059669', icon: 'rupee', views: [
     { key: 'my', label: 'My fees', need: ['view_my_fees'], component: MyFees },
     { key: 'students', label: 'Student fees', need: ['view_student_fees', 'collect_fees', 'adjust_fees'], component: StudentFees },
@@ -137,6 +143,7 @@ export function prefetchUrls(me, mKey, vKey) {
   if (mKey === 'documents') return vKey === 'my' ? ['/documents/my'] : vKey === 'issued' ? ['/documents/issued?page=0'] : vKey === 'issue' ? ['/documents/meta'] : [];
   if (mKey === 'audit') return ['/audit'];
   if (mKey === 'visitors') return vKey === 'list' ? ['/visitors'] : [];
+  if (mKey === 'admissions') return vKey === 'home' ? ['/admissions/summary'] : vKey === 'list' ? ['/admissions', '/admissions/meta'] : vKey === 'add' ? ['/admissions/meta'] : [];
   if (mKey === 'queries') return vKey === 'list' ? ['/queries', '/queries/meta'] : ['/queries/meta'];
   if (mKey === 'homework') return vKey === 'my' ? ['/homework/my'] : vKey === 'manage' ? ['/homework/assignments'] : [];
   if (mKey === 'fees') return vKey === 'my' ? ['/fees/my'] : vKey === 'students' ? ['/fees/students', '/fees/classes'] : vKey === 'structure' ? ['/fees/structure'] : [];

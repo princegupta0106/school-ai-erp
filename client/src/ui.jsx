@@ -6,6 +6,7 @@ const P = {
   school: 'M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6M12 10h.01',
   users: 'M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1a4 4 0 0 0-3-3.9M16 4.1a3.5 3.5 0 0 1 0 6.8',
   back: 'm15 18-6-6 6-6',
+  profile: 'M16 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9 16c.5-1.5 1.7-2 3-2s2.5.5 3 2',
   moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
   sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
@@ -38,6 +39,11 @@ const P = {
   down: 'm6 9 6 6 6-6',
   bolt: 'M13 2 3 14h9l-1 8 10-12h-9z',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
+  phone: 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z',
+  calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  userplus: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6',
+  bus: 'M8 6v6M15 6v6M2 12h19.6M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3M9 18h5M5 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0M14 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0',
+  box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
   sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z',
 };
 export const Icon = ({ name, size = 20 }) => (
@@ -166,4 +172,45 @@ export function askText(label, value = '', opts = {}) {
     n.onclick = () => done(null); y.onclick = () => done(inp.value); inp.onkeydown = (e) => { if (e.key === 'Enter') done(inp.value); };
     row.append(n, y); box.appendChild(row); inp.focus(); inp.select();
   });
+}
+
+/* ===== class-wise student lists (used wherever students are shown) =====
+   classRank puts classes in school order: Playgroup, Nursery, LKG, UKG, 1, 2 ... 12, then anything else, "No class" last. */
+export function classRank(label) {
+  const s = String(label || '').trim().replace(/^class\s+/i, '');
+  if (!s || /^no class$/i.test(s)) return [9e6, ''];
+  const m = s.match(/^(\d+)\s*(.*)$/);
+  if (m) return [Number(m[1]), m[2].toUpperCase()];
+  const w = s.toLowerCase();
+  const early = [['play', -5], ['pre', -4], ['nur', -3], ['lkg', -2], ['kg1', -2], ['ukg', -1], ['kg2', -1]].find(([k]) => w.startsWith(k));
+  return early ? [early[1], s.toUpperCase()] : [1e6, s.toUpperCase()];
+}
+export const compareClass = (a, b) => { const x = classRank(a); const y = classRank(b); return x[0] - y[0] || x[1].localeCompare(y[1], undefined, { numeric: true }); };
+const CLASS_COLORS = ['#f97316', '#0ea5e9', '#8b5cf6', '#10b981', '#ec4899', '#14b8a6', '#6366f1', '#ca8a04', '#d946ef', '#ef4444', '#22c55e', '#3b82f6'];
+export const classColor = (label) => { const [n, sec] = classRank(label); return n >= 9e6 ? '#64748b' : CLASS_COLORS[(((n > 1e5 ? 0 : n + 5) + (sec ? sec.charCodeAt(0) : 0)) % CLASS_COLORS.length + CLASS_COLORS.length) % CLASS_COLORS.length]; };
+export const classText = (label) => (label && !/^no class$/i.test(label) ? `Class ${String(label).replace(/^class\s+/i, '')}` : 'No class');
+
+/** [{label, items}] in school order. getLabel(item) gives "10 A" / "Nursery" / empty. */
+export function groupByClass(items, getLabel) {
+  const map = new Map();
+  for (const it of items) { const l = String(getLabel(it) || '').trim() || 'No class'; if (!map.has(l)) map.set(l, []); map.get(l).push(it); }
+  return [...map.entries()].sort((a, b) => compareClass(a[0], b[0])).map(([label, list]) => ({ label, items: list }));
+}
+
+/** One collapsible class section. `open` forces it open (e.g. while searching). */
+export function ClassGroup({ label, count, note, open, children }) {
+  const [shut, setShut] = useState(false);
+  const c = classColor(label); const isOpen = open || !shut;
+  return (
+    <section className="cg" style={{ '--c': c }}>
+      <button type="button" className="cg-h" aria-expanded={isOpen} onClick={() => setShut(isOpen)}>
+        <span className="cg-badge">{classText(label).replace('Class ', '')}</span>
+        <b>{classText(label)}</b>
+        <span className="cg-n">{count} student{count === 1 ? '' : 's'}</span>
+        {note && <span className="cg-note">{note}</span>}
+        <svg className="cg-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {isOpen && <div className="cg-b">{children}</div>}
+    </section>
+  );
 }

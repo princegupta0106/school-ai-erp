@@ -9,6 +9,7 @@ export async function seedSuperAdmin() {
   if (error) {
     console.error('\nCould not reach the database:', error.message);
     console.error('Did you run db/schema.sql in the Supabase SQL editor?\n');
+    await new Promise((r) => setTimeout(r, 400)); // let open connections close first (avoids a Node crash message on Windows)
     process.exit(1);
   }
   if (data) return console.log(`Super admin "${loginId}" already exists`);

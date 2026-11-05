@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { httpError, asyncH } from '../db.js';
 import { requireFeature, isSuper } from '../auth.js';
 import * as A from '../academics.js';
+import * as CS from '../classSubjects.js';
 
 const r = Router();
 const SEE = ['manage_subjects', 'manage_exams', 'manage_assessments', 'view_academic_reports'];
@@ -20,6 +21,13 @@ r.get('/meta', requireFeature(...SEE), asyncH(async (req, res) => res.json(await
 r.post('/subjects', requireFeature('manage_subjects'), asyncH(async (req, res) => res.status(201).json(await A.createSubject(schoolOf(req), req.body))));
 r.patch('/subjects/:id', requireFeature('manage_subjects'), asyncH(async (req, res) => res.json(await A.updateSubject(schoolOf(req), req.params.id, req.body))));
 r.delete('/subjects/:id', requireFeature('manage_subjects'), asyncH(async (req, res) => { await A.deleteSubject(schoolOf(req), req.params.id); res.json({ ok: true }); }));
+
+// ---- which subjects each class studies, and who teaches them
+r.get('/class-subjects', requireFeature(...SEE, 'manage_timetable', 'view_timetable', 'edit_user'), asyncH(async (req, res) => res.json(await CS.overview(schoolOf(req)))));
+r.put('/class-subjects', requireFeature('manage_subjects'), asyncH(async (req, res) => {
+  const b = req.body || {};
+  res.json(await CS.setClassSubjects(schoolOf(req), b.class_ids, b.subject_ids, b.mode));
+}));
 
 // ---- exams (Half-yearly, Final...)
 r.post('/exams', requireFeature('manage_exams'), asyncH(async (req, res) => res.status(201).json(await A.createExam(schoolOf(req), req.body))));

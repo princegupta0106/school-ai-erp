@@ -8,6 +8,8 @@
 import crypto from 'node:crypto';
 import { db, httpError, check } from './db.js';
 import { accessibleClasses } from './attendance.js';
+import { hasAllClasses } from './academics.js';
+import * as CS from './classSubjects.js';
 import { uploadFile, deleteFile, headFile, copyFile, listFiles, signedUrl } from './r2.js';
 import { notifyHomework, notifyChecked } from './notify.js';
 import { stagePrefix, safeName, copyStaged, sweepStaged, MAX_FILES } from './stagedFiles.js';
@@ -40,9 +42,40 @@ export async function listClasses(user, schoolId) {
   return accessibleClasses(user, schoolId);
 }
 
+// The class + subject combos this person can post to (e.g. "6 A - Maths", "7 B - Maths").
+//  - a teacher: the combos he was given (Users > teacher > Teaching / timetable)
+//  - an admin (or anyone with access to every class): every subject of every class
+// A class that has no subjects at all (or a teacher with no combos) is offered as a plain class, without a subject.
+export async function combos(user, schoolId) {
+  const classes = await accessibleClasses(user, schoolId);
+  const byId = new Map(classes.map((c) => [c.id, c]));
+  const { data: subs, error } = await db.from('subjects').select('id,name').eq('school_id', schoolId).order('name');
+  check(error);
+  const sName = new Map(subs.map((x) => [x.id, x.name]));
+  const clsLabel = (c) => c.label || `${c.name}${c.section ? ` ${c.section}` : ''}`;
+  const pairs = [];
+  if (isAdmin(user) || hasAllClasses(user)) {
+    const map = await CS.classSubjectMap(schoolId);
+    for (const c of classes) {
+      const ids = (map[c.id] || []).filter((id) => sName.has(id));
+      if (ids.length) ids.forEach((id) => pairs.push({ class_id: c.id, subject_id: id }));
+      else pairs.push({ class_id: c.id, subject_id: null });
+    }
+  } else {
+    const mine = (await CS.myCombos(user.user_id, schoolId)).filter((m) => byId.has(m.class_id) && sName.has(m.subject_id));
+    if (mine.length) mine.forEach((m) => pairs.push({ class_id: m.class_id, subject_id: m.subject_id }));
+    else classes.forEach((c) => pairs.push({ class_id: c.id, subject_id: null }));
+  }
+  const seen = new Set();
+  return pairs
+    .filter((x) => { const k = `${x.class_id}:${x.subject_id}`; if (seen.has(k)) return false; seen.add(k); return true; })
+    .map((x) => ({ ...x, class_label: clsLabel(byId.get(x.class_id)), subject: x.subject_id ? sName.get(x.subject_id) : null }))
+    .sort((a, b) => a.class_label.localeCompare(b.class_label, undefined, { numeric: true }) || String(a.subject || '').localeCompare(String(b.subject || '')));
+}
+
 // the school's "today" and the classes this person may post to, in one call (the AI assistant needs both)
 export async function meta(user, schoolId) {
-  return { today: await todayStr(), classes: await accessibleClasses(user, schoolId) };
+  return { today: await todayStr(), classes: await accessibleClasses(user, schoolId), combos: await combos(user, schoolId) };
 }
 
 // Files attached in the AI chat. They are NOT homework yet: they wait in staging/homework/<user>/ until the
@@ -109,6 +142,13 @@ export async function createAssignment(user, schoolId, b, files) {
   if (!description && !(files || []).length && !staged.length) throw httpError(400, 'Write something or attach a file');
   const ok = new Set((await accessibleClasses(user, schoolId)).map((c) => c.id));
   if (!ok.has(b.class_id)) throw httpError(403, 'You can only post to your own classes');
+  // class + subject picked from the list of combos: it must be one this person has; the subject name comes from the subject itself
+  let subjectName = String(b.subject || '').trim().slice(0, 60);
+  if (b.subject_id) {
+    const hit = (await combos(user, schoolId)).find((c) => c.class_id === b.class_id && c.subject_id === b.subject_id);
+    if (!hit) throw httpError(403, 'You can only post to the classes and subjects assigned to you');
+    subjectName = hit.subject.slice(0, 60);
+  }
   const id = crypto.randomUUID();
   const folder = `schools/${schoolId}/homework/${id}`;
   const uploaded = await saveFiles(files, folder);
@@ -119,10 +159,10 @@ export async function createAssignment(user, schoolId, b, files) {
   } catch (e) { await removeFiles([...uploaded, ...written]); throw e; }
   const { error } = await db.from('assignments').insert({
     id, school_id: schoolId, class_id: b.class_id, created_by: user.user_id, title, description: description || null,
-    subject: String(b.subject || '').trim().slice(0, 60) || null, due_date: due, needs_submission: needs, attachments,
+    subject: subjectName || null, due_date: due, needs_submission: needs, attachments,
   });
   if (error) { await removeFiles(attachments); check(error); }
-  notifyHomework(schoolId, user, { class_id: b.class_id, title, subject: String(b.subject || '').trim().slice(0, 60), needs, due });
+  notifyHomework(schoolId, user, { class_id: b.class_id, title, subject: subjectName, needs, due });
   return { id, files: attachments.length };
 }
 

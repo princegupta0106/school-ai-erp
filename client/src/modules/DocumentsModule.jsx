@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, useApi, setCached } from '../cache.js';
-import { Icon, Modal, Empty, Field, Badge, toast, Loading, ask } from '../ui.jsx';
+import { Icon, Modal, Empty, Field, Badge, toast, Loading, ask, groupByClass, ClassGroup } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 import { DESIGNS, designOf, TYPES, TYPE_LIST, PLACEHOLDERS, buildHTML, printHTML, defaultFields, resolveTemplate, sampleContent, fmtDate } from '../docRender.js';
 
@@ -107,12 +107,17 @@ function PersonPicker({ me, sid, meta, kind, onPick }) {
       </div>
       {err && <div className="err">{err}</div>}
       {!rows.length && !busy && <div className="muted">{dq.trim() || cls ? 'No one found.' : `Type a name${kind === 'student' ? ' or pick a class' : ''} to find the ${kind}.`}</div>}
-      <div className="plist">{rows.map((p) => (
-        <button key={p.id} className="pitem" onClick={() => onPick(p)}>
-          <b>{p.name}</b>
-          <small>{kind === 'student' ? `${p.class_label || 'No class'}${p.roll_no ? ` - Roll ${p.roll_no}` : ''}${p.admission_no ? ` - Adm ${p.admission_no}` : ''}` : [p.designation, p.employee_id].filter(Boolean).join(' - ') || p.login_id}</small>
-          {p.inactive && <Badge tone="off">Left / inactive</Badge>}
-        </button>))}</div>
+      {(kind === 'student' ? groupByClass(rows, (p) => p.class_label) : [{ label: '', items: rows }]).map((g) => {
+        const list = (
+          <div className="plist">{g.items.map((p) => (
+            <button key={p.id} className="pitem" onClick={() => onPick(p)}>
+              <b>{p.name}</b>
+              <small>{kind === 'student' ? `${p.roll_no ? `Roll ${p.roll_no}` : ''}${p.admission_no ? `${p.roll_no ? ' - ' : ''}Adm ${p.admission_no}` : ''}` : [p.designation, p.employee_id].filter(Boolean).join(' - ') || p.login_id}</small>
+              {p.inactive && <Badge tone="off">Left / inactive</Badge>}
+            </button>))}</div>
+        );
+        return kind === 'student' ? <ClassGroup key={g.label} label={g.label} count={g.items.length} open>{list}</ClassGroup> : <React.Fragment key="all">{list}</React.Fragment>;
+      })}
     </div>
   );
 }
@@ -131,7 +136,7 @@ function ReportOptions({ pre, opts, setOpts }) {
           <span className="muted">Exams (each becomes a column)</span>
           {R.available_exams.map((e) => <label key={e.exam_id} className="chk"><input type="checkbox" checked={chosen.includes(e.exam_id)} onChange={() => toggle(e.exam_id)} /> {e.name}{e.pct !== null && e.pct !== undefined ? <small className="muted"> - {e.pct}%</small> : ''}</label>)}
         </div>
-      ) : <Notice tone="warn">This student has no exam marks in this session. Marks are entered under Academics &gt; Tests &amp; marks.</Notice>}
+      ) : <Notice tone="warn">This student has no exam marks in this session. Marks are entered under Exams &amp; Report Cards &gt; Enter marks.</Notice>}
       <label className="chk"><input type="checkbox" checked={!!opts.include_tests} onChange={(e) => setOpts({ ...opts, include_tests: e.target.checked })} /> Also show the average of class tests (Tests % column)</label>
     </div>
   );

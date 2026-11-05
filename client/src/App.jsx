@@ -15,7 +15,7 @@ const parseHash = () => { const [m, v, a] = location.hash.replace(/^#\/?/, '').s
 const ME_KEY = 'sp:me:v1';
 // Safety net for a server older than this app: add what each role gets by default on the current server, so the new
 // screens (Send notification, Homework) still show up. A screen on an old server then reports that the server needs updating.
-const MIRROR = { student: ['view_my_homework'], staff: ['manage_homework'], school_admin: ['manage_homework', 'send_notification', 'send_school_notification'], super_admin: ['manage_homework', 'send_notification', 'send_school_notification'] };
+const MIRROR = { student: ['view_my_homework', 'view_my_student_profile'], parent: ['view_my_student_profile'], staff: ['manage_homework', 'view_student_profile'], school_admin: ['view_student_profile', 'manage_homework', 'send_notification', 'send_school_notification'], super_admin: ['view_student_profile', 'manage_homework', 'send_notification', 'send_school_notification'] };
 const withDefaults = (m) => (m ? { ...m, features: [...new Set([...(m.features || []), ...(MIRROR[m.role] || [])])] } : m);
 const tokTag = () => (getToken() || '').slice(-24);
 const readMe = () => {
@@ -208,7 +208,7 @@ export default function App() {
     </button>); };
 
   return (
-    <div className={`shell ${slim ? 'slim' : ''}`}>
+    <div className={`shell ${slim ? 'slim' : ''} ${active ? 'has-mod' : ''}`} style={ui ? { '--mc': ui.color } : undefined}>
       <NetBar />
       <aside className="side">
         <div className="brand"><SchoolMark school={me.school} /><div className="brand-t"><b title={me.school?.name || ''}>{me.school?.name || 'School Portal'}</b>{!me.school?.name && <small>Platform</small>}</div><button className="icon-btn slimtop" title={slim ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={slim ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggleSlim}><Icon name={slim ? 'chevron' : 'back'} size={18} /></button></div>

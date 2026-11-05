@@ -12,6 +12,7 @@
 //   classReport(user, schoolId, classId, sessionId, scope)   per-student subject % + overall + rank
 //   studentDashboard(schoolId, studentId, sessionId)         everything one student sees: summary, subjects, tests, exams
 //   canSeeStudent / assertStudentAccess              who may open a student's results
+import * as CS from './classSubjects.js';
 import { db, httpError, check } from './db.js';
 import { notifyMarks } from './notify.js';
 import { todayStr, validDate, classRoster } from './attendance.js';
@@ -188,10 +189,13 @@ export async function deleteExam(schoolId, id) {
 // ---------------------------------------------------------------- meta (one call to start any screen)
 export async function getMeta(user, schoolId) {
   const canTeach = user.features.includes('manage_assessments') || user.features.includes('view_academic_reports');
-  const [sessions, subjects, exams, classes] = await Promise.all([
+  const [sessions, subjects, exams, classes, class_subjects, my_combos] = await Promise.all([
     listSessions(schoolId), listSubjects(schoolId), listExams(schoolId), canTeach ? accessibleClasses(user, schoolId) : [],
+    CS.classSubjectMap(schoolId), canTeach ? CS.myCombos(user.user_id, schoolId) : [],
   ]);
-  return { today: todayStr(), sessions, current_session_id: sessions.find((s) => s.is_current)?.id || null, subjects, exams, classes, pass_percent: PASS_PERCENT };
+  // class_subjects: { class_id: [subject_id] }  (empty list = the class has no subject list yet, so every subject is allowed)
+  // my_combos: the class + subject pairs this person teaches; teachers without "all classes" only see those when they have any
+  return { today: todayStr(), sessions, current_session_id: sessions.find((s) => s.is_current)?.id || null, subjects, exams, classes, class_subjects, my_combos, all_classes: hasAllClasses(user), pass_percent: PASS_PERCENT };
 }
 
 // ---------------------------------------------------------------- tests & exam papers
@@ -270,6 +274,7 @@ export async function createAssessment(user, schoolId, b) {
   await assertClassAccess(user, schoolId, b.class_id);
   const { data: subj } = b.subject_id ? await db.from('subjects').select('id').eq('id', b.subject_id).eq('school_id', schoolId).maybeSingle() : { data: null };
   if (!subj) throw httpError(400, 'Choose a subject');
+  await CS.assertCombo(user, schoolId, b.class_id, subj.id, hasAllClasses(user));
   let exam = null; let session_id;
   if (kind === 'exam') {
     const { data } = b.exam_id ? await db.from('exams').select('id,name,session_id,start_date').eq('id', b.exam_id).eq('school_id', schoolId).maybeSingle() : { data: null };
@@ -294,6 +299,7 @@ export async function updateAssessment(user, schoolId, id, b) {
   if (b.subject_id && b.subject_id !== cur.subject_id) {
     const { data: s } = await db.from('subjects').select('id').eq('id', b.subject_id).eq('school_id', schoolId).maybeSingle();
     if (!s) throw httpError(400, 'Choose a subject');
+    await CS.assertCombo(user, schoolId, cur.class_id, s.id, hasAllClasses(user));
     patch.subject_id = s.id;
   }
   if (b.max_marks !== undefined) {

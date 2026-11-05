@@ -62,6 +62,17 @@ export const MODULES = {
       manage_query_settings: { label: 'Manage query forms & statuses' },
     },
   },
+  admissions: {
+    label: 'Admissions',
+    features: {
+      add_enquiry: { label: 'Record admission enquiries (walk-in, phone, QR, referral)' },
+      view_enquiries: { label: 'See admission enquiries, pipeline and follow-ups' },
+      update_enquiry: { label: 'Log follow-ups, move enquiries through stages & edit details' },
+      admit_student: { label: 'Admit a student (creates the student profile)' },
+      delete_enquiry: { label: 'Delete an enquiry' },
+      view_admission_reports: { label: 'View admission conversion reports' },
+    },
+  },
   fees: {
     label: 'Fees',
     features: {
@@ -86,15 +97,28 @@ export const MODULES = {
       send_school_notification: { label: 'Send push notifications to the whole school' },
     },
   },
+  // Old Academics screens are gone from the web app. These permissions only keep the mobile app and the AI assistant working.
   academics: {
-    label: 'Academics',
+    label: 'Academics (mobile app & AI assistant only)',
     features: {
-      manage_subjects: { label: 'Add, edit & delete subjects' },
       manage_exams: { label: 'Create exams (Half-yearly, Final...)' },
       manage_assessments: { label: 'Create tests / exam papers & enter marks' },
       view_academic_reports: { label: 'View class & student academic reports' },
+    },
+  },
+  examinations: {
+    label: 'Exams & Report Cards',
+    features: {
+      manage_subjects: { label: 'Add, edit & delete subjects' },
       academics_all_classes: { label: 'Access every class (not only assigned ones)' },
-      view_my_academics: { label: 'See own / children\'s marks' },
+      manage_exam_structure: { label: 'Set up the exams of each class (PT1, Half Yearly, Preboard...)' },
+      manage_exam_grading: { label: 'Set grading criteria (grade ranges & grade points)' },
+      manage_exam_marks: { label: 'Enter marks & remarks for the subjects they teach' },
+      view_exam_results: { label: 'View results & print report cards' },
+      publish_exam_results: { label: 'Publish results & report cards to students and parents' },
+      view_exam_analytics: { label: 'View performance analysis (class comparison, weak subjects)' },
+      view_my_academics: { label: 'See own / children\'s marks', roles: FAMILY },
+      view_my_results: { label: 'See own / children\'s report cards', roles: FAMILY },
     },
   },
   documents: {
@@ -112,6 +136,41 @@ export const MODULES = {
     features: {
       manage_homework: { label: 'Post homework / assignments / study files and check student submissions' },
       view_my_homework: { label: 'See homework & submit assignments', roles: ['student'] },
+    },
+  },
+  student_profile: {
+    label: 'Student 360 profile',
+    features: {
+      view_student_profile: { label: 'Open the complete profile of a student (fees, attendance, marks, homework, documents)' },
+      view_my_student_profile: { label: 'See own / own children\'s complete profile', roles: FAMILY },
+    },
+  },
+  transport: {
+    label: 'Transport',
+    features: {
+      view_transport: { label: 'See buses, routes, stops and who rides what' },
+      manage_transport: { label: 'Add & edit buses, routes and stops' },
+      assign_transport: { label: 'Put students on a bus route and stop' },
+      view_my_transport: { label: 'See own / own children\'s bus, route, stop and timings', roles: FAMILY },
+    },
+  },
+  inventory: {
+    label: 'Inventory',
+    features: {
+      view_inventory: { label: 'See stock, stores, vendors and inventory reports' },
+      manage_inventory: { label: 'Set up stores, categories, vendors & items' },
+      manage_purchase_orders: { label: 'Raise & approve purchase orders and receive items (GRN)' },
+      issue_inventory: { label: 'Issue items to students / staff, take returns & print receipts' },
+    },
+  },
+  timetable: {
+    label: 'Timetable & Workload',
+    features: {
+      manage_timetable_setup: { label: 'Set up the timetable structure (days, periods, breaks, teacher load limit)' },
+      manage_timetable: { label: 'Build & edit class timetables' },
+      view_timetable: { label: 'See every class & teacher timetable and teacher workloads' },
+      manage_substitutions: { label: 'Cover absent teachers (assign substitutes)' },
+      view_my_timetable: { label: 'See own timetable (teachers) / the class timetable (students & parents)' },
     },
   },
   assistant: {
@@ -148,9 +207,9 @@ export const MODULES = {
 
 // features everyone of a role gets without being ticked (parents / students can read notices, parents and staff can chat)
 export const ROLE_DEFAULTS = {
-  parent: ['view_announcements', 'use_messages', 'view_my_fees', 'view_my_academics', 'view_my_documents'],
-  student: ['view_announcements', 'view_my_academics', 'view_my_documents', 'view_my_homework'],
-  staff: ['view_announcements', 'use_messages', 'my_leave', 'view_my_documents', 'use_assistant', 'manage_homework'],
+  parent: ['view_announcements', 'use_messages', 'view_my_student_profile', 'view_my_fees', 'view_my_academics', 'view_my_results', 'view_my_documents', 'view_my_transport', 'view_my_timetable'],
+  student: ['view_announcements', 'view_my_student_profile', 'view_my_academics', 'view_my_results', 'view_my_documents', 'view_my_homework', 'view_my_transport', 'view_my_timetable'],
+  staff: ['view_announcements', 'view_student_profile', 'use_messages', 'my_leave', 'view_my_documents', 'use_assistant', 'manage_homework', 'view_my_timetable'],
   other: ['my_leave', 'view_my_documents', 'use_assistant'], // every employee gets leave & payslip self-service
 };
 

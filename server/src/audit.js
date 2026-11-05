@@ -20,16 +20,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v) => typeof v === 'string' && UUID.test(v);
 
 export const AUDIT_MODULES = {
-  auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', queries: 'Queries',
-  fees: 'Fees', communication: 'Communication', academics: 'Academics', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', ai: 'AI assistant', audit: 'Audit logs', backup: 'Backup & restore', system: 'Other',
+  auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', queries: 'Queries', admissions: 'Admissions',
+  fees: 'Fees', communication: 'Communication', academics: 'Academics', examinations: 'Exams & Report Cards', homework: 'Homework', documents: 'Documents', payroll: 'Payroll & Leave', ai: 'AI assistant', audit: 'Audit logs', backup: 'Backup & restore', transport: 'Transport', inventory: 'Inventory', timetable: 'Timetable', system: 'Other',
 };
 
 // ---- readable names for the thing that was touched: [table, column that holds its name] ----------
 const NAMED = {
   class: ['classes', 'name'], session: ['academic_sessions', 'name'], holiday: ['holidays', 'title'],
   subject: ['subjects', 'name'], exam: ['exams', 'name'], assessment: ['assessments', 'title'],
-  visitor: ['visitors', 'name'], query: ['queries', 'name'], query_type: ['query_types', 'name'], query_status: ['query_statuses', 'name'], announcement: ['announcements', 'title'], fee_item: ['fee_items', 'name'],
+  visitor: ['visitors', 'name'], query: ['queries', 'name'], enquiry: ['admission_enquiries', 'student_name'], query_type: ['query_types', 'name'], query_status: ['query_statuses', 'name'], announcement: ['announcements', 'title'], fee_item: ['fee_items', 'name'],
   leave_type: ['leave_types', 'name'], assignment: ['assignments', 'title'],
+  bus: ['transport_vehicles', 'name'], bus_route: ['transport_routes', 'name'], bus_stop: ['transport_stops', 'name'],
 };
 
 // ---- rules: how to describe each route -----------------------------------------------------------
@@ -90,6 +91,12 @@ const RULES = [
   R('DELETE', '/visitors/:id', 'visitors.delete', (c) => `Deleted visitor entry${q(nm(c))}`, { entity: 'visitor' }),
 
   // ---- queries
+  R('POST', '/admissions', 'admissions.add', (c) => `Recorded admission enquiry${q(nm(c))}`, { entity: 'enquiry' }),
+  R('PATCH', '/admissions/:id', 'admissions.update', (c) => `Edited admission enquiry${q(nm(c))}`, { entity: 'enquiry' }),
+  R('POST', '/admissions/:id/stage', 'admissions.stage', (c) => `Moved admission enquiry${q(nm(c))} to ${String(c.body.stage || '?').replace('_', ' ')}`, { entity: 'enquiry' }),
+  R('POST', '/admissions/:id/activity', 'admissions.followup', (c) => `Logged ${c.body.kind || 'note'} on admission enquiry${q(nm(c))}`, { entity: 'enquiry' }),
+  R('POST', '/admissions/:id/admit', 'admissions.admit', (c) => `Admitted${q(nm(c))} as a student`, { entity: 'enquiry' }),
+  R('DELETE', '/admissions/:id', 'admissions.delete', (c) => `Deleted admission enquiry${q(nm(c))}`, { entity: 'enquiry' }),
   R('POST', '/queries', 'queries.add', (c) => `Recorded ${c.res?.type_name || 'query'}${q(nm(c))}`, { entity: 'query' }),
   R('PATCH', '/queries/types/:id', 'queries.form.update', (c) => `Edited query form${q(nm(c))}`, { entity: 'query_type' }),
   R('DELETE', '/queries/types/:id', 'queries.form.delete', (c) => `Deleted query form${q(nm(c))}`, { entity: 'query_type' }),
@@ -125,6 +132,45 @@ const RULES = [
   R('GET', '/fees/payments/download', 'fees.collection_export', (c) => `Downloaded the fee collection report (${String(c.q.format || '').toUpperCase()})`, { kind: 'view' }),
   R('GET', '/fees/students/:id/statement', 'fees.statement_download', (c) => `Downloaded the fee statement of${q(c.label) || ' a student'}`, { entity: 'user', kind: 'view' }),
   R('GET', '/fees/my/:id/statement', 'fees.statement_download', () => 'Downloaded a fee statement', { entity: 'user', kind: 'view' }),
+
+  // ---- timetable
+  R('PUT', '/timetable/structure', 'timetable.structure', () => 'Saved the timetable structure (days & periods)'),
+  R('PUT', '/timetable/teachers/:id/assignments', 'timetable.assignments', () => 'Saved the classes & subjects a teacher teaches'),
+  R('PUT', '/timetable/classes/:id/slot', 'timetable.slot', (c) => (c.body.teacher_id ? 'Put a period in a class timetable' : 'Cleared a period of a class timetable'), { entity: 'class' }),
+  R('POST', '/timetable/substitutions', 'timetable.sub.add', (c) => `Assigned a substitute teacher${q(c.body.date)}`),
+  R('DELETE', '/timetable/substitutions/:id', 'timetable.sub.delete', () => 'Removed a substitution'),
+  // ---- inventory
+  R('POST', '/inventory/stores', 'inventory.store.add', (c) => `Added store${q(c.body.name)}`),
+  R('DELETE', '/inventory/stores/:id', 'inventory.store.delete', () => 'Deleted a store'),
+  R('POST', '/inventory/categories', 'inventory.category.add', (c) => `Added item category${q(c.body.name)}`),
+  R('DELETE', '/inventory/categories/:id', 'inventory.category.delete', () => 'Deleted an item category'),
+  R('POST', '/inventory/vendors', 'inventory.vendor.add', (c) => `Added vendor${q(c.body.name)}`),
+  R('PATCH', '/inventory/vendors/:id', 'inventory.vendor.update', () => 'Edited a vendor'),
+  R('DELETE', '/inventory/vendors/:id', 'inventory.vendor.delete', () => 'Deleted a vendor'),
+  R('POST', '/inventory/items', 'inventory.item.add', (c) => `Added inventory item${q(c.body.name)}`),
+  R('POST', '/inventory/items/bulk', 'inventory.item.bulk', (c) => `Added ${(c.body.items || []).length} inventory items at once`),
+  R('PATCH', '/inventory/items/:id', 'inventory.item.update', (c) => `Edited inventory item${q(c.body.name)}`),
+  R('DELETE', '/inventory/items/:id', 'inventory.item.delete', () => 'Deleted an inventory item'),
+  R('POST', '/inventory/orders', 'inventory.order.add', (c) => `Raised purchase order${q(c.res?.po_no)}`),
+  R('POST', '/inventory/orders/:id/status', 'inventory.order.status', (c) => `Marked a purchase order ${c.body.status}`),
+  R('POST', '/inventory/orders/:id/receive', 'inventory.order.receive', (c) => `Received items${q(c.res?.grn_no)} against a purchase order`),
+  R('DELETE', '/inventory/orders/:id', 'inventory.order.delete', () => 'Deleted a purchase order'),
+  R('POST', '/inventory/issues', 'inventory.issue.add', (c) => `Issued items${q(c.res?.receipt_no)} to${q(c.res?.issued_to_name) || ' someone'}`),
+  R('POST', '/inventory/issues/:id/return', 'inventory.issue.return', () => 'Took back issued items'),
+  // ---- transport
+  R('POST', '/transport/vehicles', 'transport.bus.add', (c) => `Added bus${q(nm(c))}`, { entity: 'bus' }),
+  R('PATCH', '/transport/vehicles/:id', 'transport.bus.update', (c) => `Edited bus${q(nm(c))}`, { entity: 'bus' }),
+  R('DELETE', '/transport/vehicles/:id', 'transport.bus.delete', (c) => `Deleted bus${q(nm(c))}`, { entity: 'bus' }),
+  R('POST', '/transport/routes', 'transport.route.add', (c) => `Added transport route${q(nm(c))}`, { entity: 'bus_route' }),
+  R('PATCH', '/transport/routes/:id', 'transport.route.update', (c) => `Edited transport route${q(nm(c))}`, { entity: 'bus_route' }),
+  R('DELETE', '/transport/routes/:id', 'transport.route.delete', (c) => `Deleted transport route${q(nm(c))}`, { entity: 'bus_route' }),
+  R('POST', '/transport/routes/:id/stops', 'transport.stop.add', (c) => `Added stop${q(nm(c))} to a route`, { entity: 'bus_route' }),
+  R('PUT', '/transport/routes/:id/stops/order', 'transport.stop.order', () => 'Changed the order of stops on a route', { entity: 'bus_route' }),
+  R('PATCH', '/transport/stops/:id', 'transport.stop.update', (c) => `Edited stop${q(nm(c))}`, { entity: 'bus_stop' }),
+  R('DELETE', '/transport/stops/:id', 'transport.stop.delete', (c) => `Deleted stop${q(nm(c))}`, { entity: 'bus_stop' }),
+  R('POST', '/transport/assignments', 'transport.student.add', () => 'Put a student on a bus route'),
+  R('PATCH', '/transport/assignments/:id', 'transport.student.update', () => 'Changed a student\'s bus route or stop'),
+  R('DELETE', '/transport/assignments/:id', 'transport.student.remove', () => 'Took a student off a bus route'),
 
   // ---- homework
   R('POST', '/homework/assignments', 'homework.assignment.create', (c) => `Posted homework / assignment${q(nm(c))}`, { entity: 'assignment' }),

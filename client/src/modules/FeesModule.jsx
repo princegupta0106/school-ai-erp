@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Modal, Empty, Field, toast, Loading, ask } from '../ui.jsx';
+import { Icon, Modal, Empty, Field, toast, Loading, ask, groupByClass, ClassGroup } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 // ---------------------------------------------------------------- helpers
@@ -315,7 +315,7 @@ export const StudentFees = scoped(function StudentFees({ me, sid }) {
   const [q, setQ] = useState(''); const dq = useDebounced(q);
   const [classId, setClassId] = useState('');
   const { data: classes = [] } = useApi(`/fees/classes${qs(scopeQ(me, sid))}`);
-  const { data: list, error: err } = useApi(`/fees/students${qs({ ...scopeQ(me, sid), q: dq, class_id: classId })}`, !picked, { keepPrevious: true });
+  const { data: list, error: err } = useApi(`/fees/students${qs({ ...scopeQ(me, sid), q: dq, class_id: classId, limit: 3000 })}`, !picked, { keepPrevious: true });
 
   if (picked) return <Account me={me} sid={sid} studentId={picked.student_id} onBack={() => setPicked(null)} backLabel="Students" />;
   return (
@@ -325,14 +325,14 @@ export const StudentFees = scoped(function StudentFees({ me, sid }) {
         <select aria-label="Class" style={{ width: 'auto' }} value={classId} onChange={(e) => setClassId(e.target.value)}><option value="">All classes</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
       </div>
       {err && <div className="err">{err}</div>}
-      {!list ? <Loading /> : list.length === 0 ? <Empty>No student found.</Empty> : (
-        <div className="card" style={{ padding: 0 }}>{list.map((s) => (
-          <button key={s.student_id} className="drow" onClick={() => setPicked(s)}>
-            <span className="roll sm">{s.roll_no ?? '-'}</span>
-            <div style={{ flex: 1, minWidth: 0 }}><b>{s.full_name}</b><small>Class {s.class_label}{s.admission_no ? ` - Adm. ${s.admission_no}` : ''} - {s.login_id}</small></div>
-          </button>))}
-          {list.length === 50 && <div className="muted" style={{ padding: 10, textAlign: 'center', fontSize: 13 }}>Showing the first 50. Type more of the name to narrow it down.</div>}
-        </div>)}
+      {!list ? <Loading /> : list.length === 0 ? <Empty>No student found.</Empty> : groupByClass(list, (s) => s.class_label).map((g) => (
+        <ClassGroup key={g.label} label={g.label} count={g.items.length} open={!!dq || !!classId}>
+          {g.items.map((s) => (
+            <button key={s.student_id} className="drow" onClick={() => setPicked(s)}>
+              <span className="roll sm">{s.roll_no ?? '-'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}><b>{s.full_name}</b><small>{s.admission_no ? `Adm. ${s.admission_no} - ` : ''}{s.login_id}</small></div>
+            </button>))}
+        </ClassGroup>))}
     </div>
   );
 });

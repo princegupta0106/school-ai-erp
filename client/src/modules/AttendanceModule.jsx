@@ -12,6 +12,8 @@ const ST = {
 };
 const ORDER = ['present', 'absent', 'late', 'leave'];
 const clsName = (c) => `${c.name}${c.section ? ` ${c.section}` : ''}`;
+// the class name often already starts with "Class" (e.g. "Class 1"), so only add the word when it is missing
+const clsLabel = (c) => { const n = clsName(c); return /^class\b/i.test(n) ? n : `Class ${n}`; };
 const fmtDate = (d, o = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString(undefined, o) : '');
 const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 const fmtMonth = (m) => new Date(`${m}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -78,7 +80,7 @@ function ClassCard({ c, onOpen }) {
   const s = statusLine(c);
   return (
     <button className={`ccard ${s.tone}`} onClick={() => onOpen(c.id)}>
-      <div className="row sp"><b className="cname">{clsName(c)}</b>{c.is_class_teacher && <span className="chip">Class teacher</span>}</div>
+      <div className="ccard-top"><b className="cname">{clsLabel(c)}</b>{c.is_class_teacher && <span className="chip head">Class teacher</span>}</div>
       <div className={`cstate ${s.tone}`}><Icon name={s.tone === 'done' ? 'check' : 'attendance'} size={15} />{s.text}</div>
       {c.marked > 0 ? (
         <div className="mini"><span className="p">{c.present} present</span><span className="a">{c.absent} absent</span>{c.late > 0 && <span className="l">{c.late} late</span>}{c.leave > 0 && <span className="v">{c.leave} leave</span>}</div>
@@ -105,14 +107,14 @@ export const TakeAttendance = scoped(function Take({ me, sid, go }) {
   const isToday = data.date === data.today;
   return (
     <>
-      <div className="card row sp">
-        <div>
-          <b style={{ fontSize: 17 }}>{isToday ? 'Today' : fmtDate(data.date)}</b>
-          <div style={{ color: 'var(--mute)', fontSize: 14 }}>{isToday ? `${fmtDate(data.today)} - ` : ''}{data.classes.length === 0 ? 'No classes' : `${marked} of ${data.classes.length} class${data.classes.length === 1 ? '' : 'es'} marked`}</div>
+      <div className="toolbar">
+        <div className="toolbar-t">
+          <b>{isToday ? 'Today' : fmtDate(data.date)}</b>
+          <span>{isToday ? `${fmtDate(data.today)} · ` : ''}{data.classes.length === 0 ? 'No classes' : `${marked} of ${data.classes.length} class${data.classes.length === 1 ? '' : 'es'} marked`}</span>
         </div>
-        <div className="row">
-          {!isToday && <button className="btn" onClick={() => setDate('')}>Back to today</button>}
-          <input type="date" aria-label="Attendance date" style={{ width: 'auto' }} max={data.today} value={data.date} onChange={(e) => e.target.value && setDate(e.target.value === data.today ? '' : e.target.value)} />
+        <div className="toolbar-a">
+          {!isToday && <button className="btn sm" onClick={() => setDate('')}>Back to today</button>}
+          <input type="date" aria-label="Attendance date" max={data.today} value={data.date} onChange={(e) => e.target.value && setDate(e.target.value === data.today ? '' : e.target.value)} />
         </div>
       </div>
       {data.classes.length === 0
@@ -178,8 +180,8 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
   return (
     <div className="sheetwrap">
       <div className="row sp">
-        <div className="row"><button className="btn" onClick={back}><Icon name="back" size={16} />Classes</button>
-          <div><b style={{ fontSize: 19 }}>Class {clsName(sh.class)}</b><div style={{ color: 'var(--mute)', fontSize: 14 }}>{isToday ? 'Today' : ''} {fmtDate(sh.date)}{sh.teachers.length ? ` - ${sh.teachers.map((t) => t.name).join(', ')}` : ''}</div></div></div>
+        <div className="row nowrap"><button className="btn sm" onClick={back}><Icon name="back" size={15} />Classes</button>
+          <div><b className="pg-title">{clsLabel(sh.class)}</b><div className="pg-sub">{isToday ? 'Today · ' : ''}{fmtDate(sh.date)}{sh.teachers.length ? ` - ${sh.teachers.map((t) => t.name).join(', ')}` : ''}</div></div></div>
       </div>
 
       {sh.holiday && <Notice tone="warn">{fmtDate(sh.date, { day: 'numeric', month: 'short' })} is marked as <b>{sh.holiday.title}</b> ({sh.holiday.type}) in the school calendar. You can still mark attendance if school was open.</Notice>}
@@ -217,10 +219,10 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
           })}
         </div>
 
-        {can && <div className="asave">
+        {can && <div className="savebar">
           <div className="sum"><b>{counts.present + counts.late + counts.leave}</b> / {students.length} here{counts.absent > 0 && <> - <span className="a"><b>{counts.absent}</b> absent</span></>}{dirty && <span className="dot" title="Unsaved changes" />}</div>
           {err && <span className="err">{err}</span>}
-          <button className="btn primary big" onClick={save} disabled={busy || (!dirty && st.state === 'marked')}>{busy ? 'Saving...' : st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'}</button>
+          <button className="btn primary" onClick={save} disabled={busy || (!dirty && st.state === 'marked')}>{busy ? 'Saving...' : st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'}</button>
         </div>}
       </>)}
     </div>
@@ -250,7 +252,7 @@ function RangeBar({ today, value, shown, shownDefault, onChange }) {
 const ClassSelect = ({ classes, value, onChange, all }) => (
   <select style={{ width: 'auto', minWidth: 150 }} value={value} onChange={(e) => onChange(e.target.value)} aria-label="Class">
     {all ? <option value="">All my classes</option> : <option value="" disabled>Choose a class</option>}
-    {classes.map((c) => <option key={c.id} value={c.id}>Class {clsName(c)}</option>)}
+    {classes.map((c) => <option key={c.id} value={c.id}>{clsLabel(c)}</option>)}
   </select>
 );
 
@@ -265,7 +267,7 @@ function DailyReport({ me, sid, today, onOpen }) {
       {data.classes.length === 0 ? <Empty>No classes to show.</Empty> : (
         <div className="card" style={{ padding: 0 }}>{data.classes.map((c) => { const s = statusLine(c); return (
           <button key={c.id} className="drow" onClick={() => onOpen(c.id, date)}>
-            <div style={{ flex: 1, minWidth: 0 }}><b>Class {clsName(c)}</b><small>{c.teachers.length ? c.teachers.join(', ') : 'No teacher assigned'}</small></div>
+            <div style={{ flex: 1, minWidth: 0 }}><b>{clsLabel(c)}</b><small>{c.teachers.length ? c.teachers.join(', ') : 'No teacher assigned'}</small></div>
             <div className="dstate"><span className={`cstate ${s.tone}`}>{s.text}</span>{c.marked > 0 && <small><span style={{ color: 'var(--ok)' }}>{c.present} present</span> - <span style={{ color: 'var(--bad)' }}>{c.absent} absent</span>{c.late > 0 ? ` - ${c.late} late` : ''}{c.leave > 0 ? ` - ${c.leave} leave` : ''}</small>}</div>
           </button>); })}</div>)}
     </>)}
@@ -310,7 +312,7 @@ function StudentReport({ me, sid, today, picked, setPicked }) {
     <div style={{ position: 'relative', maxWidth: 420 }}><input autoFocus placeholder="Search student by name, ID or roll no." value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 36 }} /><span style={{ position: 'absolute', left: 11, top: 10, color: 'var(--mute)' }}><Icon name="search" size={18} /></span></div>
     {found.error && <div className="err">{found.error}</div>}
     {found.data && (found.data.length === 0 ? <Empty>No student found.</Empty> :
-      <div className="card" style={{ padding: 0 }}>{found.data.map((s) => <button key={s.student_id} className="drow" onClick={() => setPicked(s)}><span className="roll sm">{s.roll_no ?? '-'}</span><div style={{ flex: 1 }}><b>{s.full_name}</b><small>Class {s.class_label} - {s.login_id}</small></div></button>)}</div>)}
+      <div className="card" style={{ padding: 0 }}>{found.data.map((s) => <button key={s.student_id} className="drow" onClick={() => setPicked(s)}><span className="roll sm">{s.roll_no ?? '-'}</span><div style={{ flex: 1 }}><b>{s.full_name}</b><small>{s.class_label} - {s.login_id}</small></div></button>)}</div>)}
   </>);
   return (<>
     <div className="row"><button className="btn" onClick={() => setPicked(null)}><Icon name="back" size={16} />Students</button><b style={{ fontSize: 17 }}>{picked.full_name}</b></div>
@@ -323,7 +325,7 @@ function StudentReport({ me, sid, today, picked, setPicked }) {
 function StudentSummary({ data }) {
   const s = data.summary;
   return (<>
-    <div className="card row sp"><div><b style={{ fontSize: 17 }}>{data.student.full_name}</b><div className="muted">{data.student.class ? `Class ${clsName(data.student.class)}` : 'No class'}{data.student.roll_no ? ` - Roll ${data.student.roll_no}` : ''}{data.student.admission_no ? ` - Adm. ${data.student.admission_no}` : ''}</div></div><div style={{ fontSize: 26 }}><Pct v={s.percent} /></div></div>
+    <div className="card row sp"><div><b style={{ fontSize: 17 }}>{data.student.full_name}</b><div className="muted">{data.student.class ? clsLabel(data.student.class) : 'No class'}{data.student.roll_no ? ` - Roll ${data.student.roll_no}` : ''}{data.student.admission_no ? ` - Adm. ${data.student.admission_no}` : ''}</div></div><div style={{ fontSize: 26 }}><Pct v={s.percent} /></div></div>
     <div className="asum"><Tile tone="present" n={s.present} label="Present" /><Tile tone="absent" n={s.absent} label="Absent" /><Tile tone="late" n={s.late} label="Late" /><Tile tone="leave" n={s.leave} label="Leave" /></div>
     <small className="muted">{fmtDate(data.range.from)} to {fmtDate(data.range.to)} - {s.total} day{s.total === 1 ? '' : 's'} marked</small>
     {data.months.length > 0 && <div className="card scrollx" style={{ padding: 0 }}><table className="rt"><thead><tr><th>Month</th><th className="n">P</th><th className="n">A</th><th className="n">L</th><th className="n">Lv</th><th>%</th></tr></thead><tbody>
@@ -343,7 +345,7 @@ function LowReport({ me, sid, today, classes, onStudent }) {
     {!data ? (loading && <Loading />) : data.students.length === 0 ? <Empty>Nobody is below {data.threshold}% in this period.</Empty> : (<>
       <div className="row sp"><small className="muted">{data.students.length} student{data.students.length === 1 ? '' : 's'} below {data.threshold}%</small>
         <button className="btn" onClick={() => csv(`low-attendance-${data.range.from}-to-${data.range.to}.csv`, [['Class', 'Roll no', 'Name', 'Present', 'Absent', 'Late', 'Leave', 'Attendance %'], ...data.students.map((s) => [s.class_label, s.roll_no ?? '', s.full_name, s.present, s.absent, s.late, s.leave, s.percent])])}><Icon name="download" size={16} />Download CSV</button></div>
-      <div className="card" style={{ padding: 0 }}>{data.students.map((s) => <button key={`${s.student_id}${s.class_id}`} className="drow" onClick={() => onStudent(s)}><span className="roll sm">{s.roll_no ?? '-'}</span><div style={{ flex: 1 }}><b>{s.full_name}</b><small>Class {s.class_label} - {s.absent} absent of {s.total} days</small></div><Pct v={s.percent} /></button>)}</div>
+      <div className="card" style={{ padding: 0 }}>{data.students.map((s) => <button key={`${s.student_id}${s.class_id}`} className="drow" onClick={() => onStudent(s)}><span className="roll sm">{s.roll_no ?? '-'}</span><div style={{ flex: 1 }}><b>{s.full_name}</b><small>{s.class_label} - {s.absent} absent of {s.total} days</small></div><Pct v={s.percent} /></button>)}</div>
     </>)}
   </>);
 }
@@ -394,18 +396,18 @@ export const RollNumbers = scoped(function Rolls({ me, sid }) {
   if (!cl.classes.length) return <Empty>No classes available.</Empty>;
   return (<>
     <div className="row"><ClassSelect classes={cl.classes} value={classId} onChange={pickClass} /></div>
-    <small className="muted">Roll numbers are 1 to 100 and unique inside one class (Roll 1 can exist in 1A and in 1B). They are cleared at year-end promotion, so assign them again for the new class.</small>
+    <small className="muted hint">Roll numbers are 1 to 100 and unique inside one class (Roll 1 can exist in 1A and in 1B). They are cleared at year-end promotion, so assign them again for the new class.</small>
     {err && <div className="err">{err}</div>}
     {!d ? (err ? null : <Loading rows={3} />) : d.students.length === 0 ? <Empty>No active students in this class.</Empty> : (<>
-      <div className="row"><button className="btn" disabled={busy} onClick={() => auto('fill')}>Fill missing numbers</button><button className="btn" disabled={busy} onClick={() => auto('name')}>Number all A-Z</button></div>
-      <div className="card" style={{ padding: 0 }}>{[...d.students].sort((a, b) => (Number(vals[a.student_id]) || 1e9) - (Number(vals[b.student_id]) || 1e9) || a.full_name.localeCompare(b.full_name)).map((s) => {
+      <div className="row"><button className="btn sm" disabled={busy} onClick={() => auto('fill')}>Fill missing numbers</button><button className="btn sm" disabled={busy} onClick={() => auto('name')}>Number all A–Z</button></div>
+      <div className="card flush">{[...d.students].sort((a, b) => (Number(vals[a.student_id]) || 1e9) - (Number(vals[b.student_id]) || 1e9) || a.full_name.localeCompare(b.full_name)).map((s) => {
         const v = vals[s.student_id]; const flagged = bad(v) || (v !== '' && dups.has(String(v)));
         return (<div key={s.student_id} className="drow" style={{ cursor: 'default' }}>
           <div style={{ flex: 1, minWidth: 0 }}><b>{s.full_name}</b><small>{s.admission_no ? `Adm. ${s.admission_no}` : s.login_id}</small></div>
           <input type="number" min="1" max="100" inputMode="numeric" className={`rollin ${flagged ? 'bad' : ''}`} aria-label={`Roll no. of ${s.full_name}`} value={v} placeholder="-" onChange={(e) => setVals({ ...vals, [s.student_id]: e.target.value })} />
         </div>); })}</div>
-      <div className="asave"><div className="sum">{dups.size > 0 ? <span className="err">Duplicate roll numbers</span> : invalid ? <span className="err">Use whole numbers 1-100</span> : dirty ? 'Unsaved changes' : 'All saved'}{dirty && <span className="dot" />}</div>
-        <button className="btn primary big" disabled={busy || !dirty || invalid} onClick={save}>{busy ? 'Saving...' : 'Save roll numbers'}</button></div>
+      <div className="savebar"><div className="sum">{dups.size > 0 ? <span className="err">Duplicate roll numbers</span> : invalid ? <span className="err">Use whole numbers 1-100</span> : dirty ? 'Unsaved changes' : 'All saved'}{dirty && <span className="dot" />}</div>
+        <button className="btn primary" disabled={busy || !dirty || invalid} onClick={save}>{busy ? 'Saving...' : 'Save roll numbers'}</button></div>
     </>)}
   </>);
 });
@@ -423,14 +425,14 @@ function AssignModal({ me, sid, cls, teachers, onClose, onSaved }) {
     catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
-    <Modal title={`Teachers of class ${clsName(cls)}`} onClose={onClose}>
+    <Modal title={`Teachers - ${clsLabel(cls)}`} onClose={onClose}>
       <input placeholder="Search staff" value={q} onChange={(e) => setQ(e.target.value)} />
       {teachers.length === 0 && <Empty>No staff accounts yet. Create users with the role "Staff" first.</Empty>}
       <div className="card" style={{ padding: 0 }}>{list.map((t) => (
         <div key={t.user_id} className="drow" style={{ cursor: 'default' }}>
           <label className="row" style={{ flex: 1, flexWrap: 'nowrap', cursor: 'pointer' }}><input type="checkbox" style={{ width: 20, height: 20 }} checked={sel.has(t.user_id)} onChange={() => toggle(t.user_id)} />
             <span><b>{t.full_name}</b><small style={{ display: 'block', color: 'var(--mute)' }}>{t.designation || t.login_id}</small></span></label>
-          {sel.has(t.user_id) && <button type="button" className={`btn ${head === t.user_id ? 'primary' : ''}`} onClick={() => setHead(head === t.user_id ? '' : t.user_id)} title="Mark as the class teacher"><Icon name="star" size={15} />Class teacher</button>}
+          {sel.has(t.user_id) && <button type="button" className={`btn sm ${head === t.user_id ? 'primary' : ''}`} onClick={() => setHead(head === t.user_id ? '' : t.user_id)} title="Mark as the class teacher"><Icon name="star" size={14} />Class teacher</button>}
         </div>))}</div>
       {err && <div className="err">{err}</div>}
       <button className="btn primary" style={{ justifyContent: 'center' }} disabled={busy} onClick={save}>Save ({sel.size} selected)</button>
@@ -444,13 +446,13 @@ export const ClassTeachers = scoped(function Teachers({ me, sid }) {
   if (err) return <div className="err">{err}</div>;
   if (!d) return <Loading />;
   return (<>
-    <small className="muted">Teachers only see the classes assigned to them in Take attendance. Staff with "Access every class" see all classes.</small>
+    <small className="muted hint">Teachers only see the classes assigned to them in Take attendance. Staff with "Access every class" see all classes.</small>
     {d.classes.length === 0 ? <Empty>No classes yet. Add them under Users &gt; Classes.</Empty> : (
       <div className="cgrid">{d.classes.map((c) => (
-        <div key={c.id} className="ccard static">
-          <div className="row sp"><b className="cname">Class {clsName(c)}</b><button className="btn" onClick={() => setEdit(c)}><Icon name="edit" size={15} />Edit</button></div>
-          {c.teachers.length === 0 ? <span className="muted">No teacher assigned</span> : <div className="pills">{c.teachers.map((t) => <span key={t.user_id} className={`chip ${t.is_class_teacher ? 'head' : ''}`}>{t.is_class_teacher && <Icon name="star" size={12} />} {t.full_name}</span>)}</div>}
-        </div>))}</div>)}
+        <button key={c.id} type="button" className="ccard static" onClick={() => setEdit(c)} aria-label={`Edit teachers of ${clsLabel(c)}`}>
+          <div className="ccard-top"><b className="cname">{clsLabel(c)}</b><span className="ccard-go"><Icon name="edit" size={15} /></span></div>
+          {c.teachers.length === 0 ? <span className="muted">No teacher assigned</span> : <div className="pills">{c.teachers.map((t) => <span key={t.user_id} className={`chip ${t.is_class_teacher ? 'head' : ''}`}>{t.is_class_teacher && <Icon name="star" size={12} />}{t.full_name}</span>)}</div>}
+        </button>))}</div>)}
     {edit && <AssignModal me={me} sid={sid} cls={edit} teachers={d.teachers} onClose={() => setEdit(null)} onSaved={reload} />}
   </>);
 });

@@ -14,20 +14,40 @@ if not exist ".env" (
 )
 
 echo.
-echo [1/3] Installing server packages...
+echo [1/4] Installing server packages...
 pushd server
 call npm install --no-audit --no-fund || (popd & pause & exit /b 1)
 popd
 
 echo.
-echo [2/3] Building the web app...
+echo [2/4] Pushing SQL files (db\*.sql) to Supabase...
+pushd server
+call node scripts\db-push.mjs
+set "SQLERR=%errorlevel%"
+popd
+if "%SQLERR%"=="3" (
+  clip < server\scripts\bootstrap.sql
+  echo.
+  echo Setup SQL copied to your clipboard. Paste it into Supabase ^> SQL Editor ^> Run, then run run.bat again.
+  echo ^(The portal will start now without the SQL push.^)
+  echo.
+)
+if "%SQLERR%"=="1" (
+  echo.
+  echo The SQL push failed ^(see the message above^).
+  choice /c YN /m "Start the portal anyway"
+  if errorlevel 2 exit /b 1
+)
+
+echo.
+echo [3/4] Building the web app...
 pushd client
 call npm install --no-audit --no-fund || (popd & pause & exit /b 1)
 call npm run build || (popd & pause & exit /b 1)
 popd
 
 echo.
-echo [3/3] Starting...
+echo [4/4] Starting...
 
 rem ---- AI assistant: a small Python service (ai-server/) that the portal talks to. Needs Python 3.8+, no pip packages.
 set "PY="

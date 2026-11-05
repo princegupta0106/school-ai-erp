@@ -10,18 +10,26 @@ import { AddVisitor, VisitorList } from './modules/VisitorsModule.jsx';
 import { NewQuery, QueryList, QuerySettings } from './modules/QueriesModule.jsx';
 import { NoticeBoard, Messages, SendNotification } from './modules/CommunicationModule.jsx';
 import { FeeStructure, StudentFees, MyFees } from './modules/FeesModule.jsx';
-import { TestsAndMarks, AcademicReports, SubjectManager, ExamManager, MyMarks } from './modules/AcademicsModule.jsx';
+import { ExamStructure, ExamMarks, ExamResults, ExamAnalysis, MyReportCards, SubjectManager } from './modules/ExamModule.jsx';
 import { MyLeave, LeaveRequests, Balances, Payroll, PaySettings } from './modules/PayrollModule.jsx';
 import { Homework, MyHomework } from './modules/HomeworkModule.jsx';
 import { AuditLogs } from './modules/AuditModule.jsx';
 import { Backup } from './modules/BackupModule.jsx';
 import { IssueDocument, IssuedList, MyDocuments, Templates, Letterhead } from './modules/DocumentsModule.jsx';
+import { AdmissionsHome, EnquiryList, Pipeline, AddEnquiry, AdmissionReports } from './modules/AdmissionsModule.jsx';
+import { StudentProfile, MyStudentProfile } from './modules/StudentProfileModule.jsx';
+import { TransportOverview, Vehicles, Routes, Students as TransportStudents, MyTransport } from './modules/TransportModule.jsx';
+import { InventoryHome, Items as InventoryItems, Setup as InventorySetup, Orders as InventoryOrders, IssueItems, InventoryReports } from './modules/InventoryModule.jsx';
+import { TimetableHome, TimetableSetup, ClassTimetable, ClassPlan, AutoTimetable, TeacherTimetable, SchoolTimetable, Substitutions, MyTimetable } from './modules/TimetableModule.jsx';
 import { fetchers } from './fetchers.js';
 
 // Per-tab prefetch warms what that tab's first screen reads (same URLs the screens use, so they hit the cache).
 // Only for people fixed to one school; a super admin picks a school first, so there is nothing to guess.
 const own = (me) => me.role !== 'super_admin' && !!me.school_id;
 const has = (me, ...f) => f.some((x) => me.features.includes(x));
+const INVENTORY_ANY = ['view_inventory', 'manage_inventory', 'manage_purchase_orders', 'issue_inventory'];
+const TT_SEE = ['view_timetable', 'manage_timetable', 'manage_timetable_setup', 'manage_substitutions'];
+const TRANSPORT_STAFF = ['view_transport', 'manage_transport', 'assign_transport'];
 
 export const MODULE_UI = {
   school: {
@@ -81,6 +89,58 @@ export const MODULE_UI = {
       { key: 'settings', label: 'Forms & statuses', need: ['manage_query_settings'], component: QuerySettings },
     ],
   },
+  admissions: {
+    label: 'Admissions', desc: 'Enquiries, follow-ups, application stages, admitting students and conversion reports', color: '#16a34a', icon: 'userplus',
+    views: [
+      { key: 'home', label: 'Overview', need: ['view_enquiries'], component: AdmissionsHome, prefetch: (me) => own(me) && prefetchApi('/admissions/summary') },
+      { key: 'list', label: 'Enquiries', need: ['view_enquiries'], component: EnquiryList, prefetch: (me) => own(me) && prefetchApi('/admissions') },
+      { key: 'pipeline', label: 'Pipeline', need: ['view_enquiries'], component: Pipeline },
+      { key: 'add', label: 'Add enquiry', need: ['add_enquiry'], component: AddEnquiry },
+      { key: 'reports', label: 'Reports', need: ['view_admission_reports'], component: AdmissionReports },
+    ],
+  },
+  student_profile: {
+    label: 'Student profile', desc: 'The complete 360° picture of a student: attendance, marks, fees, homework, family and documents in one place', color: '#ec4899', icon: 'profile',
+    views: [
+      { key: 'my', label: 'Student profile', need: ['view_my_student_profile'], roles: ['student', 'parent'], component: MyStudentProfile, prefetch: () => prefetchApi('/student-profile/my') },
+      { key: 'students', label: 'Student profiles', need: ['view_student_profile'], component: StudentProfile, prefetch: (me) => own(me) && prefetchApi('/student-profile/search?q=') },
+    ],
+  },
+  transport: {
+    label: 'Transport', desc: 'Buses, routes and stops, and which students ride where - with seat counts and document reminders', color: '#f97316', icon: 'bus',
+    views: [
+      { key: 'my', label: 'My transport', need: ['view_my_transport'], roles: ['student', 'parent'], component: MyTransport, prefetch: () => prefetchApi('/transport/my') },
+      { key: 'home', label: 'Overview', need: TRANSPORT_STAFF, component: TransportOverview, prefetch: (me) => own(me) && prefetchApi('/transport/overview') },
+      { key: 'vehicles', label: 'Buses', need: TRANSPORT_STAFF, component: Vehicles, prefetch: (me) => own(me) && prefetchApi('/transport/vehicles') },
+      { key: 'routes', label: 'Routes & stops', need: TRANSPORT_STAFF, component: Routes, prefetch: (me) => own(me) && prefetchApi('/transport/routes') },
+      { key: 'students', label: 'Students', need: TRANSPORT_STAFF, component: TransportStudents, prefetch: (me) => own(me) && prefetchApi('/transport/assignments') },
+    ],
+  },
+  inventory: {
+    label: 'Inventory', desc: 'Stores, items, purchase orders, receiving, issuing with receipts and stock reports', color: '#16a34a', icon: 'box',
+    views: [
+      { key: 'home', label: 'Overview', need: INVENTORY_ANY, component: InventoryHome, prefetch: (me) => own(me) && prefetchApi('/inventory/overview') },
+      { key: 'items', label: 'Items & stock', need: ['view_inventory', 'manage_inventory'], component: InventoryItems, prefetch: (me) => own(me) && prefetchApi('/inventory/meta') },
+      { key: 'orders', label: 'Purchase orders', need: ['manage_purchase_orders', 'view_inventory'], component: InventoryOrders, prefetch: (me) => own(me) && prefetchApi('/inventory/orders') },
+      { key: 'issue', label: 'Issue items', need: ['issue_inventory', 'view_inventory'], component: IssueItems, prefetch: (me) => own(me) && prefetchApi('/inventory/issues') },
+      { key: 'setup', label: 'Stores & vendors', need: ['manage_inventory'], component: InventorySetup, prefetch: (me) => own(me) && prefetchApi('/inventory/meta') },
+      { key: 'reports', label: 'Reports', need: ['view_inventory', 'issue_inventory'], component: InventoryReports },
+    ],
+  },
+  timetable: {
+    label: 'Timetable', desc: 'Set the school day, give teachers their classes and subjects, build class timetables, track workloads and cover absent teachers', color: '#f59e0b', icon: 'calendar',
+    views: [
+      { key: 'my', label: 'My timetable', need: ['view_my_timetable'], component: MyTimetable, prefetch: () => prefetchApi('/timetable/my') },
+      { key: 'home', label: 'Overview & workload', need: TT_SEE, component: TimetableHome, prefetch: (me) => own(me) && prefetchApi('/timetable/workload') },
+      { key: 'plan', label: 'Class subjects', need: ['manage_timetable_setup', 'manage_timetable', 'view_timetable'], component: ClassPlan },
+      { key: 'class', label: 'Class timetable', need: ['manage_timetable', 'view_timetable'], component: ClassTimetable },
+      { key: 'auto', label: 'Auto generate', need: ['manage_timetable'], component: AutoTimetable },
+      { key: 'teacher', label: 'Teacher timetable', need: ['manage_timetable', 'view_timetable'], component: TeacherTimetable },
+      { key: 'school', label: 'Whole school', need: ['manage_timetable', 'view_timetable'], component: SchoolTimetable },
+      { key: 'subs', label: 'Substitutions', need: ['manage_substitutions', 'view_timetable'], component: Substitutions },
+      { key: 'setup', label: 'Structure', need: ['manage_timetable_setup'], component: TimetableSetup, prefetch: (me) => own(me) && prefetchApi('/timetable/meta') },
+    ],
+  },
   fees: {
     label: 'Fees', desc: 'Fee structure per class, pending fees, payments, receipts and adjustments', color: '#059669', icon: 'rupee',
     views: [
@@ -97,13 +157,14 @@ export const MODULE_UI = {
       { key: 'notify', label: 'Send notification', need: ['send_notification', 'send_school_notification'], component: SendNotification },
     ],
   },
-  academics: {
-    label: 'Academics', desc: 'Subjects, tests, exams and marks - results and performance for teachers, students and parents', color: '#2563eb', icon: 'academics',
+  examinations: {
+    label: 'Exams & Report Cards', desc: 'Subjects, exams of each class, marks entry by subject teachers, automatic totals and grades, report cards and performance analysis', color: '#7c3aed', icon: 'academics',
     views: [
-      { key: 'my', label: 'My marks', need: ['view_my_academics'], roles: ['student', 'parent'], component: MyMarks, prefetch: (me) => { if (me.role === 'student') prefetchApi(`/academics/my?student_id=${me.user_id}`); else prefetchApi('/users/my-children'); } },
-      { key: 'tests', label: 'Tests & marks', need: ['manage_assessments', 'view_academic_reports'], component: TestsAndMarks, prefetch: (me) => { if (own(me)) { prefetch(`acad:meta:${me.school_id}`, () => api.get('/academics/meta')); prefetchApi('/academics/assessments'); } } },
-      { key: 'reports', label: 'Reports', need: ['view_academic_reports'], component: AcademicReports },
-      { key: 'exams', label: 'Exams', need: ['manage_exams'], component: ExamManager },
+      { key: 'my', label: 'Report cards', need: ['view_my_results'], roles: ['student', 'parent'], component: MyReportCards },
+      { key: 'structure', label: 'Exams of each class', need: ['manage_exam_structure', 'manage_exam_grading'], component: ExamStructure },
+      { key: 'marks', label: 'Enter marks', need: ['manage_exam_marks'], component: ExamMarks },
+      { key: 'results', label: 'Results & report cards', need: ['view_exam_results', 'publish_exam_results'], component: ExamResults },
+      { key: 'analysis', label: 'Performance analysis', need: ['view_exam_analytics'], component: ExamAnalysis },
       { key: 'subjects', label: 'Subjects', need: ['manage_subjects'], component: SubjectManager },
     ],
   },

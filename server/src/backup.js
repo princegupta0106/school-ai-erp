@@ -38,12 +38,16 @@ const TABLES = [
   { t: 'payslips' }, { t: 'payroll_adjustments' }, { t: 'payroll_audit' },
   { t: 'doc_settings' }, { t: 'doc_templates' }, { t: 'doc_counters' }, { t: 'issued_documents' },
   { t: 'assignments' }, { t: 'assignment_submissions' }, { t: 'notifications' },
+  { t: 'transport_vehicles' }, { t: 'transport_routes' }, { t: 'transport_stops' }, { t: 'transport_assignments' },
+  { t: 'inv_stores' }, { t: 'inv_categories' }, { t: 'inv_vendors' }, { t: 'inv_items' }, { t: 'inv_orders' }, { t: 'inv_order_lines', via: { parent: 'inv_orders', col: 'order_id' } },
+  { t: 'tt_settings' }, { t: 'tt_periods' }, { t: 'tt_assignments' }, { t: 'tt_slots' }, { t: 'tt_substitutions' },
+  { t: 'inv_grns' }, { t: 'inv_grn_lines', via: { parent: 'inv_grns', col: 'grn_id' } }, { t: 'inv_issues' }, { t: 'inv_issue_lines', via: { parent: 'inv_issues', col: 'issue_id' } },
 ];
 
 // stable paging needs an order: the key columns of tables that have no `id`
 const ORDER = {
   users: ['user_id'], profiles: ['user_id'], parent_students: ['parent_id', 'student_id'], class_teachers: ['class_id', 'teacher_id'],
-  fee_counters: ['school_id'], assessment_marks: ['assessment_id', 'student_id'], payroll_settings: ['school_id'],
+  fee_counters: ['school_id'], tt_settings: ['school_id'], assessment_marks: ['assessment_id', 'student_id'], payroll_settings: ['school_id'],
   doc_settings: ['school_id'], doc_counters: ['doc_type', 'year'], announcement_classes: ['announcement_id', 'class_id'],
 };
 const ordered = (q, t) => (ORDER[t] || ['id']).reduce((acc, c) => acc.order(c), q);

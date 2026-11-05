@@ -383,7 +383,7 @@ export async function assertStudentAccess(user, schoolId, studentId) {
 }
 
 // students a teacher can search in the Student report: roster of every class they can use
-export async function searchStudents(user, schoolId, q) {
+export async function searchStudents(user, schoolId, q, limit = 3000) {
   const classes = await accessibleClasses(user, schoolId);
   if (!classes.length) return [];
   const rows = await fetchAll(() => db.from('profiles')
@@ -395,5 +395,5 @@ export async function searchStudents(user, schoolId, q) {
     .map((p) => ({ student_id: p.user_id, full_name: p.full_name || one(p.users).login_id, login_id: one(p.users).login_id, roll_no: p.roll_no, class_label: label.get(p.class_id) }))
     .filter((s) => !needle || `${s.full_name} ${s.login_id} ${s.roll_no ?? ''}`.toLowerCase().includes(needle))
     .sort((a, b) => a.class_label.localeCompare(b.class_label, undefined, { numeric: true }) || (a.roll_no ?? 1e9) - (b.roll_no ?? 1e9) || a.full_name.localeCompare(b.full_name))
-    .slice(0, 50);
+    .slice(0, limit);
 }

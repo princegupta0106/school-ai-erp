@@ -1,0 +1,5 @@
+cloudfare : princeguptapg0106@gmail.com
+render : princeguptapg0106@gmail.com
+render (ai) : vijendragupta0106@gmail.com
+frontend :vercel princeguptapg0106@gmail.com
+supabase: rajkumarigupta1990@gmail.com

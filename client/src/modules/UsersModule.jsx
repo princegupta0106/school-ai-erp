@@ -1,8 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, load } from '../cache.js';
-import { Icon, Modal, Field, Badge, Empty, toast, initials, ROLE_LABEL, Loading, ask } from '../ui.jsx';
+import { Icon, Modal, Field, Badge, Empty, toast, initials, ROLE_LABEL, Loading, ask, groupByClass, ClassGroup, classText } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
+import { TeachingCard, TeachingEditor, saveTeaching } from './TimetableModule.jsx';
 
 const ROLES = ['school_admin', 'staff', 'parent', 'student', 'other'];
 const refreshUsers = () => load('users', fetchers.users).catch(() => {});
@@ -45,7 +46,8 @@ const PF = ['full_name', 'phone', 'email', 'dob', 'gender', 'address', 'admissio
 const pickProfile = (p) => Object.fromEntries(PF.map((k) => [k, p?.[k] ?? '']));
 
 // "parent of": chips of linked students + a picker to add more
-function ChildPicker({ options, value, onChange, names = {} }) {
+function ChildPicker({ options, value, onChange, names = {}, classes = [] }) {
+  const clsLabel = (o) => { const c = classes.find((x) => x.id === o.profile.class_id); return c ? `${c.name}${c.section ? ` ${c.section}` : ''}` : ''; };
   const [pick, setPick] = useState('');
   const nm = (id) => { const o = options.find((x) => x.user_id === id); return o ? (o.profile.full_name || o.login_id) : names[id] || 'Student'; };
   const free = options.filter((o) => !value.includes(o.user_id));
@@ -54,7 +56,7 @@ function ChildPicker({ options, value, onChange, names = {} }) {
       <div className="pills">{value.length === 0 && <span style={{ color: 'var(--mute)' }}>No students linked yet</span>}
         {value.map((id) => <span key={id} className="pill on">{nm(id)} <button type="button" className="icon-btn" style={{ display: 'inline-grid', padding: 0, color: 'inherit' }} aria-label="Remove" onClick={() => onChange(value.filter((v) => v !== id))}>x</button></span>)}</div>
       {options.length > 0 && <div className="row">
-        <select style={{ flex: 1 }} value={pick} onChange={(e) => setPick(e.target.value)}><option value="">Add a student...</option>{free.map((o) => <option key={o.user_id} value={o.user_id}>{o.profile.full_name || o.login_id} ({o.login_id})</option>)}</select>
+        <select style={{ flex: 1 }} value={pick} onChange={(e) => setPick(e.target.value)}><option value="">Add a student...</option>{groupByClass(free, clsLabel).map((g) => <optgroup key={g.label} label={classText(g.label)}>{g.items.map((o) => <option key={o.user_id} value={o.user_id}>{o.profile.full_name || o.login_id} ({o.login_id})</option>)}</optgroup>)}</select>
         <button type="button" className="btn" disabled={!pick} onClick={() => { onChange([...value, pick]); setPick(''); }}>Add</button></div>}
     </div>
   );
@@ -121,9 +123,11 @@ function UserDrawer({ me, user: initial, onClose, classes, students = [] }) {
         {has('edit_user') && <button className="btn primary full" disabled={busy === 'p'} style={{ justifyContent: 'center' }}>Save profile</button>}
       </form>
 
+      {JOB_ROLES.includes(user.role) && user.school_id && (has('edit_user') || has('manage_timetable')) && <TeachingCard me={me} user={user} />}
+
       {user.role === 'parent' && (
         <div className="card stack"><b>Parent of</b>
-          <ChildPicker options={has('edit_user') ? students.filter((x) => x.school_id === user.school_id) : []} value={kids} onChange={setKids}
+          <ChildPicker options={has('edit_user') ? students.filter((x) => x.school_id === user.school_id) : []} value={kids} onChange={setKids} classes={classes}
             names={Object.fromEntries((user.children || []).map((c) => [c.user_id, c.full_name || c.login_id]))} />
           {has('edit_user') && <button className="btn primary" onClick={saveKids} disabled={busy === 'c'}>Save students</button>}
         </div>)}
@@ -190,6 +194,7 @@ export function UserList({ me }) {
   if (error) return <div className="err">{error}</div>;
   if (!users) return <Loading />;
   const name = (u) => u.profile.full_name || u.login_id;
+  const clsOf = (id) => { const c = classes.find((x) => x.id === id); return c ? `${c.name}${c.section ? ` ${c.section}` : ''}` : ''; };
   return (
     <div className="stack">
       <div className="row">
@@ -197,7 +202,17 @@ export function UserList({ me }) {
         {me.role === 'super_admin' && schools && <select style={{ width: 'auto' }} value={school} onChange={(e) => setSchool(e.target.value)}><option value="">All schools</option>{schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
       </div>
       <div className="pills scroll">{['', 'school_admin', 'staff', 'parent', 'student', 'other'].map((r) => <button key={r} className={`pill ${role === r ? 'on' : ''}`} onClick={() => setRole(r)}>{r ? ROLE_LABEL[r] : 'All'}</button>)}</div>
-      {rows.length === 0 ? <Empty>No users match.</Empty> : (<>
+      {rows.length === 0 ? <Empty>No users match.</Empty> : role === 'student' ? (
+        groupByClass(rows, (u) => clsOf(u.profile.class_id)).map((g) => (
+          <ClassGroup key={g.label} label={g.label} count={g.items.length} open={!!q}>
+            {g.items.map((u) => (
+              <button key={u.user_id} className="drow" onClick={() => setOpen(u)}>
+                <span className="avatar">{initials(name(u))}</span>
+                <div style={{ flex: 1, minWidth: 0 }}><b>{name(u)}</b><small>{u.profile.roll_no ? `Roll ${u.profile.roll_no} - ` : ''}{u.login_id}</small></div>
+                <Badge tone={u.is_active ? 'ok' : 'off'}>{u.is_active ? 'Active' : 'Off'}</Badge>
+              </button>))}
+          </ClassGroup>))
+      ) : (<>
         <div className="card utable" style={{ padding: 0, overflow: 'hidden' }}><table><thead><tr><th>Name</th><th>ID</th><th>Role</th><th>Phone</th><th>Status</th></tr></thead><tbody>
           {rows.map((u) => (<tr key={u.user_id} className="click" onClick={() => setOpen(u)}>
             <td><div className="person"><span className="avatar">{initials(name(u))}</span>{name(u)}</div></td><td>{u.login_id}</td><td>{ROLE_LABEL[u.role]}</td><td>{u.profile.phone || '-'}</td>
@@ -218,13 +233,23 @@ export function UserAdd({ me, go }) {
   const [a, setA] = useState({ password: '', role: 'student', school_id: '' });
   const { data: all } = useData('users', fetchers.users, me.features.includes('get_all_users_school'));
   const [f, setF] = useState(pickProfile({})); const [feats, setFeats] = useState([]); const [kids, setKids] = useState([]);
-  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [teach, setTeach] = useState([]);
+  const [teaches, setTeaches] = useState(true);
   const sid = me.role === 'super_admin' ? a.school_id : me.school_id;
+  const canTeach = JOB_ROLES.includes(a.role) && (me.features.includes('edit_user') || me.features.includes('manage_timetable'));
+  // a teacher always starts with at least one class + subject (like a student always has a class)
+  const mustTeach = canTeach && a.role === 'staff' && teaches;
   const save = async (e) => {
-    e.preventDefault(); setBusy(true); setErr('');
+    e.preventDefault(); setErr('');
+    if (mustTeach && teach.length === 0) { setErr('Add at least one class and subject this teacher teaches (under Teaching), or switch "This person teaches" off.'); return; }
+    setBusy(true);
     try {
-      await api.post('/users', { ...a, profile: f, features_permission: feats, children: a.role === 'parent' ? kids : [] });
-      await refreshUsers(); toast('User created'); go('list');
+      const created = await api.post('/users', { ...a, profile: f, features_permission: feats, children: a.role === 'parent' ? kids : [] });
+      let note = 'User created';
+      if (canTeach && (teaches || a.role !== 'staff') && teach.length && created?.user_id) {
+        try { await saveTeaching(me, sid, created.user_id, teach); } catch (x) { note = `User created, but teaching details were not saved (${x.message}). Add them from the profile.`; }
+      }
+      await refreshUsers(); toast(note); go('list');
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
@@ -235,9 +260,14 @@ export function UserAdd({ me, go }) {
       <Field label="Password" req hint="At least 6 characters"><input required type="password" value={a.password} onChange={(e) => setA({ ...a, password: e.target.value })} autoComplete="new-password" /></Field>
       <div className="full"><Field label="Role"><select value={a.role} onChange={(e) => setA({ ...a, role: e.target.value })}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></Field></div>
       <ProfileFields f={f} setF={setF} role={a.role} classes={classes.filter((c) => c.school_id === sid)} canSalary={me.features.includes('manage_salary')} />
+      {canTeach && (
+        <div className="full stack"><div className="sec">Teaching (class + subject)</div>
+          {a.role === 'staff' && <label className="chk"><input type="checkbox" checked={teaches} onChange={(e) => setTeaches(e.target.checked)} /><span>This person teaches (needs at least one class + subject)</span></label>}
+          {(teaches || a.role !== 'staff') && (sid ? <TeachingEditor me={me} sid={sid} rows={teach} onChange={setTeach} /> : <small style={{ color: 'var(--mute)' }}>Choose a school first.</small>)}
+          <small style={{ color: 'var(--mute)' }}>{a.role === 'staff' ? 'Switch off for office staff, drivers and other non-teaching roles.' : 'Optional for this role.'}</small></div>)}
       {a.role === 'parent' && (
         <div className="full stack"><div className="sec">Parent of</div>
-          <ChildPicker options={(all || []).filter((x) => x.role === 'student' && x.school_id === sid)} value={kids} onChange={setKids} /></div>)}
+          <ChildPicker options={(all || []).filter((x) => x.role === 'student' && x.school_id === sid)} value={kids} onChange={setKids} classes={classes} /></div>)}
       {me.features.includes('change_features') && !['school_admin'].includes(a.role) && (<div className="full stack"><div className="sec">Feature access</div><FeaturePicker me={me} role={a.role} value={feats} onChange={setFeats} /></div>)}
       {err && <div className="err full">{err}</div>}
       <button className="btn primary full" disabled={busy} style={{ justifyContent: 'center' }}>{busy ? 'Creating...' : 'Create user'}</button>

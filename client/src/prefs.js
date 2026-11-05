@@ -75,7 +75,7 @@ export function allTargets(me, MODULE_UI) {
 }
 
 // what to show before the user has customised anything
-const SMART_DEFAULTS = ['payroll/my/apply', 'attendance/take', 'communication/board', 'fees/students', 'academics/tests'];
+const SMART_DEFAULTS = ['payroll/my/apply', 'attendance/take', 'communication/board', 'fees/students', 'examinations/marks'];
 export function effectiveShortcuts(prefs, targets) {
   const ids = new Set(targets.map((t) => t.id));
   const list = prefs.shortcuts ?? SMART_DEFAULTS.filter((id) => ids.has(id)).slice(0, 4);
