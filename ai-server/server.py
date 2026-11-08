@@ -80,7 +80,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception:
             return self._json(400, {"error": "Bad request"})
         token = (self.headers.get("Authorization") or "").replace("Bearer ", "", 1).strip()
-        user = agent.verify_user(token) if token else None
+        try:
+            user = agent.verify_user(token) if token else None
+        except agent.ErpError:
+            return self._json(503, {"error": "The assistant cannot reach the school portal right now. Please try again in a moment."})
         if not user:
             return self._json(401, {"error": "Please sign in again."})
         if "use_assistant" not in (user.get("features") or []):

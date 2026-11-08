@@ -5,7 +5,10 @@ import { effectiveFeatures } from './features.js';
 
 export const USER_SELECT = 'user_id,school_id,login_id,role,is_active,created_at,password_hash,profiles(*)';
 
-export const signToken = (uid) => jwt.sign({ uid }, cfg.authSecret, { expiresIn: '12h' });
+// A session lasts SESSION_DAYS and keeps renewing while the person uses the app, so nobody is signed out mid-work.
+const SESSION_DAYS = 30;
+const RENEW_BELOW_S = 20 * 86400;   // once less than 20 days remain, a fresh token is sent back with the response
+export const signToken = (uid) => jwt.sign({ uid }, cfg.authSecret, { expiresIn: `${SESSION_DAYS}d` });
 
 export const shapeUser = (row) => {
   const { password_hash, profiles, ...u } = row;
@@ -19,8 +22,10 @@ export async function authenticate(req, res, next) {
   try {
     const m = /^Bearer (.+)$/.exec(req.headers.authorization || '');
     if (!m) throw httpError(401, 'Please sign in');
-    let uid;
-    try { uid = jwt.verify(m[1], cfg.authSecret).uid; } catch { throw httpError(401, 'Session expired, sign in again'); }
+    let payload;
+    try { payload = jwt.verify(m[1], cfg.authSecret); } catch { throw httpError(401, 'Session expired, sign in again'); }
+    const uid = payload.uid;
+    if (payload.exp && payload.exp - Date.now() / 1000 < RENEW_BELOW_S) res.setHeader('X-Renewed-Token', signToken(uid));
     const { data, error } = await db.from('users').select(USER_SELECT).eq('user_id', uid).maybeSingle();
     check(error);
     if (!data || !data.is_active) throw httpError(401, 'Account not available');

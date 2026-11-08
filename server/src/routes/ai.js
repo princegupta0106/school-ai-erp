@@ -31,6 +31,7 @@ export const cleanReply = (data) => {
   return data;
 };
 
+const NOT_VERIFIED = 'The assistant could not check your sign-in with the portal just now. Please try again in a moment.';
 async function forward(method, path, req, body) {
   let res;
   try {
@@ -44,6 +45,9 @@ async function forward(method, path, req, body) {
     throw httpError(503, 'The AI service is not running. Start it with run.bat (it opens an "AI service" window) or: python ai-server/server.py');
   }
   const data = await res.json().catch(() => ({}));
+  // 401 from the AI service means it could not check the sign-in with the portal, not that the person's session ended.
+  // Sent as 502 so the app does not sign the person out.
+  if (res.status === 401) throw httpError(502, NOT_VERIFIED);
   return { status: res.status, data };
 }
 
@@ -75,7 +79,7 @@ r.post('/chat/stream', requireFeature('use_assistant'), limiter, async (req, res
       body: JSON.stringify({ ...req.body, attachments: cleanAttachments(req) }),
       signal: AbortSignal.any([ac.signal, AbortSignal.timeout(150000)]),
     });
-    if (!up.ok || !up.body) { const d = await up.json().catch(() => ({})); send({ t: 'error', error: d.error || 'The AI service could not answer.' }); return res.end(); }
+    if (!up.ok || !up.body) { const d = await up.json().catch(() => ({})); send({ t: 'error', error: up.status === 401 ? NOT_VERIFIED : (d.error || 'The AI service could not answer.') }); return res.end(); }
     const dec = new TextDecoder();
     let buf = '';
     const line = (l) => {

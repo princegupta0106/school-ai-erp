@@ -11,6 +11,8 @@ const QUIET = ['/audit/navigate']; // background pings never light up the progre
 export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
 export const getToken = () => localStorage.getItem('token');
 export const setToken = (t) => (t ? localStorage.setItem('token', t) : localStorage.removeItem('token'));
+// the server sends a fresh token when the current one is nearly used up (sliding session): keep it, so the person stays signed in
+const keepRenewed = (res) => { const t = res.headers.get('x-renewed-token'); if (t) setToken(t); };
 
 async function request(method, url, body) {
   const headers = {};
@@ -23,6 +25,7 @@ async function request(method, url, body) {
   if (!quiet) bump(1);
   try {
     const res = await fetch(`/api${url}`, { method, headers, body: payload });
+    keepRenewed(res);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       if (res.status === 401 && !url.startsWith('/auth/login')) onUnauthorized();
@@ -37,6 +40,7 @@ async function request(method, url, body) {
 async function stream(url, body, onEvent) {
   const t = getToken();
   const res = await fetch(`/api${url}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) }, body: JSON.stringify(body) });
+  keepRenewed(res);
   if (!res.ok || !res.body) {
     if (res.status === 401) onUnauthorized();
     const data = await res.json().catch(() => ({}));
@@ -58,6 +62,7 @@ async function stream(url, body, onEvent) {
 async function download(url, fallbackName) {
   const t = getToken();
   const res = await fetch(`/api${url}`, { headers: t ? { Authorization: `Bearer ${t}` } : {} });
+  keepRenewed(res);
   if (!res.ok) {
     if (res.status === 401) onUnauthorized();
     const data = await res.json().catch(() => ({}));

@@ -256,8 +256,10 @@ def verify_user(token):
         return c[1]
     try:
         u = api("GET", "/auth/me", token)
-    except ErpError:
-        return None
+    except ErpError as e:
+        if e.status in (401, 403):
+            return None                # the portal really refused this sign-in
+        raise                          # portal unreachable / slow: not the person's fault, so the caller says "try again"
     if not u or not u.get("user_id"):
         return None
     u["id"] = u["user_id"]
@@ -5018,6 +5020,27 @@ def _run_call(call, ctx):
         return {"error": f"Bad arguments: {e}"}
 
 
+# Greetings, thanks and goodbyes need no school data and no model call: answer them at once.
+_SMALL_TALK = [
+    (re.compile(r"^\W*(hi+|hello+|hey+|hii+|namaste|namaskar|good (morning|afternoon|evening)|yo|hola)\W*$", re.I), "greet"),
+    (re.compile(r"^\W*(thanks?( you)?|thank you|thx|ty|dhanyavad|shukriya)\W*$", re.I), "thanks"),
+    (re.compile(r"^\W*(bye+|goodbye|see you)\W*$", re.I), "bye"),   # not \"ok\": that often answers a question the assistant just asked
+]
+_SMALL_REPLY = {
+    "greet": "Hi{name}! I can help with students, attendance, fees, homework, notices, leave and more. What would you like to do?",
+    "thanks": "You're welcome{name}! Anything else I can help with?",
+    "bye": "Alright{name}. I'm here whenever you need me.",
+}
+
+
+def _small_talk(user, text):
+    for rx, kind in _SMALL_TALK:
+        if rx.match(text or ""):
+            first = str(((user.get("profile") or {}).get("full_name") or "").split(" ")[0]).strip()
+            return _SMALL_REPLY[kind].format(name=(", " + first) if first else "")
+    return None
+
+
 def chat(token, user, conv_id, text, auto=False, attachments=None, emit=None):
     emit = emit or (lambda *_: None)             # emit(event_dict): live progress for the streaming endpoint (no-op otherwise)
     text = (text or "").strip()
@@ -5029,6 +5052,12 @@ def chat(token, user, conv_id, text, auto=False, attachments=None, emit=None):
     if not text and not new_files:
         raise ErpError("Empty message")
     msgs.append({"role": "user", "text": (text[:2000] or "(I attached a file)") + (f"\n[Attached now: {files_note(new_files)}]" if new_files else "")})
+    quick = _small_talk(user, text) if not new_files else None
+    if quick:
+        emit({"t": "text", "text": quick})
+        msgs.append({"role": "assistant", "text": quick, "calls": []})
+        _trim(msgs)
+        return {"conversation_id": c["id"], "reply": quick, "choices": None, "actions": [], "downloads": []}
     ctx = {"token": token, "user": user, "cards": [], "choices": None, "auto": auto, "allowed": allowed_tools(user), "files": c.setdefault("files", []), "conv_id": c["id"], "downloads": []}
     # Token saving: only the modules this message is about are described to the model (see toolkit.py)
     tk = c.setdefault("tk", {})
