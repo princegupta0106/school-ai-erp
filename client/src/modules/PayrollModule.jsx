@@ -221,7 +221,7 @@ export function Payroll({ me }) {
   const [month, setMonth] = useState(prevMonth());
   const { data, error, reload } = useApi(sid ? withQs(`/payroll/payslips?period=${month}`, qs) : null);
   const { data: adj, reload: reloadAdj } = useApi(sid ? withQs(`/payroll/adjustments?period=${month}`, qs) : null);
-  const { data: emps } = useApi(sid ? withQs('/payroll/employees', qs) : null);
+  const { data: emps, reload: reloadEmps } = useApi(sid ? withQs('/payroll/employees', qs) : null);
   const { data: audit, reload: reloadAudit } = useApi(sid && me.features.includes('payroll_manage') ? withQs('/payroll/audit', qs) : null);
   const [open, setOpen] = useState(null); const [pay, setPay] = useState(null); const [showAdj, setShowAdj] = useState(false); const [showAudit, setShowAudit] = useState(false);
   const all = async () => { await Promise.all([reload(), reloadAdj(), reloadAudit()]); };
@@ -251,8 +251,10 @@ export function Payroll({ me }) {
           {rows.map((x) => <tr key={x.id} className="click" onClick={() => setOpen(x)}><td><b>{x.employee?.full_name}</b></td><td>{money(x.base_salary)}</td><td>{x.unpaid_days}</td><td>{money(x.leave_deduction)}</td><td>{money(x.bonus_total)}</td><td>{money(x.other_deduction_total)}</td><td><b>{money(x.net_pay)}</b></td><td><S s={x.status} /></td></tr>)}
         </tbody></table>
         {rows.length === 0 && <Empty>No payslips for {monthName(`${month}-01`)} yet. {manage && data.can_generate ? 'Press "Prepare / refresh".' : ''}</Empty>}
-        {data.missing.some((m) => !m.has_salary) && <div style={dim}>No salary set (add in Users): {data.missing.filter((m) => !m.has_salary).map((m) => m.full_name).join(', ')}</div>}</div>)}
+        {data.missing.some((m) => !m.has_salary) && <div style={dim}>No salary set yet for: {data.missing.filter((m) => !m.has_salary).map((m) => m.full_name).join(', ')}. Set it in the "Staff salaries" card below.</div>}</div>)}
 
+      {manage && emps && <SalaryCard emps={emps} qs={qs} onSaved={async () => { await Promise.all([reloadEmps(), reload()]); }} />}
+      <Reports qs={qs} month={month} />
       <div className="card stack"><div className="row sp"><b>Bonuses & extra deductions · {monthName(`${month}-01`)}</b>{manage && emps && <button className="btn" onClick={() => setShowAdj(true)}>Add</button>}</div>
         {adj?.length === 0 && <span style={dim}>None.</span>}
         {adj?.map((a) => <div key={a.id} className="doc"><div style={{ flex: 1 }}><b>{a.employee?.full_name}</b> · {a.label}</div><b style={{ color: a.kind === 'bonus' ? 'var(--ok)' : 'var(--bad)' }}>{a.kind === 'bonus' ? '+' : '-'}{money(a.amount)}</b>
@@ -272,6 +274,57 @@ export function Payroll({ me }) {
     </div>
   );
 }
+// monthly salary of every active employee; finance sets it here (no need to open Users)
+function SalaryCard({ emps, qs, onSaved }) {
+  const [edit, setEdit] = useState(null);
+  const notSet = emps.filter((e) => !(e.salary > 0));
+  return <div className="card stack" style={{ gap: 0 }}>
+    <div className="row sp"><b>Staff salaries (monthly)</b>{notSet.length > 0 && <Badge tone="warn">{notSet.length} not set</Badge>}</div>
+    <div style={{ ...dim, marginBottom: 6 }}>The monthly gross for each person. Leave cuts and bonuses are added on top when payslips are prepared. Changing a salary affects draft payslips only after "Prepare / refresh".</div>
+    {emps.length === 0 && <Empty>No active staff yet. Add them in Users first.</Empty>}
+    {emps.map((e) => <div key={e.user_id} className="doc">
+      <div style={{ flex: 1 }}><b>{e.full_name}</b><div style={dim}>{e.designation || e.login_id}</div></div>
+      <b style={{ color: e.salary > 0 ? 'var(--ink)' : 'var(--warn)' }}>{e.salary > 0 ? money(e.salary) : 'Not set'}</b>
+      <button className="btn" onClick={() => setEdit(e)}>{e.salary > 0 ? 'Change' : 'Set salary'}</button>
+    </div>)}
+    {edit && <Modal title={`Salary · ${edit.full_name}`} onClose={() => setEdit(null)}><SalaryForm emp={edit} qs={qs} onDone={async () => { setEdit(null); await onSaved(); }} /></Modal>}
+  </div>;
+}
+function SalaryForm({ emp, qs, onDone }) {
+  const [v, setV] = useState(emp.salary > 0 ? String(emp.salary) : '');
+  const { err, busy, run } = useRun();
+  return <form className="form" onSubmit={run(async () => { await api.put(withQs(`/payroll/employees/${emp.user_id}/salary`, qs), { salary: v }); await onDone(); }, 'Salary saved')}>
+    <div className="full"><Field label="Monthly salary (₹)" req hint="Gross per month, before leave cuts"><input required type="number" min="0" step="0.01" value={v} onChange={(e) => setV(e.target.value)} /></Field></div>
+    {err && <div className="err full">{err}</div>}
+    <button className="btn primary full" disabled={busy} style={{ justifyContent: 'center' }}>Save salary</button>
+  </form>;
+}
+// downloads: attendance register and salary register for the month picked above
+function Reports({ qs, month }) {
+  const [busy, setBusy] = useState('');
+  const get = (kind, format) => async () => {
+    setBusy(kind + format);
+    try { await api.download(withQs(`/payroll/reports/${kind}?period=${month}&format=${format}`, qs), `${kind}-${month}.${format}`); }
+    catch (x) { toast(x.message, true); }
+    finally { setBusy(''); }
+  };
+  const wait = (k, idle) => (busy === k ? 'Preparing...' : idle);
+  return <div className="card stack" style={{ gap: 8 }}>
+    <b>Reports · {monthName(`${month}-01`)}</b>
+    <div style={dim}>Attendance comes from approved leave: present days = working days minus leave. Weekly offs and school holidays are not counted. The current month is counted up to today.</div>
+    <div className="row" style={{ flexWrap: 'wrap' }}>
+      <span style={{ ...dim, minWidth: 130 }}>Attendance</span>
+      <button className="btn" disabled={!!busy} onClick={get('attendance', 'csv')}>{wait('attendancecsv', 'Register (Excel / CSV)')}</button>
+      <button className="btn" disabled={!!busy} onClick={get('attendance', 'pdf')}>{wait('attendancepdf', 'Summary (PDF)')}</button>
+    </div>
+    <div className="row" style={{ flexWrap: 'wrap' }}>
+      <span style={{ ...dim, minWidth: 130 }}>Salary</span>
+      <button className="btn" disabled={!!busy} onClick={get('salary', 'csv')}>{wait('salarycsv', 'Register (Excel / CSV)')}</button>
+      <button className="btn" disabled={!!busy} onClick={get('salary', 'pdf')}>{wait('salarypdf', 'Register (PDF)')}</button>
+    </div>
+  </div>;
+}
+
 function PayModal({ onClose, onSubmit, all }) {
   const [f, setF] = useState({ payment_date: new Date().toLocaleDateString('en-CA'), payment_method: 'Bank transfer', payment_reference: '' });
   return <Modal title={all ? 'Mark all finalized payslips paid' : 'Record payment'} onClose={onClose}><form className="form" onSubmit={(e) => { e.preventDefault(); onSubmit(f); }}>

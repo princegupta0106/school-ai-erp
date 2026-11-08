@@ -5,6 +5,7 @@ import { requireFeature, isSuper } from '../auth.js';
 const canDecideOwn = (req) => isSuper(req) || req.user.role === 'school_admin';
 import { notifyLeave } from '../notify.js';
 import * as L from '../payroll-logic.js';
+import { toCsv, tablePdf, money } from '../feeReports.js';
 
 const r = Router();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -498,10 +499,171 @@ r.get('/audit', requireFeature('payroll_manage'), asyncH(async (req, res) => {
   const names = await nameMap([...data.map((x) => x.actor_id), ...data.map((x) => x.target_user)].filter(Boolean));
   res.json(data.map((x) => ({ ...x, actor: names[x.actor_id], target: names[x.target_user] })));
 }));
-r.get('/employees', requireFeature('leave_approve', 'leave_grant', 'payroll_manage', 'payroll_view'), asyncH(async (req, res) => {
+r.get('/employees', requireFeature('leave_approve', 'leave_grant', 'payroll_manage', 'payroll_view', 'manage_salary'), asyncH(async (req, res) => {
   const list = await employees(schoolOf(req));
-  const canSalary = has(req, 'payroll_view', 'payroll_manage');
+  const canSalary = has(req, 'payroll_view', 'payroll_manage', 'manage_salary');
   res.json(list.map((e) => ({ ...e, salary: canSalary ? e.salary : undefined })));
+}));
+
+// ================= salary entry & staff reports (attendance is worked out from approved leave)
+// Set one person's monthly salary from the Payroll screen (the same column the Users form edits).
+r.put('/employees/:uid/salary', requireFeature('payroll_manage', 'manage_salary'), asyncH(async (req, res) => {
+  const school_id = schoolOf(req);
+  const emp = await loadEmployee(school_id, req.params.uid);
+  const v = req.body?.salary;
+  const n = v === '' || v === null || v === undefined ? null : Number(v);
+  if (n !== null && !(Number.isFinite(n) && n >= 0 && n < 1e8)) throw httpError(400, 'Salary must be a number from 0 up to 99,999,999 (leave empty to clear it)');
+  const stored = n === null ? null : L.round2(n);
+  check((await db.from('profiles').update({ salary: stored, updated_at: new Date().toISOString() }).eq('user_id', emp.user_id)).error);
+  // the audit log never stores salary figures (same rule as the Users screen)
+  await audit(school_id, req.user, 'salary_set', emp.user_id, {});
+  res.json({ ok: true, user_id: emp.user_id, salary: stored });
+}));
+
+// every active employee for one month: attendance from leave + the salary figures
+// past months: the whole month. current month: up to today. Finalized / draft payslips are shown as saved.
+async function staffMonth(school_id, period) {
+  const today = L.todayStr();
+  if (period > L.monthStart(today)) throw httpError(400, `${L.monthLabel(period)} hasn't started yet`);
+  const through = period < L.monthStart(today) ? L.monthEnd(period) : today;
+  const settings = await settingsOf(school_id);
+  const isOff = L.offDayChecker(settings.weekly_off, await holidaysOf(school_id));
+  const ctx = await context(school_id, period);
+  const slips = await all(() => db.from('payslips').select('*').eq('school_id', school_id).eq('period', period));
+  const slipBy = Object.fromEntries(slips.map((s) => [s.user_id, s]));
+  const emps = (await employees(school_id)).sort((a, b) => a.full_name.localeCompare(b.full_name));
+  const rows = [];
+  for (const e of emps) {
+    const leaves = ctx.reqs.filter((q) => q.user_id === e.user_id).map((q) => ({
+      name: ctx.types[q.leave_type_id]?.name || 'Leave', is_paid: !!ctx.types[q.leave_type_id]?.is_paid, days_detail: q.days_detail,
+    }));
+    const attendance = L.attendanceOf({ period, isOff, through, leaves });
+    let pay = null;
+    const slip = slipBy[e.user_id];
+    if (slip) pay = { status: slip.status, leave_cut_days: slip.unpaid_days, leave_deduction: slip.leave_deduction, bonus_total: slip.bonus_total, other_deduction_total: slip.other_deduction_total, net_pay: slip.net_pay };
+    else if (e.salary > 0) {
+      const c = await compute(school_id, e, period, settings, isOff, ctx);
+      pay = { status: 'not prepared', leave_cut_days: c.unpaid_days, leave_deduction: c.leave_deduction, bonus_total: c.bonus_total, other_deduction_total: c.other_deduction_total, net_pay: c.net_pay };
+    }
+    rows.push({ ...e, attendance, pay });
+  }
+  return { rows, through };
+}
+
+const schoolInfo = async (school_id) => {
+  const { data, error } = await db.from('schools').select('name,address,phone,email').eq('id', school_id).maybeSingle();
+  check(error); return data || {};
+};
+const reportPeriod = (q) => { const p = L.toPeriod(q.period); if (!p) throw httpError(400, 'Pick a month'); return p; };
+const reportFormat = (q) => { if (!['pdf', 'csv'].includes(q.format)) throw httpError(400, 'format must be pdf or csv'); return q.format; };
+const sendReport = (res, buf, mime, name) => {
+  res.set({ 'Content-Type': mime, 'Content-Length': buf.length, 'Content-Disposition': `attachment; filename="${name}"`, 'Cache-Control': 'private, no-store' });
+  res.send(buf);
+};
+const reportSubtitle = (period, through) => (through < L.monthEnd(period) ? `Counted up to ${L.monthLabel(period)} ${through.slice(8)} (today). ` : '')
+  + 'Present = working days minus approved leave. Weekly offs and school holidays are not counted.';
+const ATT_LEGEND = 'P = present, L = paid leave, LWP = unpaid leave, H = half-day leave, O = weekly off / holiday, blank = not counted yet';
+
+// one flat line per person: the same numbers feed the CSV and the PDF
+function attendanceLines(rows, period) {
+  const lines = rows.map((x) => ({
+    name: x.full_name, login: x.login_id, designation: x.designation || '', codes: x.attendance.codes,
+    working: x.attendance.working_days, present: x.attendance.present_days, leave: x.attendance.leave_days,
+    unpaid: x.attendance.unpaid_leave_days, by_type: x.attendance.by_type.map((t) => `${t.name}: ${t.days}`).join(', ') || '-',
+  }));
+  const sum = (k) => L.round1(lines.reduce((s, x) => s + Number(x[k] || 0), 0));
+  const total = { name: 'Total', working: sum('working'), present: sum('present'), leave: sum('leave'), unpaid: sum('unpaid') };
+  return { lines, total, days: L.daysInMonth(period) };
+}
+
+r.get('/reports/attendance', requireFeature('payroll_view', 'payroll_manage'), asyncH(async (req, res) => {
+  const school_id = schoolOf(req); const period = reportPeriod(req.query); const format = reportFormat(req.query);
+  const { rows, through } = await staffMonth(school_id, period);
+  const { lines, total, days } = attendanceLines(rows, period);
+  const base = `attendance-${period.slice(0, 7)}`;
+  if (format === 'csv') {
+    // attendance register: one row per person, one column per day (P / L / O ...), then the totals
+    const dayKey = (i) => `${period.slice(0, 7)}-${String(i).padStart(2, '0')}`;
+    const cols = [
+      { label: 'Employee', csv: (x) => (x.legend ? ATT_LEGEND : x.name) },
+      { label: 'Login ID', csv: (x) => (x.legend || x.total ? '' : x.login) },
+      { label: 'Designation', csv: (x) => (x.legend || x.total ? '' : x.designation) },
+      ...Array.from({ length: days }, (_, i) => ({ label: String(i + 1), csv: (x) => (x.legend || x.total ? '' : (x.codes[dayKey(i + 1)] ?? '')) })),
+      { label: 'Working days', csv: (x) => (x.legend ? '' : x.working) },
+      { label: 'Present days', csv: (x) => (x.legend ? '' : x.present) },
+      { label: 'Leave days', csv: (x) => (x.legend ? '' : x.leave) },
+      { label: 'Unpaid leave days', csv: (x) => (x.legend ? '' : x.unpaid) },
+    ];
+    const data = [...lines, { ...total, total: true }, { legend: true }];
+    return sendReport(res, Buffer.from(toCsv(cols, data), 'utf8'), 'text/csv; charset=utf-8', `${base}.csv`);
+  }
+  const school = await schoolInfo(school_id);
+  const pdf = await tablePdf({
+    school, title: `Staff attendance · ${L.monthLabel(period)}`, subtitle: reportSubtitle(period, through),
+    totals: [['Staff', lines.length], ['Present days (all staff)', total.present], ['Leave days (all staff)', total.leave], ['Unpaid leave (all staff)', total.unpaid]],
+    columns: [
+      { label: 'Employee', weight: 3, get: (x) => `${x.name}\n${x.designation || x.login}` },
+      { label: 'Working days', weight: 1.1, align: 'right', get: (x) => x.working },
+      { label: 'Present', weight: 1, align: 'right', get: (x) => x.present },
+      { label: 'Leave days', weight: 1, align: 'right', get: (x) => x.leave },
+      { label: 'Unpaid leave', weight: 1.1, align: 'right', get: (x) => x.unpaid },
+      { label: 'Leave by type', weight: 3, get: (x) => x.by_type },
+    ],
+    rows: lines,
+    note: ATT_LEGEND,
+  });
+  sendReport(res, pdf, 'application/pdf', `${base}.pdf`);
+}));
+
+r.get('/reports/salary', requireFeature('payroll_view', 'payroll_manage'), asyncH(async (req, res) => {
+  const school_id = schoolOf(req); const period = reportPeriod(req.query); const format = reportFormat(req.query);
+  const { rows, through } = await staffMonth(school_id, period);
+  const base = `salary-${period.slice(0, 7)}`;
+  const lines = rows.map((x) => ({
+    name: x.full_name, login: x.login_id, designation: x.designation || '', salary: x.salary,
+    present: x.attendance.present_days, leave: x.attendance.leave_days,
+    cut_days: x.pay?.leave_cut_days ?? '', leave_cut: x.pay?.leave_deduction ?? '', bonus: x.pay?.bonus_total ?? '',
+    other: x.pay?.other_deduction_total ?? '', net: x.pay?.net_pay ?? '', status: x.pay ? x.pay.status : (x.salary > 0 ? '' : 'Salary not set'),
+  }));
+  const sum = (k) => L.round2(lines.reduce((s, x) => s + (x[k] === '' ? 0 : Number(x[k])), 0));
+  const total = { name: 'Total', salary: sum('salary'), present: L.round1(lines.reduce((s, x) => s + Number(x.present), 0)), leave: L.round1(lines.reduce((s, x) => s + Number(x.leave), 0)), cut_days: sum('cut_days'), leave_cut: sum('leave_cut'), bonus: sum('bonus'), other: sum('other'), net: sum('net') };
+  const m = (v) => (v === '' || v === null ? '' : money(v));
+  if (format === 'csv') {
+    const cols = [
+      { label: 'Employee', csv: (x) => (x.legend ? 'Salary = monthly gross. Net pay = salary - leave cut + bonus - deductions. Status: draft / finalized / paid, or "not prepared" (estimate).' : x.name) },
+      { label: 'Login ID', csv: (x) => (x.total || x.legend ? '' : x.login) },
+      { label: 'Designation', csv: (x) => (x.total || x.legend ? '' : x.designation) },
+      { label: 'Monthly salary', csv: (x) => (x.legend ? '' : x.salary ?? '') },
+      { label: 'Present days', csv: (x) => (x.legend ? '' : x.present) },
+      { label: 'Leave days', csv: (x) => (x.legend ? '' : x.leave) },
+      { label: 'Days cut from salary', csv: (x) => (x.legend ? '' : x.cut_days) },
+      { label: 'Leave cut', csv: (x) => (x.legend ? '' : x.leave_cut) },
+      { label: 'Bonus', csv: (x) => (x.legend ? '' : x.bonus) },
+      { label: 'Other deductions', csv: (x) => (x.legend ? '' : x.other) },
+      { label: 'Net pay', csv: (x) => (x.legend ? '' : x.net) },
+      { label: 'Status', csv: (x) => (x.legend || x.total ? '' : x.status) },
+    ];
+    return sendReport(res, Buffer.from(toCsv(cols, [...lines, { ...total, total: true }, { legend: true }]), 'utf8'), 'text/csv; charset=utf-8', `${base}.csv`);
+  }
+  const school = await schoolInfo(school_id);
+  const pdf = await tablePdf({
+    school, title: `Salary register · ${L.monthLabel(period)}`, subtitle: reportSubtitle(period, through),
+    totals: [['Net pay', m(total.net)], ['Leave cut', m(total.leave_cut)], ['Bonus', m(total.bonus)], ['Staff', lines.length]],
+    columns: [
+      { label: 'Employee', weight: 2.6, get: (x) => `${x.name}\n${x.designation || x.login}` },
+      { label: 'Salary', weight: 1.3, align: 'right', get: (x) => m(x.salary) || 'Not set' },
+      { label: 'Present', weight: 0.9, align: 'right', get: (x) => x.present },
+      { label: 'Leave days', weight: 0.9, align: 'right', get: (x) => x.leave },
+      { label: 'Leave cut', weight: 1.2, align: 'right', get: (x) => m(x.leave_cut) },
+      { label: 'Bonus', weight: 1.1, align: 'right', get: (x) => m(x.bonus) },
+      { label: 'Other ded.', weight: 1.1, align: 'right', get: (x) => m(x.other) },
+      { label: 'Net pay', weight: 1.3, align: 'right', get: (x) => m(x.net) },
+      { label: 'Status', weight: 1.2, get: (x) => x.status || '' },
+    ],
+    rows: lines,
+    note: 'Figures for finalized and paid months are the saved payslip numbers. "not prepared" rows are estimates from the current salary and leave.',
+  });
+  sendReport(res, pdf, 'application/pdf', `${base}.pdf`);
 }));
 
 export default r;

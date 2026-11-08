@@ -92,3 +92,51 @@ export function buildPayslip({ salary, basis, period, workingDays, taken, balanc
     breakdown: { basis, divisor, rate, leaves, bonuses: bonuses.map((a) => ({ label: a.label, amount: Number(a.amount) })), deductions: cuts.map((a) => ({ label: a.label, amount: Number(a.amount) })) },
   };
 }
+
+/**
+ * Staff attendance for one month, worked out from approved leave (staff have no daily attendance register).
+ *  period    'YYYY-MM-01'
+ *  isOff     offDayChecker(...) : weekly offs, holidays and vacations are not working days
+ *  through   last date to count (today for the current month, so future days are not shown as present); may be null
+ *  leaves    [{ name, is_paid, days_detail: [{date, value}] }]  approved leave of this person
+ * Present = working days minus leave (a half day counts as half present).
+ * codes: date -> 'P' present, 'L' paid leave, 'LWP' unpaid leave, 'H' half-day leave, 'O' weekly off / holiday
+ */
+export function attendanceOf({ period, isOff, through, leaves }) {
+  const first = monthStart(period);
+  const end = monthEnd(period);
+  const last = through && through < end ? through : end;
+  const leaveOn = {};
+  for (const lv of leaves) for (const d of lv.days_detail) {
+    if (d.date < first || d.date > last) continue;
+    const cur = leaveOn[d.date];
+    leaveOn[d.date] = {
+      value: Math.min(1, (cur?.value || 0) + Number(d.value)),
+      is_paid: cur ? cur.is_paid && lv.is_paid : !!lv.is_paid,
+      name: cur?.name || lv.name,
+    };
+  }
+  const codes = {}; const byType = {};
+  let working = 0, present = 0, leave = 0, paid = 0, unpaid = 0;
+  for (let d = first; d <= last; d = addDays(d, 1)) {
+    if (isOff(d)) { codes[d] = 'O'; continue; }
+    working++;
+    const lv = leaveOn[d];
+    if (!lv) { codes[d] = 'P'; present += 1; continue; }
+    present += 1 - lv.value;
+    leave += lv.value;
+    if (lv.is_paid) paid += lv.value; else unpaid += lv.value;
+    byType[lv.name] ||= { name: lv.name, is_paid: lv.is_paid, days: 0 };
+    byType[lv.name].days += lv.value;
+    codes[d] = lv.value < 1 ? 'H' : lv.is_paid ? 'L' : 'LWP';
+  }
+  return {
+    working_days: working,
+    present_days: round1(present),
+    leave_days: round1(leave),
+    paid_leave_days: round1(paid),
+    unpaid_leave_days: round1(unpaid),
+    by_type: Object.values(byType).map((t) => ({ ...t, days: round1(t.days) })),
+    codes,
+  };
+}
