@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, initials, groupByClass, ClassGroup, classText, classColor } from '../ui.jsx';
+import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, initials, groupByClass, ClassGroup, classText, classColor, PageBar } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 /* ------------------------------------------------------------------ helpers */
@@ -437,10 +437,9 @@ export const Routes = scoped(function Routes({ me, sid, go }) {
   if (cur) return <RouteDetail me={me} sid={sid} route={cur} vehicles={vehicles} onBack={() => setOpen('')} refresh={reload} go={go} />;
   return (
     <div className="tr">
-      <div className="row sp">
-        <div><b className="pg-title">{routes.length} route{routes.length === 1 ? '' : 's'}</b><div className="muted" style={{ fontSize: 13 }}>Tap a route to see and edit its stops</div></div>
+      <PageBar title={`${routes.length} route${routes.length === 1 ? '' : 's'}`} sub="Tap a route to see and edit its stops">
         {manage && <button className="btn primary" onClick={() => setForm(true)}><Icon name="plus" size={16} /> Add route</button>}
-      </div>
+      </PageBar>
       {routes.length === 0 ? <Empty>No routes yet.{manage && ' Tap "Add route" to start.'}</Empty> : (
         <div className="tr-grid">
           {routes.map((r) => (

@@ -201,7 +201,7 @@ function Profile({ me, studentId, sid, go, onBack }) {
   const bus = d.transport && !d.transport.error ? d.transport : null; const showBus = !!(d.viewer.can_transport && bus); // hidden if the school has not set up transport
 
   return (
-    <div className="sp" ref={root}>
+    <div className="sp-root" ref={root}>
       {onBack && <button className="btn sp-back" onClick={onBack}><Icon name="back" size={16} /> All students</button>}
 
       <div className="sp-hero" style={{ '--c': col }}>

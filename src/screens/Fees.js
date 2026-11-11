@@ -287,18 +287,73 @@ function Account({ me, sc, studentId, family, active, onBack }) {
   );
 }
 
+
+/* ================================================================== SEND REMINDER (uses the same /notifications/send API as Communication > Send notification) */
+const REMIND_TITLE = 'Fee reminder';
+const REMIND_BODY = 'Dear parent, some school fees are pending for your child. Please clear the dues at the school office at the earliest. Ignore this if already paid. Thank you.';
+const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const clsLabel = (c) => `${c.name}${c.section ? ` ${c.section}` : ''}`;
+
+function ReminderSheet({ sc, classes, onClose }) {
+  const [pick, setPick] = useState('all'); const [title, setTitle] = useState(REMIND_TITLE); const [body, setBody] = useState(REMIND_BODY);
+  const [step, setStep] = useState('edit'); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  // students with fees due till today (same report the Pending fees screens use)
+  const { data, error } = useApi(`/fees/pending${qs({ ...sc, due_now: 1, limit: 500, sort: 'class', class_id: pick === 'all' ? '' : pick })}`);
+  const owing = data?.summary?.students_owing;
+  // class ids that hold at least one student with dues (pending rows carry a class label, so match it to the class list)
+  const byLabel = new Map(classes.map((c) => [norm(clsLabel(c)), c.id]));
+  const rowClassIds = data ? [...new Set(data.rows.map((r) => byLabel.get(norm(r.class_label))).filter(Boolean))] : [];
+  const unmatched = data && pick === 'all' ? data.rows.filter((r) => !byLabel.has(norm(r.class_label))).length : 0;
+  const classIds = pick === 'all' ? rowClassIds : [pick];
+  const nothing = data && (owing === 0 || classIds.length === 0);
+  const names = classIds.map((id) => classes.find((c) => c.id === id)).filter(Boolean).map(clsLabel);
+  const send = async () => {
+    setBusy(true); setErr('');
+    try {
+      const r = await api.post('/notifications/send', { title: title.trim(), body: body.trim(), audience: 'class', class_ids: classIds, ...sc });
+      toast(r.sent ? `Reminder sent to ${r.sent} ${r.sent === 1 ? 'person' : 'people'}` : 'Nobody to send to'); onClose();
+    } catch (x) { setErr(x.message); setBusy(false); setStep('edit'); }
+  };
+  return (
+    <Sheet title="Send fee reminder" onClose={onClose}>
+      {step === 'edit' ? (<>
+        <Field label="Send to"><Choice value={pick} onChange={setPick} options={[{ value: 'all', label: 'All with dues' }, ...classes.map((c) => ({ value: c.id, label: clsLabel(c) }))]} /></Field>
+        {!data && !error ? <Dim style={{ marginBottom: 10 }}>Counting students with dues...</Dim> : error ? <ErrorBox>{error}</ErrorBox> : nothing ? <Notice tone="ok">No student has fees due till today{pick === 'all' ? '' : ' in this class'}.</Notice> : (
+          <Notice tone="warn">{owing} student{owing === 1 ? '' : 's'} with dues in {names.length} class{names.length === 1 ? '' : 'es'} ({names.slice(0, 6).join(', ')}{names.length > 6 ? '...' : ''}). The reminder goes to the students, parents and class teachers of {names.length === 1 ? 'this class' : 'these classes'}; there is no way yet to message only the students who owe.{unmatched ? ` ${unmatched} student(s) could not be matched to a class and are left out.` : ''}{data.truncated ? ' The list is long; pick classes one by one to be sure none are missed.' : ''}</Notice>)}
+        <Field req label="Title"><Input maxLength={100} value={title} onChangeText={setTitle} /></Field>
+        <Field label="Message"><Input multiline maxLength={500} value={body} onChangeText={setBody} /></Field>
+        <ErrorBox>{err}</ErrorBox>
+        <Btn title="Review and send" onPress={() => setStep('confirm')} disabled={!data || !!nothing || !title.trim()} />
+      </>) : (<>
+        <Text style={{ fontWeight: '800', color: C.ink, fontSize: 16, marginBottom: 6 }}>Send this reminder?</Text>
+        <Dim style={{ marginBottom: 10 }}>{owing} student{owing === 1 ? '' : 's'} with dues · {names.length} class{names.length === 1 ? '' : 'es'}: {names.join(', ')}. Everyone linked to these classes will get it on their phone and in their notification bell.</Dim>
+        <Card><Text style={{ fontWeight: '700', color: C.ink }}>{title}</Text>{!!body.trim() && <Text style={{ color: C.mute, marginTop: 4 }}>{body}</Text>}</Card>
+        <ErrorBox>{err}</ErrorBox>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}><Btn kind="ghost" title="Back" onPress={() => setStep('edit')} disabled={busy} /></View>
+          <View style={{ flex: 1 }}><Btn title={busy ? 'Sending...' : 'Yes, send'} onPress={send} disabled={busy} /></View>
+        </View>
+      </>)}
+    </Sheet>
+  );
+}
+
 /* ================================================================== STUDENT FEES (staff) */
-export const StudentFees = scoped(function StudentFees({ me, sc, active }) {
-  const [picked, setPicked] = useState(null);
+export const StudentFees = scoped(function StudentFees({ me, sc, active, action }) {
+  const [picked, setPicked] = useState(action ? { student_id: action } : null);
+  useEffect(() => { if (action) setPicked({ student_id: action }); }, [action]); // opened from a student profile
   const [q, setQ] = useState(''); const dq = useDebounced(q);
   const [classId, setClassId] = useState('');
   const { data: classes = [] } = useApi(`/fees/classes${qs(sc)}`);
   const { data: list, error: err } = useApi(picked ? null : `/fees/students${qs({ ...sc, q: dq, class_id: classId })}`);
   const close = useCallback(() => setPicked(null), []);
+  const [remind, setRemind] = useState(false);
+  const canRemind = me.features.includes('collect_fees') && me.features.includes('send_notification'); // class audience of the notify API needs send_notification
 
   if (picked) return <Account me={me} sc={sc} studentId={picked.student_id} active={active} onBack={close} />;
   return (
     <Pad>
+      {canRemind && <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}><Btn small kind="ghost" title="Send reminder" onPress={() => setRemind(true)} /></View>}
       <Input placeholder="Search by name, ID, admission or roll no." value={q} onChangeText={setQ} />
       <Gap h={10} />
       <View style={{ marginBottom: 12 }}><Choice value={classId} onChange={setClassId} options={[{ value: '', label: 'All classes' }, ...classes.map((c) => ({ value: c.id, label: `${c.name}${c.section ? ` ${c.section}` : ''}` }))]} /></View>
@@ -312,6 +367,7 @@ export const StudentFees = scoped(function StudentFees({ me, sc, active }) {
           </Row>))}
           {list.length === 50 && <Dim style={{ padding: 10, textAlign: 'center' }}>Showing the first 50. Type more of the name to narrow it down.</Dim>}
         </List>)}
+      {remind && <ReminderSheet sc={sc} classes={classes} onClose={() => setRemind(false)} />}
     </Pad>
   );
 });

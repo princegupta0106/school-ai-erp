@@ -5,7 +5,8 @@ import { C, SH, initials } from '../theme';
 import { Icon } from '../icons';
 import { api } from '../api';
 import { useApi } from '../useApi';
-import { toast } from '../ui';
+import { toast, Bone } from '../ui';
+import { useScope, qs } from './Attendance';
 
 // Same dashboard as the web app: stat numbers + attendance / leave / audit / notice cards.
 // Every item can be removed with the x (or from Customize home); the choice is saved with the person's prefs.
@@ -50,6 +51,7 @@ const Bar = ({ label, p }) => (
     <Text style={{ width: 38, textAlign: 'right', fontWeight: '700', color: C.ink, fontSize: 12 }}>{p}%</Text>
   </View>
 );
+const Skel = () => <View style={{ paddingVertical: 6 }}><Bone w="60%" h={14} /><Bone w="90%" h={12} style={{ marginTop: 10 }} /><Bone w="75%" h={12} style={{ marginTop: 8 }} /></View>;
 const Empty = ({ children }) => <Text style={{ color: C.mute, textAlign: 'center', paddingVertical: 16, fontSize: 13 }}>{children}</Text>;
 
 function Card({ title, icon, onHide, action, children }) {
@@ -78,7 +80,7 @@ function ChildAtt({ k, showName }) {
         <Text style={{ color: C.ink, fontWeight: '700' }}>{kidName(k)}</Text>
         {data?.student?.class && <Text style={{ color: C.mute, fontSize: 12, marginLeft: 'auto' }}>Class {data.student.class.name}{data.student.class.section ? `-${data.student.class.section}` : ''}</Text>}
       </View>}
-      {!t ? <Empty>Loading…</Empty> : t.total === 0 ? <Empty>No attendance recorded yet</Empty> : (<>
+      {!t ? <Skel /> : t.total === 0 ? <Empty>No attendance recorded yet</Empty> : (<>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
           <Donut pct={p} color={pctCol(p)} big={`${p}%`} small="attendance" />
           <View style={{ flex: 1 }}>
@@ -106,7 +108,7 @@ function AttendanceCard({ me, go, onHide }) {
   const rows = (data?.classes || []).filter((c) => c.marked > 0).slice(0, 6);
   return (
     <Card title="Today's attendance" icon="attendance" onHide={onHide} action={<Link label="Reports" onPress={() => go('attendance/reports')} />}>
-      {!t ? <Empty>Loading…</Empty> : (<>
+      {!t ? <Skel /> : (<>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
           <Donut pct={p} color={D.green} big={t.marked ? `${p}%` : '—'} small="present" />
           <View style={{ flex: 1 }}>
@@ -134,7 +136,7 @@ function LeaveCard({ me, go, onHide }) {
   const list = (Array.isArray(data) ? data : []).filter((l) => !gone.includes(l.id));
   return (
     <Card title={`Leave requests${list.length ? ` (${list.length})` : ''}`} icon="wallet" onHide={onHide} action={<Link label="See all" onPress={() => go('payroll')} />}>
-      {!data ? <Empty>Loading…</Empty> : list.length === 0 ? <Empty>No pending leave requests 🎉</Empty> : list.slice(0, 5).map((l, i) => {
+      {!data ? <Skel /> : list.length === 0 ? <Empty>No pending leave requests 🎉</Empty> : list.slice(0, 5).map((l, i) => {
         const who = nm(l.employee);
         const range = l.end_date && l.end_date !== l.start_date ? `${l.start_date} → ${l.end_date}` : l.start_date;
         return (
@@ -164,7 +166,7 @@ function AuditCard({ go, onHide }) {
   const line = pts.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(' ');
   return (
     <Card title="Audit log" icon="shield" onHide={onHide} action={<Link label="See all" onPress={() => go('audit')} />}>
-      {!data ? <Empty>Loading…</Empty> : (<>
+      {!data ? <Skel /> : (<>
         <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
           <Defs><LinearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor={D.blue} stopOpacity="0.35" /><Stop offset="1" stopColor={D.blue} stopOpacity="0" /></LinearGradient></Defs>
           <Path d={`${line} L${W},${H} L0,${H} Z`} fill="url(#ag)" /><Path d={line} fill="none" stroke={D.blue} strokeWidth={2.2} strokeLinejoin="round" />
@@ -189,13 +191,62 @@ function NoticeCard({ go, onHide }) {
   const tones = [D.purple, D.blue, D.amber];
   return (
     <Card title="Notice board" icon="megaphone" onHide={onHide} action={<Link label="View all" onPress={() => go('communication/board')} />}>
-      {!data ? <Empty>Loading…</Empty> : list.length === 0 ? <Empty>No notices yet</Empty> : list.map((n, i) => (
+      {!data ? <Skel /> : list.length === 0 ? <Empty>No notices yet</Empty> : list.map((n, i) => (
         <Pressable key={n.id} onPress={() => go('communication/board')} style={{ flexDirection: 'row', gap: 10, paddingVertical: 9, borderTopWidth: i ? 1 : 0, borderColor: C.line }}>
           <View style={{ width: 4, borderRadius: 2, backgroundColor: tones[i % 3] }} />
           <View style={{ flex: 1 }}><Text style={{ color: C.ink, fontWeight: '700', fontSize: 13.5 }} numberOfLines={1}>{n.pinned ? '📌 ' : ''}{n.title}</Text><Text style={{ color: C.mute, fontSize: 12 }} numberOfLines={2}>{n.body}</Text></View>
           <Text style={{ color: C.mute, fontSize: 11.5 }}>{n.created_at ? ago(n.created_at) : ''}</Text>
         </Pressable>
       ))}
+    </Card>
+  );
+}
+
+
+// "Today" card: tappable tiles built only from endpoints that already exist. A tile is hidden without its permission or if its endpoint fails.
+const TODAY_PERMS = {
+  att: ['mark_attendance', 'view_attendance_reports'], fees: ['view_student_fees', 'collect_fees', 'adjust_fees'],
+  leave: ['leave_approve', 'leave_view_all'], enq: ['view_enquiries'], queries: ['view_queries'],
+};
+const canToday = (me) => !kid(me) && Object.values(TODAY_PERMS).some((p) => has(me, ...p));
+const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+function TodayCard({ me, go, onHide }) {
+  const { sid, sc } = useScope(me);
+  const ready = me.role !== 'super_admin' || !!sid;
+  const u = (perm, path, extra = {}) => (ready && has(me, ...TODAY_PERMS[perm]) ? `${path}${qs({ ...sc, ...extra })}` : null);
+  const att = useApi(u('att', '/attendance/classes'));                       // classes + whether today is marked
+  const paid = useApi(u('fees', '/fees/payments', { period: 'today', limit: 1 }));    // summary.total = collected today
+  const dues = useApi(u('fees', '/fees/pending', { limit: 1 }));                  // summary.total_pending = all dues
+  const leave = useApi(u('leave', '/payroll/leave', { status: 'pending' }));
+  const enq = useApi(u('enq', '/admissions/summary'));                      // by_stage.new = new enquiries
+  const qr = useApi(u('queries', '/queries', { open: 1 }));                       // total = open queries
+  const unmarked = att.data?.classes ? att.data.classes.filter((c) => c.state === 'not_marked').length : null;
+  const sum = paid.data?.summary; const dsum = dues.data?.summary;
+  // each tile: src = its request (url null = no permission, tile never shows), ok = data arrived in the expected shape
+  const defs = [
+    { id: 'att', src: att, ok: unmarked !== null, label: 'Attendance not marked', val: unmarked, sub: att.data?.classes ? `of ${att.data.classes.length} classes` : '', c: unmarked ? D.amber : D.green, to: 'attendance' },
+    { id: 'paid', src: paid, ok: !!sum, label: 'Collected today', val: inr(sum?.total), sub: `${sum?.receipts ?? 0} receipts`, c: D.green, to: 'fees/students' },
+    { id: 'dues', src: dues, ok: !!dsum, label: 'Total dues', val: inr(dsum?.total_pending), sub: `${dsum?.students_owing ?? 0} students`, c: dsum?.total_pending ? D.red : D.green, to: 'fees/students' },
+    { id: 'leave', src: leave, ok: Array.isArray(leave.data), label: 'Pending leave', val: leave.data?.length, sub: 'to review', c: leave.data?.length ? D.amber : D.green, to: 'payroll/requests' },
+    { id: 'enq', src: enq, ok: !!enq.data?.by_stage, label: 'New enquiries', val: enq.data?.by_stage?.new, sub: 'admissions', c: D.blue, to: 'frontdesk/enquiries' },
+    { id: 'q', src: qr, ok: typeof qr.data?.total === 'number', label: 'Open queries', val: qr.data?.total, sub: 'not closed', c: qr.data?.total ? D.purple : D.green, to: 'frontdesk/queries' },
+  ];
+  const allowed = ready ? { att: has(me, ...TODAY_PERMS.att), paid: has(me, ...TODAY_PERMS.fees), dues: has(me, ...TODAY_PERMS.fees), leave: has(me, ...TODAY_PERMS.leave), enq: has(me, ...TODAY_PERMS.enq), q: has(me, ...TODAY_PERMS.queries) } : {};
+  const shown = defs.filter((t) => allowed[t.id] && t.ok);
+  const waiting = defs.filter((t) => allowed[t.id] && !t.ok && !t.src.error); // still loading: show a placeholder, never an empty gap
+  if (!shown.length && !waiting.length) return null; // no permission anywhere, or every endpoint failed
+  const W = { width: '48.5%', marginBottom: 10 };
+  return (
+    <Card title="Today" icon="attendance" onHide={onHide}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        {shown.map((t) => (
+          <Pressable key={t.id} onPress={() => go(t.to)} style={{ ...W, backgroundColor: `${t.c}14`, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: `${t.c}33` }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: t.c }} numberOfLines={1}>{t.val ?? '—'}</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: '700', color: C.ink, marginTop: 2 }} numberOfLines={1}>{t.label}</Text>
+            {!!t.sub && <Text style={{ fontSize: 11.5, color: C.mute }} numberOfLines={1}>{t.sub}</Text>}
+          </Pressable>))}
+        {waiting.map((t) => <View key={t.id} style={{ ...W, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.line }}><Bone w={60} h={22} /><Bone w="80%" h={12} style={{ marginTop: 8 }} /></View>)}
+      </View>
     </Card>
   );
 }
@@ -214,6 +265,11 @@ function Summary({ me, go, hidden }) {
     t && { id: 'stat-absent', label: 'Absent', val: t.absent, c: t.absent ? D.red : C.mute, to: 'attendance/reports' },
     Array.isArray(leave.data) && { id: 'stat-leave', label: 'Leave to review', val: leave.data.length, c: leave.data.length ? D.amber : C.mute, to: 'payroll' },
   ].filter(Boolean).filter((x) => !hidden.includes(x.id)).slice(0, 3);
+  const waiting = (has(me, 'view_attendance_reports') && !att.data && !att.error) || (has(me, 'leave_approve', 'leave_view_all') && !leave.data && !leave.error) || (kid(me) && !ks && !kidAtt.error);
+  if (!cells.length && waiting) return (
+    <View style={{ flexDirection: 'row', backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, marginBottom: 20, ...SH }}>
+      {[0, 1, 2].map((i) => <View key={i} style={{ flex: 1, paddingVertical: 16, alignItems: 'center', borderLeftWidth: i ? 1 : 0, borderColor: C.line }}><Bone w={44} h={24} /><Bone w={60} h={11} style={{ marginTop: 8 }} /></View>)}
+    </View>);
   if (!cells.length) return null;
   return (
     <View style={{ flexDirection: 'row', backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, marginBottom: 20, ...SH }}>
@@ -248,6 +304,7 @@ export function dashItems(me) {
     has(me, 'view_attendance_reports') && { id: 'stat-absent', label: 'Absent today', group: 'stat' },
     has(me, 'leave_approve', 'leave_view_all') && { id: 'stat-leave', label: 'Pending leave', group: 'stat' },
     has(me, ...NOTICE_F) && { id: 'stat-notices', label: 'Notices count', group: 'stat' },
+    canToday(me) && { id: 'c-today', label: 'Today', group: 'card', C: TodayCard },
     kid(me) && { id: 'c-myatt', label: me.role === 'parent' ? "Child's attendance" : 'My attendance', group: 'card', C: MyAttendanceCard },
     has(me, 'view_attendance_reports') && { id: 'c-att', label: "Today's attendance", group: 'card', C: AttendanceCard },
     has(me, 'leave_approve', 'leave_view_all') && { id: 'c-leave', label: 'Leave requests', group: 'card', C: LeaveCard },

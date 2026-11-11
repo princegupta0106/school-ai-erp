@@ -35,6 +35,8 @@ export function fetchUrl(url) {
   inflight.set(url, p);
   return p;
 }
+// pull-to-refresh: re-fetch every URL a mounted screen is currently showing
+export const refreshSubscribed = () => Promise.all([...subs].filter(([, set]) => set.size).map(([u]) => fetchUrl(u).catch(() => {})));
 export const prefetch = (url) => { if (!isFresh(url)) fetchUrl(url).catch(() => {}); };
 
 export async function initCache(userId) {

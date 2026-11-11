@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Modal, BackHandler, AppState, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, RefreshControl, ActivityIndicator, Modal, BackHandler, AppState, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { api, loadToken, setToken, setUnauthorizedHandler } from './src/api';
 import { C, SH, live, initials, ROLE_LABEL, greeting, applyTheme, resolveTheme, loadThemeMode, saveThemeMode } from './src/theme';
 import { Icon } from './src/icons';
-import { MODULE_UI, viewsFor, allTargets, effectiveShortcuts, prefetchUrls, visibleModules, dockModules, withClientDefaults } from './src/modules';
+import { MODULE_UI, viewsFor, allTargets, effectiveShortcuts, prefetchUrls, visibleModules, dockModules, withClientDefaults, resolveId } from './src/modules';
 import { Press, Pane, ScrollFade, Notifier } from './src/ui';
-import { initCache, clearCache, prefetch } from './src/cache';
+import { initCache, clearCache, prefetch, refreshSubscribed } from './src/cache';
 import { usePrefs } from './src/prefs';
 import { useApi } from './src/useApi';
 import { setupPush, registerPush, unregisterPush, alertNew, enableLocalAlerts } from './src/push';
@@ -32,10 +32,12 @@ function Tile({ m, onPress }) {
   );
 }
 
-function Home({ me, prefs, update, mods, pinned, byId, open, openCustomize, recent, unread, openInbox }) {
+function Home({ me, prefs, update, mods, pinned, byId, open, openCustomize, recent, unread, openInbox, onRefresh }) {
   const shown = mods.filter((m) => !prefs.hidden.includes(m.key));
+  const [refreshing, setRefreshing] = useState(false);
+  const pull = async () => { setRefreshing(true); try { await Promise.all([refreshSubscribed(), onRefresh?.()]); } catch { /* keep showing what we have */ } setRefreshing(false); };
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={C.brand} colors={[C.brand]} />}>
       <Dashboard me={me} go={open} prefs={prefs} update={update} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <Text style={sec}>Shortcuts</Text>
@@ -89,6 +91,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
   const [more, setMore] = useState(false); const [cz, setCz] = useState(false); const [pw, setPw] = useState(false); const [perm, setPerm] = useState(false);
   const { height: winH } = useWindowDimensions();
   const [prefs, updatePrefs] = usePrefs(me);
+  const [quick, setQuick] = useState(false);
   const [inbox, setInbox] = useState(false); const [ai, setAi] = useState(false);
   const { data: nd, reload: reloadNotes } = useApi('/notifications?limit=30');
   const unread = nd?.unread || 0;
@@ -117,7 +120,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
   // 'payroll' | 'payroll/my' | 'payroll/my/apply' -> route
   const go = (path) => {
     setMore(false);
-    const [m, v, a] = (path || '').split('/');
+    const [m, v, a] = resolveId(path || '').split('/');
     const vs = m ? viewsFor(me, m) : [];
     const vk = v || vs[0]?.key || null;
     setRoute((r) => ({ m: m || null, v: v || null, a: a || null, n: r.n + 1 }));
@@ -131,13 +134,13 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
     let off = () => {};
     setupPush({
       onReceive: () => reloadNotes(),
-      onTap: (d) => { reloadNotes(); if (d?.module && MODULE_UI[d.module]) goRef.current(`${d.module}${d.view ? `/${d.view}` : ''}`); else setInbox(true); },
+      onTap: (d) => { reloadNotes(); if (d?.module && MODULE_UI[resolveId(d.module + (d.view ? `/${d.view}` : '')).split('/')[0]]) goRef.current(`${d.module}${d.view ? `/${d.view}` : ''}`); else setInbox(true); },
     }).then((o) => { off = o; });
     registerPush().then((r) => { if (!r.ok) return enableLocalAlerts().then((ok) => ok && startBackgroundChecks().then(askBackgroundPermission)); startBackgroundChecks(); }).catch(() => {});
     return () => { clearInterval(t); sub.remove(); off(); };
   }, []); // eslint-disable-line
   useEffect(() => { if (nd?.items) alertNew(nd.items); }, [nd]);
-  const openNote = (n) => { setInbox(false); if (n.module && MODULE_UI[n.module] && viewsFor(me, n.module).length) go(`${n.module}${n.view ? `/${n.view}` : ''}`); };
+  const openNote = (n) => { setInbox(false); { const t = resolveId(`${n.module}${n.view ? `/${n.view}` : ''}`); const tm = t.split('/')[0]; if (n.module && MODULE_UI[tm] && viewsFor(me, tm).length) go(t); } };
   // warm every live screen's data one by one in the background, so first opens are instant
   useEffect(() => {
     const urls = [];
@@ -157,6 +160,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
   const isPinned = here && pinned.includes(here);
   const togglePin = () => updatePrefs((p) => { const cur = effectiveShortcuts(p, targets); return { ...p, shortcuts: cur.includes(here) ? cur.filter((x) => x !== here) : [...cur, here] }; });
   const shown = mods.filter((m) => !prefs.hidden.includes(m.key));
+  const QUICK = active?.key === 'frontdesk' ? [['add-visitor', 'Visitor'], ['add-enquiry', 'Enquiry'], ['new-query', 'Query']].filter(([k]) => views.some((v) => v.key === k)) : [];
   const dock = dockModules(me, shown);
   if (active && !dock.some((m) => m.key === active.key)) dock[2] = active;
 
@@ -168,6 +172,7 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
           <Text style={{ fontSize: 22, fontWeight: '700', color: C.ink, letterSpacing: -0.4 }} numberOfLines={1}>{active ? ui.label : `${greeting()}, ${name.split(' ')[0]}`}</Text>
           <Text style={{ fontSize: 12, color: C.mute }} numberOfLines={1}>{active ? (views.length > 1 ? view?.label : me.school?.name || '') : (me.school?.name || 'Platform')}</Text>
         </View>
+        {QUICK.length > 0 && <Pressable onPress={() => setQuick(true)} hitSlop={6} accessibilityLabel="Quick add" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={20} color="#fff" /></Pressable>}
         {active && view && <Pressable onPress={togglePin} hitSlop={10}><Icon name="pin" size={20} color={isPinned ? C.brand : C.mute} /></Pressable>}
         {me.features.includes('use_assistant') && <Pressable onPress={() => { setAiAsk(''); setAi(true); }} hitSlop={6} accessibilityLabel="Ask AI" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.soft, borderWidth: 1, borderColor: C.brand, alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkle" size={19} color={C.brand} /></Pressable>}
         <Pressable onPress={() => setInbox(true)} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', ...SH }}>
@@ -176,6 +181,16 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
         </Pressable>
         <Pressable onPress={() => setMore(true)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.blueSoft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.info, fontWeight: '700' }}>{initials(name)}</Text></Pressable>
       </View>
+
+      <Modal visible={quick} transparent animationType="fade" onRequestClose={() => setQuick(false)}>
+        <Pressable onPress={() => setQuick(false)} style={{ flex: 1, backgroundColor: '#0006', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 28, gap: 8 }}>
+            <Text style={{ fontWeight: '700', color: C.ink, fontSize: 16, marginBottom: 4 }}>Add new</Text>
+            {QUICK.map(([k, label]) => <Pressable key={k} onPress={() => { setQuick(false); go(`frontdesk/${k}`); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: C.line }}><Icon name="plus" size={18} color={C.brand} /><Text style={{ color: C.ink, fontWeight: '600', fontSize: 15 }}>{label}</Text></Pressable>)}
+            <Pressable onPress={() => setQuick(false)} style={{ padding: 12, alignItems: 'center' }}><Text style={{ color: C.mute, fontWeight: '600' }}>Cancel</Text></Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       {active && views.length > 1 && (
         <View style={{ borderBottomWidth: 1, borderColor: C.line }}>
@@ -189,13 +204,13 @@ function Shell({ me, logout, themeMode, chooseTheme }) {
       )}
 
       <View style={{ flex: 1 }}>
-        {!active ? <Pane key="home" from="y"><Home me={me} prefs={prefs} update={updatePrefs} mods={mods} pinned={pinned} byId={byId} open={go} openCustomize={() => setCz(true)} recent={(nd?.items || []).slice(0, 3)} unread={unread} openInbox={() => setInbox(true)} /></Pane>
+        {!active ? <Pane key="home" from="y"><Home me={me} prefs={prefs} update={updatePrefs} mods={mods} pinned={pinned} byId={byId} open={go} openCustomize={() => setCz(true)} recent={(nd?.items || []).slice(0, 3)} unread={unread} openInbox={() => setInbox(true)} onRefresh={reloadNotes} /></Pane>
           : (
             <Pane key={active.key} from="x">
               {views.length === 0 && <Text style={{ padding: 24, color: C.mute, textAlign: 'center' }}>You don't have access to anything in this module.</Text>}
               {views.filter((v) => v.key === view?.key || visited.includes(v.key)).map((v) => {
                 const Screen = v.component; const on = v.key === view?.key;
-                return <Pane key={v.key} active={on} from="y"><Screen me={me} active={on} action={on ? route.a : null} nonce={route.n} title={v.label} go={(vk) => go(`${active.key}/${vk}`)} /></Pane>;
+                return <Pane key={v.key} active={on} from="y"><Screen me={me} active={on} action={on ? route.a : null} nonce={route.n} title={v.label} go={(vk) => go(`${active.key}/${vk}`)} goTo={go} /></Pane>;
               })}
             </Pane>
           )}

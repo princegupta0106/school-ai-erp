@@ -116,7 +116,7 @@ function FeaturePicker({ me, role, value, onChange }) {
 }
 
 /* ---------------------------------------------------------------- one user (every action is gated by a feature) */
-function UserSheet({ me, user: initial, classes, students, onClose }) {
+function UserSheet({ me, goTo, user: initial, classes, students, onClose }) {
   const has = (f) => me.features.includes(f);
   const [user, setUser] = useState(initial);
   const [f, setF] = useState(pickProfile(initial.profile));
@@ -170,6 +170,7 @@ function UserSheet({ me, user: initial, classes, students, onClose }) {
   const canEdit = has('edit_user');
   return (
     <Sheet title={nameOf(user)} onClose={onClose}>
+      {user.role === 'student' && goTo && has('view_student_profile') && <><Btn kind="ghost" title="Open student profile" onPress={() => { onClose(); goTo(`students/profile/${user.user_id}`); }} /><Gap h={10} /></>}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <Pill color={C.brand} bg={C.soft}>{ROLE_LABEL[user.role]}</Pill><StatusPill on={user.is_active} /><Dim>ID: {user.login_id}</Dim>
       </View>
@@ -245,7 +246,7 @@ function UserSheet({ me, user: initial, classes, students, onClose }) {
 }
 
 /* ================================================================== USERS LIST */
-export function UserList({ me }) {
+export function UserList({ me, goTo }) {
   const canList = me.features.includes('get_all_users_school');
   const sup = me.role === 'super_admin';
   const { data: users, error, loading, reload } = useApi(canList ? '/users' : null);
@@ -260,7 +261,7 @@ export function UserList({ me }) {
   useEffect(() => setLimit(60), [dq, role, school]);
   const students = useMemo(() => (users || []).filter((x) => x.role === 'student'), [users]);
 
-  const sheet = open && <UserSheet key={open.user_id} me={me} user={open} classes={classes || []} students={students} onClose={() => setOpen(null)} />;
+  const sheet = open && <UserSheet key={open.user_id} me={me} goTo={goTo} user={open} classes={classes || []} students={students} onClose={() => setOpen(null)} />;
 
   if (!canList) {
     const find = async () => { setLerr(''); try { setOpen(await api.get(`/users/${encodeURIComponent(look.trim())}`)); } catch (x) { setLerr(x.message); } };

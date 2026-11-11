@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, useApi } from '../cache.js';
-import { Icon, Modal, Empty, toast, Loading, ask } from '../ui.jsx';
+import { Icon, Modal, Empty, toast, Loading, ask, PageBar, Toolbar, SearchInput, SaveBar } from '../ui.jsx';
 import { fetchers } from '../fetchers.js';
 
 const ST = {
@@ -179,10 +179,13 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
   const isToday = sh.date === today;
   return (
     <div className="sheetwrap">
-      <div className="row sp">
-        <div className="row nowrap"><button className="btn sm" onClick={back}><Icon name="back" size={15} />Classes</button>
-          <div><b className="pg-title">{clsLabel(sh.class)}</b><div className="pg-sub">{isToday ? 'Today · ' : ''}{fmtDate(sh.date)}{sh.teachers.length ? ` - ${sh.teachers.map((t) => t.name).join(', ')}` : ''}</div></div></div>
-      </div>
+      <PageBar sticky lead={<button className="btn sm" onClick={back}><Icon name="back" size={15} />Classes</button>} title={clsLabel(sh.class)}
+        sub={err ? <span className="ds-savebar-e">{err}</span> : `${isToday ? 'Today · ' : ''}${fmtDate(sh.date)}${sh.teachers.length ? ` - ${sh.teachers.map((t) => t.name).join(', ')}` : ''}`}>
+        {can && <>
+          <span className="ds-bar-note"><b>{counts.present + counts.late + counts.leave}</b>/{students.length} here{dirty && <i className="ds-savebar-d" title="Unsaved changes" />}</span>
+          <button className="btn primary" onClick={save} disabled={busy || (!dirty && st.state === 'marked')}>{busy ? 'Saving...' : st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'}</button>
+        </>}
+      </PageBar>
 
       {sh.holiday && <Notice tone="warn">{fmtDate(sh.date, { day: 'numeric', month: 'short' })} is marked as <b>{sh.holiday.title}</b> ({sh.holiday.type}) in the school calendar. You can still mark attendance if school was open.</Notice>}
       {!can && <Notice>{sh.edit_note || 'View only'} - you can look but not change this sheet.</Notice>}
@@ -196,11 +199,11 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
           {ORDER.map((k) => <Tile key={k} tone={k} n={counts[k]} label={ST[k].label} on={filter === k} onClick={() => setFilter(filter === k ? '' : k)} />)}
         </div>
 
-        <div className="atools">
-          <div style={{ position: 'relative', flex: '1 1 150px' }}><input placeholder="Search name or roll no." value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 36 }} /><span style={{ position: 'absolute', left: 11, top: 10, color: 'var(--mute)' }}><Icon name="search" size={18} /></span></div>
+        <Toolbar>
+          <SearchInput value={q} onChange={setQ} placeholder="Search name or roll no." />
           <button className="btn" onClick={() => setSort(sort === 'roll' ? 'name' : 'roll')}>{sort === 'roll' ? 'Roll no.' : 'Name'}</button>
           {can && <button className="btn" onClick={() => setAll(counts.present === students.length ? 'absent' : 'present')}>{counts.present === students.length ? 'All absent' : 'All present'}</button>}
-        </div>
+        </Toolbar>
 
         <div className="card alist">
           {rows.length === 0 && <div className="empty">No student matches.</div>}
@@ -219,11 +222,6 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
           })}
         </div>
 
-        {can && <div className="savebar">
-          <div className="sum"><b>{counts.present + counts.late + counts.leave}</b> / {students.length} here{counts.absent > 0 && <> - <span className="a"><b>{counts.absent}</b> absent</span></>}{dirty && <span className="dot" title="Unsaved changes" />}</div>
-          {err && <span className="err">{err}</span>}
-          <button className="btn primary" onClick={save} disabled={busy || (!dirty && st.state === 'marked')}>{busy ? 'Saving...' : st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'}</button>
-        </div>}
       </>)}
     </div>
   );
@@ -406,8 +404,8 @@ export const RollNumbers = scoped(function Rolls({ me, sid }) {
           <div style={{ flex: 1, minWidth: 0 }}><b>{s.full_name}</b><small>{s.admission_no ? `Adm. ${s.admission_no}` : s.login_id}</small></div>
           <input type="number" min="1" max="100" inputMode="numeric" className={`rollin ${flagged ? 'bad' : ''}`} aria-label={`Roll no. of ${s.full_name}`} value={v} placeholder="-" onChange={(e) => setVals({ ...vals, [s.student_id]: e.target.value })} />
         </div>); })}</div>
-      <div className="savebar"><div className="sum">{dups.size > 0 ? <span className="err">Duplicate roll numbers</span> : invalid ? <span className="err">Use whole numbers 1-100</span> : dirty ? 'Unsaved changes' : 'All saved'}{dirty && <span className="dot" />}</div>
-        <button className="btn primary" disabled={busy || !dirty || invalid} onClick={save}>{busy ? 'Saving...' : 'Save roll numbers'}</button></div>
+      <SaveBar dirty={dirty} error={dups.size > 0 ? 'Duplicate roll numbers' : invalid ? 'Use whole numbers 1-100' : ''} summary={dirty ? 'Unsaved changes' : 'All saved'}
+        action={<button className="btn primary" disabled={busy || !dirty || invalid} onClick={save}>{busy ? 'Saving...' : 'Save roll numbers'}</button>} />
     </>)}
   </>);
 });

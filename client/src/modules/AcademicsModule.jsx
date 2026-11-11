@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useData, useApi } from '../cache.js';
-import { Icon, Modal, Empty, Field, toast, Loading, ask } from '../ui.jsx';
+import { Icon, Modal, Empty, Field, toast, Loading, ask, SaveBar } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 /* ------------------------------------------------------------------ helpers */
@@ -296,10 +296,8 @@ function MarksSheet({ me, sid, meta, id, onBack }) {
             </div>);
         })}</div>)}
       {canEdit && sh.students.length > 0 && (
-        <div className="asave">
-          <div className="sum">{entered} of {sh.students.length} filled{invalid > 0 && <span className="a"> - {invalid} over {num(max)} or invalid</span>}{dirty && <span className="dot" title="Unsaved changes" />}</div>
-          <button className="btn primary big" disabled={busy || !dirty || invalid > 0} onClick={save}>{busy ? 'Saving...' : 'Save marks'}</button>
-        </div>)}
+        <SaveBar dirty={dirty} error={invalid > 0 ? `${invalid} over ${num(max)} or invalid` : ''} summary={`${entered} of ${sh.students.length} filled`}
+          action={<button className="btn primary" disabled={busy || !dirty || invalid > 0} onClick={save}>{busy ? 'Saving...' : 'Save marks'}</button>} />)}
       {edit && <EditModal me={me} sid={sid} meta={meta} a={a} onClose={() => setEdit(false)} onSaved={(d) => { setEdit(false); apply(d); toast('Updated'); }} />}
     </div>
   );

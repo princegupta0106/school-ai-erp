@@ -50,7 +50,7 @@ export function Notifier() {
 export const Card = ({ children, style }) => <View style={[s.card, style]}>{children}</View>;
 export const Dim = ({ children, style }) => <Text style={[{ color: C.mute, fontSize: 13 }, style]}>{children}</Text>;
 export const Empty = ({ children }) => <Text style={s.empty}>{children}</Text>;
-function Bone({ w, h = 14, style }) {
+export function Bone({ w, h = 14, style }) {
   const v = useRef(new Animated.Value(0.45)).current;
   useEffect(() => { const a = Animated.loop(Animated.sequence([Animated.timing(v, { toValue: 1, duration: 700, useNativeDriver: true }), Animated.timing(v, { toValue: 0.45, duration: 700, useNativeDriver: true })])); a.start(); return () => a.stop(); }, [v]);
   return <Animated.View style={[{ width: w, height: h, borderRadius: 7, backgroundColor: C.skel, opacity: v }, style]} />;

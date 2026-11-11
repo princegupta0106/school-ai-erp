@@ -45,8 +45,12 @@ const useClasses = (sc, date = '') => useApi(path('/classes', date ? { date } : 
 // open "this class on this day" in Take attendance from another tab
 let jump = null;
 
+// Docked action bar: sits in normal flow under the scroll area (never overlaps the list), full width, flat.
+const SaveBar = ({ children }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line, borderRadius: 0, alignSelf: 'stretch', width: '100%' }}>{children}</View>
+);
 const Pad = ({ children, reload, loading, hasData }) => (
-  <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} keyboardShouldPersistTaps="handled" refreshControl={reload ? <RefreshControl refreshing={!!loading && !!hasData} onRefresh={reload} /> : undefined}>{children}</ScrollView>
+  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 30 }} keyboardShouldPersistTaps="handled" refreshControl={reload ? <RefreshControl refreshing={!!loading && !!hasData} onRefresh={reload} /> : undefined}>{children}</ScrollView>
 );
 const Notice = ({ tone = 'info', children }) => {
   const t = { info: [C.infoBg, C.info], ok: [C.okBg, C.ok], warn: [C.warnBg, C.warn] }[tone];
@@ -153,7 +157,7 @@ function MarkSheet({ me, sc, classId, date, today, active, onBack, onSaved, goRo
   const isToday = sh.date === today;
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <Pressable onPress={back} hitSlop={8} style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' }}><Icon name="back" size={20} color={C.ink} /></Pressable>
           <View style={{ flex: 1 }}>
@@ -201,13 +205,13 @@ function MarkSheet({ me, sc, classId, date, today, active, onBack, onSaved, goRo
       </ScrollView>
 
       {can && students.length > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
+        <SaveBar>
           <View style={{ flex: 1 }}>
             <Text style={{ color: C.ink }}><Text style={{ fontWeight: '800' }}>{counts.present + counts.late + counts.leave}</Text> / {students.length} here</Text>
             <Text style={{ color: counts.absent ? C.bad : C.mute, fontSize: 12 }}>{counts.absent} absent{dirty ? ' · unsaved changes' : ''}</Text>
           </View>
-          <View style={{ minWidth: 150 }}><Btn title={busy ? 'Saving...' : st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'} onPress={save} disabled={busy || (!dirty && st.state === 'marked')} /></View>
-        </View>
+          <View style={{ flexShrink: 0 }}><Btn title={busy ? 'Saving...' : st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'} onPress={save} disabled={busy || (!dirty && st.state === 'marked')} /></View>
+        </SaveBar>
       )}
     </View>
   );
@@ -473,10 +477,10 @@ export const RollNumbers = scoped(function Rolls({ sc }) {
         </>)}
       </Pad>
       {d && d.students.length > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: C.card, borderTopWidth: 1, borderColor: C.line }}>
+        <SaveBar>
           <Text style={{ flex: 1, color: dups.size > 0 || invalid ? C.bad : C.mute }}>{dups.size > 0 ? 'Duplicate roll numbers' : invalid ? 'Use whole numbers 1-100' : dirty ? 'Unsaved changes' : 'All saved'}</Text>
-          <View style={{ minWidth: 150 }}><Btn title={busy ? 'Saving...' : 'Save roll numbers'} disabled={busy || !dirty || invalid} onPress={save} /></View>
-        </View>
+          <View style={{ flexShrink: 0 }}><Btn title={busy ? 'Saving...' : 'Save roll numbers'} disabled={busy || !dirty || invalid} onPress={save} /></View>
+        </SaveBar>
       )}
     </View>
   );

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Modal, Empty, Field, toast, Loading, ask, groupByClass, ClassGroup } from '../ui.jsx';
+import { Icon, Modal, Empty, Field, toast, Loading, ask, groupByClass, ClassGroup, PageBar } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 // ---------------------------------------------------------------- helpers
@@ -111,10 +111,9 @@ export const FeeStructure = scoped(function FeeStructure({ me, sid }) {
         <div className="pills scroll">{data.classes.map((c) => <button key={c.name} className={`pill ${c.name === clsName ? 'on' : ''}`} onClick={() => setClsName(c.name)}>Class {c.name}{c.items.length === 0 && <span className="dot" title="No fees set" />}</button>)}</div>
         {cls && (
           <div className="card stack" style={{ gap: 12 }}>
-            <div className="row sp">
-              <div><b className="pg-title">Class {cls.name}</b><div className="muted" style={{ fontSize: 14 }}>{cls.sections.length ? `Sections ${cls.sections.join(', ')} - ` : ''}{cls.students} student{cls.students === 1 ? '' : 's'}. Same fees for every section.</div></div>
+            <PageBar title={`Class ${cls.name}`} sub={`${cls.sections.length ? `Sections ${cls.sections.join(', ')} - ` : ''}${cls.students} student${cls.students === 1 ? '' : 's'}. Same fees for every section.`}>
               <button className="btn primary" onClick={() => setModal({ type: 'item' })}><Icon name="plus" size={16} />Add fee</button>
-            </div>
+            </PageBar>
             {cls.items.length === 0 ? <Empty>No fees for Class {cls.name} yet. Add the first one, for example Tuition.</Empty> : (
               <div className="scrollx"><table className="ft"><thead><tr><th>Fee</th><th className="amt">Total</th><th>Payment term</th><th className="amt">Each instalment</th><th /></tr></thead><tbody>
                 {cls.items.map((it) => (

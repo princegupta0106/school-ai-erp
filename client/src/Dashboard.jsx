@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from './api.js';
 import { useApi } from './cache.js';
-import { Icon, toast, initials } from './ui.jsx';
+import { Icon, toast, initials, CardBody } from './ui.jsx';
 
 const pos = (order, id) => { const i = (order || []).indexOf(id); return i < 0 ? 1e6 : i; };
 const has = (me, ...f) => f.some((x) => me.features.includes(x));
@@ -28,9 +28,9 @@ function Donut({ pct, size = 128, stroke = 14, color = 'var(--d-blue)', track = 
 
 function Card({ cls = '', span = 6, onHide, title, icon, action, children }) {
   return (
-    <div className={`dcard ${cls}`} style={{ '--s': span }}>
+    <div className={`dcard ds-card-fixed ${cls}`} style={{ '--s': span }}>
       <div className="dcard-h"><h3>{icon && <span className="dic"><Icon name={icon} size={15} /></span>}{title}</h3><span className="dh-r">{action}{onHide && <button className="dx" title="Remove from dashboard" aria-label="Remove card" onClick={onHide}><Icon name="x" size={15} /></button>}</span></div>
-      {children}
+      <CardBody>{children}</CardBody>
     </div>
   );
 }
@@ -89,7 +89,7 @@ function ChildAtt({ k, showName }) {
   return (
     <div className="kid">
       {showName && <div className="kid-n"><span className="av">{initials(kidName(k))}</span><b>{kidName(k)}</b>{data?.student?.class && <small className="muted">Class {data.student.class.name}{data.student.class.section ? `-${data.student.class.section}` : ''}</small>}</div>}
-      {!t ? <div className="muted small">Loading…</div> : t.total === 0 ? <div className="dempty">No attendance recorded yet</div> : (
+      {!t ? <div className="muted small">Loading…</div> : t.total === 0 ? <div className="dempty ds-fill">No attendance recorded yet</div> : (
         <div className="att">
           <Donut pct={pct} color={col}><b>{pct}%</b><span>attendance</span></Donut>
           <div className="att-side">
@@ -114,7 +114,7 @@ function MyAttendanceCard({ me, span, onHide }) {
   const kids = useKids(me);
   return (
     <Card span={span} onHide={onHide} title={me.role === 'parent' ? (kids.length > 1 ? "Children's attendance" : "Child's attendance") : 'My attendance'} icon="attendance">
-      {kids.length === 0 ? <div className="dempty">No students linked to your account yet</div> : kids.map((k) => <ChildAtt key={k.user_id} k={k} showName={kids.length > 1 || me.role === 'parent'} />)}
+      {kids.length === 0 ? <div className="dempty ds-fill">No students linked to your account yet</div> : kids.map((k) => <ChildAtt key={k.user_id} k={k} showName={kids.length > 1 || me.role === 'parent'} />)}
     </Card>
   );
 }
@@ -168,7 +168,7 @@ function LeaveCard({ me, go, span, onHide }) {
   const list = Array.isArray(data) ? data : [];
   return (
     <Card span={span} onHide={onHide} title={`Leave requests${list.length ? ` (${list.length})` : ''}`} icon="wallet" action={<button className="linkbtn" onClick={() => go('payroll')}>See all</button>}>
-      {!data ? <div className="muted small">Loading…</div> : list.length === 0 ? <div className="dempty">No pending leave requests 🎉</div> : (
+      {!data ? <div className="muted small">Loading…</div> : list.length === 0 ? <div className="dempty ds-fill">No pending leave requests 🎉</div> : (
         <div className="llist">
           {list.slice(0, 5).map((l) => {
             const who = nm(l.employee);
@@ -199,7 +199,7 @@ function NoticeCard({ me, go, span, onHide }) {
   const tones = ['var(--d-purple)', 'var(--d-blue)', 'var(--d-amber)'];
   return (
     <Card span={span} onHide={onHide} title="Notice board" icon="megaphone" action={<button className="linkbtn" onClick={() => go('communication/board')}>View all</button>}>
-      {!data ? <div className="muted small">Loading…</div> : list.length === 0 ? <div className="dempty">No notices yet</div> : (
+      {!data ? <div className="muted small">Loading…</div> : list.length === 0 ? <div className="dempty ds-fill">No notices yet</div> : (
         <div className="nlist">
           {list.map((n, i) => (
             <button className="nrow" key={n.id} style={{ '--c': tones[i % 3] }} onClick={() => go('communication/board')}>
@@ -243,7 +243,7 @@ function AuditCard({ me, go, span, onHide }) {
                 <em>{ago(l.created_at)}</em>
               </div>
             ))}
-            {logs.length === 0 && <div className="dempty">No activity yet</div>}
+            {logs.length === 0 && <div className="dempty ds-fill">No activity yet</div>}
           </div>
         </>
       )}

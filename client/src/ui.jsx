@@ -214,3 +214,31 @@ export function ClassGroup({ label, count, note, open, children }) {
     </section>
   );
 }
+
+
+/* ===================== DESIGN SYSTEM COMPONENTS (styles live in ds.css, all classes prefixed ds-) ===================== */
+// Title (+ optional subtitle) on the left, actions on the right. `lead` = something before the title, e.g. a Back button.
+export const PageBar = ({ title, sub, lead, children, sticky, className = '' }) => (
+  <div className={`ds-bar ${sticky ? 'ds-bar-sticky' : ''} ${className}`}>
+    {lead && <div className="ds-bar-lead">{lead}</div>}
+    <div className="ds-bar-t"><b className="ds-title">{title}</b>{sub ? <div className="ds-sub">{sub}</div> : null}</div>
+    {children ? <div className="ds-bar-a">{children}</div> : null}
+  </div>
+);
+// One wrapping row for search + filters + actions. Put <ToolbarEnd> around the buttons that should hug the right edge.
+export const Toolbar = ({ children, className = '' }) => <div className={`ds-toolbar ${className}`}>{children}</div>;
+export const ToolbarEnd = ({ children }) => <div className="ds-toolbar-end">{children}</div>;
+export const SearchInput = ({ value, onChange, placeholder = 'Search...', autoFocus, className = '', ...rest }) => (
+  <label className={`ds-search ${className}`}><Icon name="search" size={18} />
+    <input type="search" value={value} autoFocus={autoFocus} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} {...rest} />
+  </label>
+);
+// Scroll area for a fixed-height card. Put an empty-state in <div className="ds-fill">.
+export const CardBody = ({ children }) => <div className="ds-card-body">{children}</div>;
+// Docked save bar. summary = left text, error = red message, dirty = shows the unsaved dot, action = the button(s).
+export const SaveBar = ({ summary, error, dirty, action }) => (
+  <div className="ds-savebar">
+    <div className="ds-savebar-s">{error ? <span className="ds-savebar-e">{error}</span> : summary}{dirty && <i className="ds-savebar-d" title="Unsaved changes" />}</div>
+    <div className="ds-savebar-a">{action}</div>
+  </div>
+);

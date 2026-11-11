@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask } from '../ui.jsx';
+import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, SearchInput } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const sq = (me, sid) => (me.role === 'super_admin' ? { school_id: sid } : {});
@@ -37,9 +37,7 @@ export function printReceipt(i, school) {
 
 /* --------------------------------------------------------------- small shared pieces */
 const Stat = ({ n, label, tone, to, go }) => <button type="button" className={`inv-stat ${tone || ''}`} onClick={to ? () => go(to) : undefined} disabled={!to}><b>{n}</b><span>{label}</span></button>;
-const SearchBox = ({ value, onChange, placeholder }) => (
-  <div className="inv-search"><Icon name="search" size={18} /><input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} /></div>
-);
+const SearchBox = SearchInput;
 const useMeta = (me, sid) => useApi(`/inventory/meta${qs(sq(me, sid))}`, true, { keepPrevious: true });
 
 // pick items for an order / an issue: a list of rows { item_id, qty, rate? }
@@ -174,7 +172,7 @@ export const Items = scoped(function Items({ me, sid }) {
       <div className="inv-stats">
         <Stat n={count('in')} label="In stock" /><Stat n={count('low')} label="Low stock" tone="warn" /><Stat n={count('out')} label="Out of stock" tone="bad" /><Stat n={meta.items.length} label="Total items" />
       </div>
-      <div className="card inv-bar-tools">
+      <div className="card ds-toolbar">
         <SearchBox value={q} onChange={setQ} placeholder="Search items..." />
         <select value={store} onChange={(e) => setStore(e.target.value)} aria-label="Store"><option value="">All stores</option>{meta.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Category"><option value="">All categories</option>{meta.categories.filter((c) => !store || c.store_id === store).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
@@ -315,7 +313,7 @@ export const Orders = scoped(function Orders({ me, sid }) {
   if (error && !rows) return <div className="err">{error}</div>;
   return (
     <div className="stack inv" style={{ maxWidth: 1100 }}>
-      <div className="card inv-bar-tools">
+      <div className="card ds-toolbar">
         <SearchBox value={q} onChange={setQ} placeholder="Search PO number, vendor or item..." />
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status"><option value="">All orders</option>{Object.entries(PO).map(([k, v]) => <option key={k} value={k}>{v[1]}</option>)}</select>
         {manage && <button className="btn primary" disabled={!meta} onClick={() => setAdding(true)}><Icon name="plus" size={16} /> New order</button>}
@@ -398,7 +396,7 @@ export const IssueItems = scoped(function IssueItems({ me, sid }) {
           <button className="btn primary full big" style={{ justifyContent: 'center' }} disabled={busy || (!who && !manual.trim())}>{busy ? 'Saving...' : 'Issue items'}</button>
         </form>)}
       {last && <div className="notice ok row sp"><span><b>{last.receipt_no}</b> issued to {last.issued_to_name}.</span><button className="btn" onClick={() => printReceipt(last, schoolName)}><Icon name="doc" size={16} /> Print receipt</button></div>}
-      <div className="card inv-bar-tools"><SearchBox value={q} onChange={setQ} placeholder="Search receipt no., name, employee code or item..." /></div>
+      <div className="card ds-toolbar"><SearchBox value={q} onChange={setQ} placeholder="Search receipt no., name, employee code or item..." /></div>
       {!rows ? <Loading /> : rows.length === 0 ? <Empty>Nothing issued yet.</Empty> : (
         <div className="card" style={{ padding: 0 }}>{rows.map((i) => (
           <button key={i.id} className="drow inv-order" onClick={() => setOpen(i.id)}>
@@ -432,7 +430,7 @@ export const InventoryReports = scoped(function InventoryReports({ me, sid }) {
       </div>
       {tab === 'stock' ? (
         <>
-          <div className="card inv-bar-tools">
+          <div className="card ds-toolbar">
             <select value={store} onChange={(e) => setStore(e.target.value)} aria-label="Store"><option value="">All stores</option>{(meta?.stores || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
             <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Category"><option value="">All categories</option>{(meta?.categories || []).filter((c) => !store || c.store_id === store).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
             <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Item type"><option value="">All types</option><option value="consumable">Consumable</option><option value="asset">Asset</option></select>
@@ -449,7 +447,7 @@ export const InventoryReports = scoped(function InventoryReports({ me, sid }) {
         </>
       ) : (
         <>
-          <div className="card inv-bar-tools">
+          <div className="card ds-toolbar">
             <Field label="From"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
             <Field label="To"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
             <div className="row"><button className="btn" onClick={printIssues} disabled={!iss?.length}>Print</button><button className="btn" onClick={exportIssues} disabled={!iss?.length}>Export to Excel</button></div>

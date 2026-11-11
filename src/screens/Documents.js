@@ -202,7 +202,7 @@ function useBodyInsert(get, set) {
   return { onSelectionChange: (e) => setSel(e.nativeEvent.selection), insert };
 }
 
-export const IssueDocument = scoped(function IssueDocument({ me, sc, go }) {
+export const IssueDocument = scoped(function IssueDocument({ me, sc, go, action }) { // action = optional preselected student id
   const { data: meta, error } = useMeta(sc);
   const [type, setType] = useState(''); const [kind, setKind] = useState('student');
   const [person, setPerson] = useState(null); const [pre, setPre] = useState(null);
@@ -229,6 +229,8 @@ export const IssueDocument = scoped(function IssueDocument({ me, sc, go }) {
   }, [type, sc, meta]); // eslint-disable-line
 
   const pick = (p) => { setPerson(p); setPre(null); loadPre(p, ropts, false); };
+  // a student preselected from their profile: as soon as a student-type document is chosen, use them
+  useEffect(() => { if (action && type && !person && meta && TYPES[type].kind.includes('student')) { setKind('student'); pick({ id: action }); } }, [type, action, !!meta]); // eslint-disable-line
   const setR = (o) => { setRopts(o); if (person) loadPre(person, o, true); };
 
   const content = useMemo(() => (pre && form ? {

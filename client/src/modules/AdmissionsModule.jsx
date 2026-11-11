@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, askText, initials } from '../ui.jsx';
+import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, askText, initials, SearchInput } from '../ui.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const sq = (me, sid) => (me.role === 'super_admin' ? { school_id: sid } : {});
@@ -277,8 +277,8 @@ export const EnquiryList = scoped(function EnquiryList({ me, sid }) {
   };
   return (
     <div className="stack adm">
-      <div className="adm-bar-top">
-        <div className="adm-search"><Icon name="search" size={18} /><input placeholder="Search student, parent or phone" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="ds-toolbar">
+        <SearchInput value={q} onChange={setQ} placeholder="Search student, parent or phone" />
         <select aria-label="Class" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">All classes</option>{(meta?.classes || []).map((c) => <option key={c.id} value={c.id}>Class {c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
         <select aria-label="Source" value={source} onChange={(e) => setSource(e.target.value)}><option value="">All sources</option>{Object.entries(SRC).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         {d?.rows.length > 0 && <button className="btn" onClick={exportCsv}><Icon name="download" size={17} /> Export</button>}
@@ -311,7 +311,7 @@ export const Pipeline = scoped(function Pipeline({ me, sid }) {
   if (error) return <div className="err">{error}</div>;
   return (
     <div className="stack adm">
-      <div className="adm-bar-top">
+      <div className="ds-toolbar">
         <div className="adm-search"><Icon name="search" size={18} /><input placeholder="Search in pipeline" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <select aria-label="Class" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">All classes</option>{(meta?.classes || []).map((c) => <option key={c.id} value={c.id}>Class {c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
       </div>
