@@ -543,6 +543,9 @@ def t_list_features(a, ctx):
 
 # ------------------------------------------------- write tools: they only PREPARE an action
 def _register(ctx, kind, title, lines, footer, payload):
+    if ctx.get("_collect") is not None:       # a workflow (workflows.py) is only COLLECTING this step: it shows one card for all of them
+        ctx["_collect"].append({"kind": kind, "title": title, "lines": lines, "footer": footer, "payload": payload})
+        return {"status": "collected"}
     aid = uuid.uuid4().hex
     act = {"id": aid, "user": ctx["user"]["id"], "kind": kind, "title": title,
            "lines": lines, "footer": footer, "payload": payload, "status": "pending", "t": time.time()}
@@ -5183,3 +5186,8 @@ def cancel(user, aid, cid=None):
         a["status"] = "cancelled"
         _note(user["id"], cid, f"[System: the user cancelled '{a['title']}'. Nothing was saved.]")
     return {"ok": True, "action": card(a)}
+
+
+# One-shot workflows (certificate by name, fee reminders, withdrawal, ...): see workflows.py. Must stay the LAST lines of this file.
+import sys, workflows
+workflows.register(sys.modules[__name__])
