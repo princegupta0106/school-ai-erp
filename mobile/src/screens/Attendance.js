@@ -5,6 +5,7 @@ import { api } from '../api';
 import { C, ymd, timeStr, monthName, SH, live } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Check, DateField, Press, toast, confirmAsk } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
 
 /* ---------------------------------------------------------------- shared helpers */
@@ -53,7 +54,7 @@ const Pad = ({ children, reload, loading, hasData }) => (
   <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 30 }} keyboardShouldPersistTaps="handled" refreshControl={reload ? <RefreshControl refreshing={!!loading && !!hasData} onRefresh={reload} /> : undefined}>{children}</ScrollView>
 );
 const Notice = ({ tone = 'info', children }) => {
-  const t = { info: [C.infoBg, C.info], ok: [C.okBg, C.ok], warn: [C.warnBg, C.warn] }[tone];
+  const t = { info: [C.infoBg, C.info], ok: [C.okBg, C.ok], warn: [C.warnBg, C.warn], bad: [C.badBg, C.bad], mute: [C.muteBg, C.mute] }[tone] || [C.infoBg, C.info];
   return <View style={{ backgroundColor: t[0], borderRadius: 10, padding: 10, marginBottom: 10 }}><Text style={{ color: t[1], fontSize: 13 }}>{children}</Text></View>;
 };
 const Pct = ({ v, size = 14 }) => <Text style={{ fontWeight: '700', fontSize: size, color: v === null || v === undefined ? C.mute : v >= 90 ? C.ok : v >= 75 ? C.warn : C.bad }}>{v === null || v === undefined ? '-' : `${v}%`}</Text>;
@@ -177,11 +178,10 @@ function MarkSheet({ me, sc, classId, date, today, active, onBack, onSaved, goRo
 
         {students.length === 0 ? <Empty>No active students in this class.</Empty> : (<>
           <Tiles>{ORDER.map((k) => <Tile key={k} color={ST[k].color} n={counts[k]} label={ST[k].label} on={filter === k} onPress={() => setFilter(filter === k ? '' : k)} />)}</Tiles>
-          <Input placeholder="Search name or roll no." value={q} onChangeText={setQ} />
-          <View style={{ flexDirection: 'row', gap: 8, marginVertical: 10 }}>
-            <Btn small kind="ghost" title={sort === 'roll' ? 'Sorted by roll no.' : 'Sorted by name'} onPress={() => setSort(sort === 'roll' ? 'name' : 'roll')} />
-            {can && <Btn small kind="ghost" title={counts.present === students.length ? 'Mark all absent' : 'Mark all present'} onPress={() => setAll(counts.present === students.length ? 'absent' : 'present')} />}
-          </View>
+          <FilterBar inline q={q} onQ={setQ} placeholder="Search name or roll no." count={rows.length}
+            filters={[{ key: 'st', label: 'Status', value: filter, onChange: setFilter, all: 'Everyone', options: ORDER.map((k) => ({ value: k, label: ST[k].label })) }]}
+            sort={{ value: sort, onChange: setSort, def: 'roll', options: [{ value: 'roll', label: 'Roll no.' }, { value: 'name', label: 'Name A-Z' }] }}
+            end={can && <Btn small kind="ghost" title={counts.present === students.length ? 'Mark all absent' : 'Mark all present'} onPress={() => setAll(counts.present === students.length ? 'absent' : 'present')} />} />
           <List>
             {rows.length === 0 && <Empty>No student matches.</Empty>}
             {rows.map((s, i) => {
@@ -370,8 +370,7 @@ function StudentReport({ sc, today, picked, setPicked }) {
   const found = useApi(!picked ? path('/students', { q: dq }, sc) : null);
   const { data, error, loading } = useApi(picked ? path(`/reports/student/${picked.student_id}`, range, sc) : null);
   if (!picked) return (<>
-    <Input placeholder="Search student by name, ID or roll no." value={q} onChangeText={setQ} />
-    <View style={{ height: 12 }} />
+    <FilterBar inline q={q} onQ={setQ} placeholder="Search student by name, ID or roll no." />
     <ErrorBox>{found.error}</ErrorBox>
     {found.data ? (found.data.length === 0 ? <Empty>No student found.</Empty> : (
       <List>{found.data.map((s, i) => <Row key={s.student_id} last={i === found.data.length - 1} onPress={() => setPicked(s)}><Roll n={s.roll_no} /><View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: C.ink }}>{s.full_name}</Text><Dim>Class {s.class_label} · {s.login_id}</Dim></View><Icon name="chevron" size={18} color={C.mute} /></Row>)}</List>

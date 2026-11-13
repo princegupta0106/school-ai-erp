@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Modal, Field, Empty, Badge, toast, Loading, ask } from '../ui.jsx';
+import { Icon, Field, toast, Loading, ask, Page, PageBar, Button, Section, List, ListRow, StatusBadge, EmptyState, FormDialog, FormGrid, Notice, Choice } from '../ui.jsx';
+import { FilterBar } from '../FilterBar.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const base = '/homework';
@@ -16,10 +17,10 @@ const ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt
 
 // links to files (open / download)
 const Files = ({ list }) => (!list?.length ? null : (
-  <div className="stack" style={{ gap: 6 }}>
+  <div className="ds-chips">
     {list.map((f) => (
-      <a key={f.id} className="chip" href={f.url} target="_blank" rel="noopener noreferrer" download={f.name} style={{ alignSelf: 'flex-start', textDecoration: 'none' }}>
-        <Icon name="download" size={14} />{f.name} <span style={{ fontWeight: 400, opacity: .75 }}>({size(f.size)})</span>
+      <a key={f.id} className="ds-btn ds-btn-secondary ds-btn-sm" href={f.url} target="_blank" rel="noopener noreferrer" download={f.name}>
+        <Icon name="download" size={15} /><span>{f.name} ({size(f.size)})</span>
       </a>
     ))}
   </div>
@@ -35,13 +36,13 @@ function FilePick({ files, setFiles }) {
     if (ref.current) ref.current.value = '';
   };
   return (
-    <div className="stack" style={{ gap: 8 }}>
+    <div className="ds-stack">
       <input ref={ref} type="file" multiple accept={ACCEPT} onChange={add} disabled={files.length >= 5} />
       {files.map((f, i) => (
-        <div key={i} className="row sp"><span>{f.name} <small className="muted">({size(f.size)})</small></span>
-          <button type="button" className="icon-btn" aria-label="Remove" onClick={() => setFiles(files.filter((_, j) => j !== i))}><Icon name="x" size={16} /></button></div>
+        <div key={i} className="ds-spread"><span>{f.name} <span className="ds-note">({size(f.size)})</span></span>
+          <Button kind="ghost" size="sm" icon="x" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))} /></div>
       ))}
-      <small className="muted">Up to 5 files, 10 MB each (PDF, photo, Word, Excel, PowerPoint, text)</small>
+      <p className="ds-note">Up to 5 files, 10 MB each (PDF, photo, Word, Excel, PowerPoint, text)</p>
     </div>
   );
 }
@@ -51,36 +52,31 @@ function NewAssignment({ me, sid, onClose, onSaved }) {
   const { data: combos } = useApi(`${base}/combos${qs(sq(me, sid))}`);
   const [f, setF] = useState({ class_id: '', subject_id: '', title: '', subject: '', description: '', due_date: '', needs_submission: true });
   const [files, setFiles] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const save = async (e) => {
-    e.preventDefault(); setBusy(true); setErr('');
+  const save = async () => {
+    setBusy(true); setErr('');
     try {
       const fd = new FormData();
       Object.entries({ ...f, ...sq(me, sid) }).forEach(([k, v]) => fd.append(k, v));
       files.forEach((x) => fd.append('files', x));
       await api.post(`${base}/assignments`, fd);
       toast('Posted'); onSaved(); onClose();
-    } catch (x) { setErr(x.message); } finally { setBusy(false); }
+    } catch (x) { setErr(x.message); setBusy(false); }
   };
   return (
-    <Modal title="New homework / file" onClose={onClose}>
-      <form className="stack" style={{ gap: 14 }} onSubmit={save}>
-        <div className="pills">
-          <button type="button" className={`pill ${f.needs_submission ? 'on' : ''}`} onClick={() => setF({ ...f, needs_submission: true })}>Assignment (students submit)</button>
-          <button type="button" className={`pill ${!f.needs_submission ? 'on' : ''}`} onClick={() => setF({ ...f, needs_submission: false })}>Study file (read only)</button>
-        </div>
-        <Field label="Class & subject" req>
-          {!combos ? <Loading rows={1} /> : combos.length === 0 ? <span className="muted">No class and subject is assigned to you.</span> :
+    <FormDialog title="New homework / file" onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel="Post" submitDisabled={!f.class_id || !f.title.trim()}>
+      <FormGrid>
+        <Field full label="Type"><Choice label="Type" value={f.needs_submission} onChange={(v) => setF({ ...f, needs_submission: v })} options={[{ value: true, label: 'Assignment (students submit)' }, { value: false, label: 'Study file (read only)' }]} /></Field>
+        <Field full req label="Class & subject">
+          {!combos ? <Loading rows={1} /> : combos.length === 0 ? <span className="ds-hint">No class and subject is assigned to you.</span> :
             <select required value={f.class_id ? `${f.class_id}|${f.subject_id}` : ''} onChange={(e) => { const [c, sb = ''] = e.target.value.split('|'); const hit = combos.find((x) => x.class_id === c && (x.subject_id || '') === sb); setF({ ...f, class_id: c || '', subject_id: sb, subject: hit?.subject || '' }); }}>
               <option value="">Choose class & subject</option>{combos.map((c) => <option key={`${c.class_id}|${c.subject_id || ''}`} value={`${c.class_id}|${c.subject_id || ''}`}>{c.class_label}{c.subject ? ` · ${c.subject}` : ''}</option>)}</select>}
         </Field>
-        <Field label="Title" req><input required maxLength={150} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Chapter 4 exercise" /></Field>
-        <Field label="Instructions"><textarea rows={4} maxLength={5000} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="What should students do?" /></Field>
-        {f.needs_submission && <Field label="Last date to submit (optional)"><input type="date" value={f.due_date} onChange={(e) => setF({ ...f, due_date: e.target.value })} /></Field>}
-        <Field label="Attach files (optional)"><FilePick files={files} setFiles={setFiles} /></Field>
-        {err && <div className="err">{err}</div>}
-        <button className="btn primary big" disabled={busy || !f.class_id || !f.title.trim()} style={{ justifyContent: 'center' }}>{busy ? 'Uploading...' : 'Post'}</button>
-      </form>
-    </Modal>
+        <Field full req label="Title"><input required maxLength={150} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Chapter 4 exercise" /></Field>
+        <Field full label="Instructions"><textarea rows={4} maxLength={5000} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="What should students do?" /></Field>
+        {f.needs_submission && <Field full label="Last date to submit (optional)"><input type="date" value={f.due_date} onChange={(e) => setF({ ...f, due_date: e.target.value })} /></Field>}
+        <Field full label="Attach files (optional)"><FilePick files={files} setFiles={setFiles} /></Field>
+      </FormGrid>
+    </FormDialog>
   );
 }
 
@@ -93,25 +89,23 @@ function CheckRow({ me, sid, s, onSaved }) {
     try { await api.patch(`${base}/submissions/${sub.id}${qs(sq(me, sid))}`, { marks, feedback }); toast('Saved'); onSaved(); setOpen(false); }
     catch (x) { toast(x.message, true); } finally { setBusy(false); }
   };
-  const badge = !sub ? <Badge tone="off">Not submitted</Badge> : sub.status === 'checked' ? <Badge tone="ok">Checked</Badge> : <Badge tone="warn">To check</Badge>;
+  const badge = !sub ? <StatusBadge tone="bad">Not submitted</StatusBadge> : sub.status === 'checked' ? <StatusBadge tone="ok">Checked</StatusBadge> : <StatusBadge tone="warn">To check</StatusBadge>;
   return (
-    <div style={{ borderTop: '1px solid var(--line)' }}>
-      <button type="button" className="drow" style={{ borderTop: 0 }} disabled={!sub} onClick={() => setOpen(!open)}>
-        <div style={{ flex: 1, minWidth: 0 }}><b>{s.roll_no ? `${s.roll_no}. ` : ''}{s.name}</b>{sub && <small>Submitted {fmtTime(sub.submitted_at)}{sub.is_late ? ' (late)' : ''}{sub.marks ? ` - ${sub.marks}` : ''}</small>}</div>
-        {badge}
-      </button>
+    <>
+      <ListRow onClick={sub ? () => setOpen(!open) : undefined} title={`${s.roll_no ? `${s.roll_no}. ` : ''}${s.name}`}
+        sub={sub ? `Submitted ${fmtTime(sub.submitted_at)}${sub.is_late ? ' (late)' : ''}${sub.marks ? ` - ${sub.marks}` : ''}` : undefined} meta={badge} />
       {open && sub && (
-        <div className="stack" style={{ padding: '4px 16px 16px', gap: 10 }}>
-          {sub.note && <p className="nbody" style={{ margin: 0 }}>{sub.note}</p>}
+        <div className="ds-stack ds-sunk">
+          {sub.note && <p className="ds-pre">{sub.note}</p>}
           <Files list={sub.files} />
-          <div className="row" style={{ gap: 10, alignItems: 'flex-end' }}>
-            <div style={{ width: 140 }}><Field label="Marks / grade"><input maxLength={30} value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="e.g. 8/10" /></Field></div>
-          </div>
-          <Field label="Remark for the student"><textarea rows={2} maxLength={2000} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Well done / please redo question 3..." /></Field>
-          <button className="btn primary" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={save}>{busy ? 'Saving...' : sub.status === 'checked' ? 'Update' : 'Mark as checked'}</button>
+          <FormGrid>
+            <Field label="Marks / grade"><input maxLength={30} value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="e.g. 8/10" /></Field>
+            <Field full label="Remark for the student"><textarea rows={2} maxLength={2000} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Well done / please redo question 3..." /></Field>
+          </FormGrid>
+          <div className="ds-inline"><Button type="button" kind="primary" loading={busy} onClick={save}>{sub.status === 'checked' ? 'Update' : 'Mark as checked'}</Button></div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -119,66 +113,60 @@ function Submissions({ me, sid, a, onClose, onDelete }) {
   const { data: d, error, refresh } = useApi(`${base}/assignments/${a.id}/submissions${qs(sq(me, sid))}`);
   const list = d?.students || [];
   return (
-    <Modal title={a.title} onClose={onClose} wide>
-      {error && <div className="err">{error}</div>}
+    <FormDialog noForm wide title={a.title} onClose={onClose}>
+      {error && <Notice tone="bad" action={<Button size="sm" onClick={refresh}>Retry</Button>}>{error}</Notice>}
       {!d ? <Loading /> : (
-        <div className="stack" style={{ gap: 12 }}>
-          <div className="row" style={{ gap: 8 }}>
-            <span className="chip">{clsName(d.assignment.classes)}</span>
-            {d.assignment.subject && <span className="chip">{d.assignment.subject}</span>}
-            {d.assignment.due_date && <span className="chip">Due {fmtDate(d.assignment.due_date)}</span>}
+        <div className="ds-stack">
+          <div className="ds-chips">
+            <StatusBadge tone="mute" dot={false}>{clsName(d.assignment.classes)}</StatusBadge>
+            {d.assignment.subject && <StatusBadge tone="mute" dot={false}>{d.assignment.subject}</StatusBadge>}
+            {d.assignment.due_date && <StatusBadge tone="info" dot={false}>Due {fmtDate(d.assignment.due_date)}</StatusBadge>}
           </div>
-          {d.assignment.description && <p className="nbody" style={{ margin: 0 }}>{d.assignment.description}</p>}
+          {d.assignment.description && <p className="ds-pre">{d.assignment.description}</p>}
           <Files list={d.assignment.attachments} />
           {d.assignment.needs_submission ? (
-            <div className="card" style={{ padding: 0 }}>
-              {list.length === 0 ? <Empty>No students in this class.</Empty> : list.map((s) => <CheckRow key={s.student_id} me={me} sid={sid} s={s} onSaved={refresh} />)}
-            </div>
-          ) : <small className="muted">This is a study file - students can read it, nothing to submit.</small>}
-          <button className="btn danger" style={{ alignSelf: 'flex-start' }} onClick={onDelete}><Icon name="trash" size={16} />Delete this homework</button>
+            <Section title="Submissions" flush>
+              {list.length === 0 ? <EmptyState icon="users" title="No students in this class" /> : <List>{list.map((s) => <CheckRow key={s.student_id} me={me} sid={sid} s={s} onSaved={refresh} />)}</List>}
+            </Section>
+          ) : <p className="ds-hint">This is a study file - students can read it, nothing to submit.</p>}
+          <div className="ds-inline"><Button kind="danger" icon="trash" onClick={onDelete}>Delete this homework</Button></div>
         </div>
       )}
-    </Modal>
+    </FormDialog>
   );
 }
 
 export const Homework = scoped(function Homework({ me, sid }) {
   const { data: list, error, refresh } = useApi(`${base}/assignments${qs(sq(me, sid))}`);
-  const [form, setForm] = useState(false); const [open, setOpen] = useState(null); const [fc, setFc] = useState(''); const [fs, setFs] = useState(''); const [chk, setChk] = useState('');
+  const [form, setForm] = useState(false); const [open, setOpen] = useState(null); const [fc, setFc] = useState(''); const [fs, setFs] = useState(''); const [chk, setChk] = useState(''); const [hq, setHq] = useState(''); const [hsort, setHsort] = useState('new');
   const del = async (a) => {
     if (!(await ask(`Delete "${a.title}"? Student submissions will be deleted too.`))) return;
     try { await api.del(`${base}/assignments/${a.id}${qs(sq(me, sid))}`); toast('Deleted'); refresh(); } catch (x) { toast(x.message, true); }
   };
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Page><Notice tone="bad" action={<Button size="sm" onClick={refresh}>Retry</Button>}>{error}</Notice></Page>;
   if (!list) return <Loading />;
   const classes = [...new Set(list.map((x) => clsName(x.classes)).filter(Boolean))]; const subjects = [...new Set(list.map((x) => x.subject).filter(Boolean))];
-  const shown = list.filter((x) => (!fc || clsName(x.classes) === fc) && (!fs || x.subject === fs) && (!chk || x.to_check > 0));
+  const shown = list.filter((x) => (!fc || clsName(x.classes) === fc) && (!fs || x.subject === fs) && (!chk || x.to_check > 0) && (!hq.trim() || String(x.title || '').toLowerCase().includes(hq.trim().toLowerCase())))
+    .sort((a, b) => hsort === 'old' ? String(a.created_at).localeCompare(String(b.created_at)) : hsort === 'title' ? String(a.title).localeCompare(String(b.title)) : String(b.created_at).localeCompare(String(a.created_at)));
   return (
-    <div className="stack" style={{ maxWidth: 1040 }}>
-      <button className="btn primary big" style={{ alignSelf: 'flex-start' }} onClick={() => setForm(true)}><Icon name="plus" size={18} />New homework / file</button>
-      <div className="hwf">
-        <select value={fc} onChange={(e) => setFc(e.target.value)} aria-label="Class"><option value="">All classes</option>{classes.map((c) => <option key={c}>{c}</option>)}</select>
-        <select value={fs} onChange={(e) => setFs(e.target.value)} aria-label="Subject"><option value="">All subjects</option>{subjects.map((c) => <option key={c}>{c}</option>)}</select>
-        <select value={chk} onChange={(e) => setChk(e.target.value)} aria-label="Status"><option value="">All status</option><option value="check">To check</option></select>
-      </div>
-      {shown.length === 0 ? <Empty>{list.length ? 'No homework matches these filters.' : 'Nothing posted yet.'}</Empty> : (
-        <div className="hwl">
-          {shown.map((a) => {
-            const pct = a.total_students ? Math.round((a.submitted / a.total_students) * 100) : 0;
-            return (
-              <button key={a.id} className="hwr" onClick={() => setOpen(a)}>
-                <span className="hwt"><b>{a.title}</b><small>Posted {fmtTime(a.created_at)}</small></span>
-                {a.needs_submission ? (
-                  <span className="hwp"><b>{a.submitted}<em>/{a.total_students}</em></b><i><u style={{ width: `${pct}%` }} /></i>{a.to_check > 0 && <small>{a.to_check} to check</small>}</span>
-                ) : <span className="chip">Study file</span>}
-                <Icon name="chevron" size={16} />
-              </button>
-            );
-          })}
-        </div>)}
+    <Page>
+      <PageBar title="Homework" sub={`${list.length} posted`}><Button kind="primary" icon="plus" onClick={() => setForm(true)}>New homework / file</Button></PageBar>
+      <FilterBar q={hq} onQ={setHq} placeholder="Search homework" count={shown.length}
+        filters={[
+          { key: 'c', label: 'Class', value: fc, onChange: setFc, all: 'All classes', options: classes },
+          { key: 's', label: 'Subject', value: fs, onChange: setFs, all: 'All subjects', options: subjects },
+          { key: 'k', label: 'Status', value: chk, onChange: setChk, all: 'All status', options: [{ value: 'check', label: 'To check' }] },
+        ]}
+        sort={{ value: hsort, onChange: setHsort, def: 'new', options: [{ value: 'new', label: 'Newest first' }, { value: 'old', label: 'Oldest first' }, { value: 'title', label: 'Title A-Z' }] }} />
+      <Section flush>
+        {shown.length === 0 ? <EmptyState icon="doc" title={list.length ? 'No homework matches' : 'Nothing posted yet'}>{list.length ? 'Try different filters.' : 'Post the first one with the button above.'}</EmptyState> : (
+          <List>{shown.map((a) => (
+            <ListRow key={a.id} onClick={() => setOpen(a)} title={a.title} sub={`${[clsName(a.classes), a.subject].filter(Boolean).join(' - ')}${a.classes || a.subject ? ' - ' : ''}Posted ${fmtTime(a.created_at)}`}
+              meta={a.needs_submission ? <>{a.to_check > 0 && <StatusBadge tone="warn">{a.to_check} to check</StatusBadge>}<StatusBadge tone={a.total_students && a.submitted >= a.total_students ? 'ok' : 'mute'} dot={false}>{a.submitted}/{a.total_students} submitted</StatusBadge></> : <StatusBadge tone="info" dot={false}>Study file</StatusBadge>} />))}</List>)}
+      </Section>
       {form && <NewAssignment me={me} sid={sid} onClose={() => setForm(false)} onSaved={refresh} />}
       {open && <Submissions me={me} sid={sid} a={open} onClose={() => { setOpen(null); refresh(); }} onDelete={() => { const x = open; setOpen(null); del(x); }} />}
-    </div>
+    </Page>
   );
 });
 
@@ -187,15 +175,16 @@ function statusOf(a) {
   if (!a.needs_submission) return { label: 'Study file', tone: 'info' };
   if (a.my?.status === 'checked') return { label: 'Checked', tone: 'ok' };
   if (a.my) return { label: 'Submitted', tone: 'info' };
-  if (a.due_date && a.due_date < today()) return { label: 'Overdue', tone: 'off' };
+  if (a.due_date && a.due_date < today()) return { label: 'Overdue', tone: 'bad' };
   return { label: 'Pending', tone: 'warn' };
 }
 
 function AssignmentView({ id, onClose, onSaved }) {
   const { data: a, error, refresh } = useApi(`${base}/my/${id}`);
   const [files, setFiles] = useState([]); const [note, setNote] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  const send = async (e) => {
-    e.preventDefault(); setBusy(true); setErr('');
+  const my = a?.my; const locked = my?.status === 'checked';
+  const send = async () => {
+    setBusy(true); setErr('');
     try {
       const fd = new FormData(); fd.append('note', note);
       files.forEach((x) => fd.append('files', x));
@@ -203,66 +192,59 @@ function AssignmentView({ id, onClose, onSaved }) {
       toast('Submitted'); setFiles([]); setNote(''); refresh(); onSaved();
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
-  const my = a?.my; const locked = my?.status === 'checked';
+  const canSubmit = !!a?.needs_submission && !locked;
   return (
-    <Modal title={a?.title || 'Homework'} onClose={onClose} wide>
-      {error && <div className="err">{error}</div>}
+    <FormDialog wide title={a?.title || 'Homework'} onClose={onClose} onSubmit={send} busy={busy} error={err}
+      hideFooter={!canSubmit} cancelLabel="Close" submitLabel={my ? 'Replace submission' : 'Submit'} submitDisabled={!files.length && !note.trim()}>
+      {error && <Notice tone="bad" action={<Button size="sm" onClick={refresh}>Retry</Button>}>{error}</Notice>}
       {!a ? <Loading /> : (
-        <div className="stack" style={{ gap: 14 }}>
-          <div className="row" style={{ gap: 8 }}>
-            {a.subject && <span className="chip">{a.subject}</span>}
-            {a.due_date && <span className="chip">Due {fmtDate(a.due_date)}</span>}
-            {a.teacher && <span className="chip">{a.teacher}</span>}
+        <div className="ds-stack">
+          <div className="ds-chips">
+            {a.subject && <StatusBadge tone="mute" dot={false}>{a.subject}</StatusBadge>}
+            {a.due_date && <StatusBadge tone="info" dot={false}>Due {fmtDate(a.due_date)}</StatusBadge>}
+            {a.teacher && <StatusBadge tone="mute" dot={false}>{a.teacher}</StatusBadge>}
           </div>
-          {a.description && <p className="nbody" style={{ margin: 0 }}>{a.description}</p>}
-          {a.attachments.length > 0 && <div className="stack" style={{ gap: 6 }}><b>Files from your teacher</b><Files list={a.attachments} /></div>}
+          {a.description && <p className="ds-pre">{a.description}</p>}
+          {a.attachments.length > 0 && <><div className="ds-label">Files from your teacher</div><Files list={a.attachments} /></>}
           {a.needs_submission && (
-            <div className="card stack" style={{ gap: 12 }}>
-              <b>Your submission</b>
-              {my && <>
-                <small className="muted">Submitted {fmtTime(my.submitted_at)}{my.is_late ? ' (late)' : ''}</small>
-                {my.note && <p className="nbody" style={{ margin: 0 }}>{my.note}</p>}
-                <Files list={my.files} />
-              </>}
-              {locked && (
-                <div className="notice ok">
-                  <b>Checked{my.marks ? ` - ${my.marks}` : ''}</b>
-                  {my.feedback && <div>{my.feedback}</div>}
-                </div>
-              )}
-              {!locked && (
-                <form className="stack" style={{ gap: 12 }} onSubmit={send}>
-                  <Field label={my ? 'Submit again (replaces your earlier submission)' : 'Upload your work'}><FilePick files={files} setFiles={setFiles} /></Field>
-                  <Field label="Note for the teacher (optional)"><textarea rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-                  {err && <div className="err">{err}</div>}
-                  <button className="btn primary big" disabled={busy || (!files.length && !note.trim())} style={{ justifyContent: 'center' }}><Icon name="upload" size={18} />{busy ? 'Uploading...' : my ? 'Replace submission' : 'Submit'}</button>
-                </form>
-              )}
-            </div>
+            <Section title="Your submission">
+              <div className="ds-stack">
+                {my && <>
+                  <p className="ds-note">Submitted {fmtTime(my.submitted_at)}{my.is_late ? ' (late)' : ''}</p>
+                  {my.note && <p className="ds-pre">{my.note}</p>}
+                  <Files list={my.files} />
+                </>}
+                {locked && <Notice tone="ok"><span><b>Checked{my.marks ? ` - ${my.marks}` : ''}</b>{my.feedback ? ` - ${my.feedback}` : ''}</span></Notice>}
+                {!locked && (
+                  <FormGrid>
+                    <Field full label={my ? 'Submit again (replaces your earlier submission)' : 'Upload your work'}><FilePick files={files} setFiles={setFiles} /></Field>
+                    <Field full label="Note for the teacher (optional)"><textarea rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+                  </FormGrid>
+                )}
+              </div>
+            </Section>
           )}
         </div>
       )}
-    </Modal>
+    </FormDialog>
   );
 }
 
 export function MyHomework() {
   const { data: list, error, refresh } = useApi(`${base}/my`);
   const [open, setOpen] = useState(null);
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Page><Notice tone="bad" action={<Button size="sm" onClick={refresh}>Retry</Button>}>{error}</Notice></Page>;
   if (!list) return <Loading />;
   return (
-    <div className="stack" style={{ maxWidth: 1040 }}>
-      {list.length === 0 ? <Empty>No homework yet.</Empty> : (
-        <div className="hwl">
-          {list.map((a) => { const st = statusOf(a); return (
-            <button key={a.id} className="hwr" onClick={() => setOpen(a.id)}>
-              <span className="hwt"><b>{a.title}</b><small>{a.subject || 'Homework'}{a.due_date && a.needs_submission ? ` · Due ${fmtDate(a.due_date)}` : ''}{a.my?.marks ? ` · ${a.my.marks}` : ''}</small></span>
-              <Badge tone={st.tone}>{st.label}</Badge>
-              <Icon name="chevron" size={16} />
-            </button>); })}
-        </div>)}
+    <Page>
+      <PageBar title="My homework" sub={`${list.length} item${list.length === 1 ? '' : 's'}`} />
+      <Section flush>
+        {list.length === 0 ? <EmptyState icon="doc" title="No homework yet">New homework from your teachers will show up here.</EmptyState> : (
+          <List>{list.map((a) => { const st = statusOf(a); return (
+            <ListRow key={a.id} onClick={() => setOpen(a.id)} title={a.title} sub={`${a.subject || 'Homework'}${a.due_date && a.needs_submission ? ` · Due ${fmtDate(a.due_date)}` : ''}${a.my?.marks ? ` · ${a.my.marks}` : ''}`}
+              meta={<StatusBadge tone={st.tone}>{st.label}</StatusBadge>} />); })}</List>)}
+      </Section>
       {open && <AssignmentView id={open} onClose={() => setOpen(null)} onSaved={refresh} />}
-    </div>
+    </Page>
   );
 }

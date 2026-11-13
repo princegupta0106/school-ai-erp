@@ -3,7 +3,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, SearchInput } from '../ui.jsx';
+import { Icon, Field, toast, Loading, ask, SearchInput, Page, PageBar, Button, StatusBadge, KpiGrid, Kpi, Section, DataTable, EmptyState, FormDialog, FormGrid, Notice, Tabs, List, ListRow } from '../ui.jsx';
+import { FilterBar } from '../FilterBar.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const sq = (me, sid) => (me.role === 'super_admin' ? { school_id: sid } : {});
@@ -13,9 +14,9 @@ const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFract
 const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const fmt = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const useDebounced = (v, ms = 250) => { const [d, setD] = useState(v); useEffect(() => { const t = setTimeout(() => setD(v), ms); return () => clearTimeout(t); }, [v, ms]); return d; };
-const STOCK = { in: ['ok', 'In stock'], low: ['warn', 'Low stock'], out: ['off', 'Out of stock'] };
+const STOCK = { in: ['ok', 'In stock'], low: ['warn', 'Low stock'], out: ['bad', 'Out of stock'] };
 const PO = { pending: ['warn', 'Pending'], approved: ['info', 'Approved'], received: ['info', 'Part received'], closed: ['ok', 'Received'], cancelled: ['mute', 'Cancelled'] };
-const Pill = ({ map, k }) => <Badge tone={map[k]?.[0]}>{map[k]?.[1] || k}</Badge>;
+const Pill = ({ map, k }) => <StatusBadge tone={map[k]?.[0]}>{map[k]?.[1] || k}</StatusBadge>;
 
 function download(name, rows) {
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -36,7 +37,7 @@ export function printReceipt(i, school) {
 }
 
 /* --------------------------------------------------------------- small shared pieces */
-const Stat = ({ n, label, tone, to, go }) => <button type="button" className={`inv-stat ${tone || ''}`} onClick={to ? () => go(to) : undefined} disabled={!to}><b>{n}</b><span>{label}</span></button>;
+const Stat = ({ n, label, tone, to, go }) => <Kpi value={n} label={label} tone={tone || undefined} onClick={to ? () => go(to) : undefined} />;
 const SearchBox = SearchInput;
 const useMeta = (me, sid) => useApi(`/inventory/meta${qs(sq(me, sid))}`, true, { keepPrevious: true });
 
@@ -57,7 +58,7 @@ function LinePicker({ items, lines, setLines, withRate, stockCap }) {
           </div>
         );
       })}
-      <button type="button" className="btn" onClick={() => setLines([...lines, { item_id: '', qty: '', rate: '' }])}><Icon name="plus" size={16} /> Add another item</button>
+      <Button size="sm" icon="plus" onClick={() => setLines([...lines, { item_id: '', qty: '', rate: '' }])}>Add another item</Button>
     </div>
   );
 }
@@ -65,42 +66,42 @@ function LinePicker({ items, lines, setLines, withRate, stockCap }) {
 /* =============================================================== OVERVIEW */
 export const InventoryHome = scoped(function InventoryHome({ me, sid, go }) {
   const { data: d, error } = useApi(`/inventory/overview${qs(sq(me, sid))}`, true, { keepPrevious: true });
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!d) return <Loading />;
   const s = d.stats; const max = Math.max(1, ...d.by_category.map((c) => c.qty));
   const canGo = (view, ...f) => (can(me, ...f) ? view : null);
   return (
-    <div className="stack inv" style={{ maxWidth: 1100 }}>
-      <div className="inv-stats">
+    <Page className="inv">
+      <PageBar title="Inventory" sub="Stock, orders and issues at a glance">
+        {can(me, 'manage_inventory') && <Button icon="plus" onClick={() => go('items')}>Add item</Button>}
+        {can(me, 'manage_purchase_orders') && <Button icon="doc" onClick={() => go('orders')}>Purchase order</Button>}
+        {can(me, 'view_inventory') && <Button icon="download" onClick={() => go('reports')}>Reports</Button>}
+        {can(me, 'issue_inventory') && <Button kind="primary" icon="send" onClick={() => go('issue')}>Issue items</Button>}
+      </PageBar>
+      <KpiGrid>
         <Stat n={s.items} label="Total items" go={go} to={canGo('items', 'view_inventory', 'manage_inventory')} />
         <Stat n={s.categories} label="Categories" go={go} to={canGo('setup', 'manage_inventory')} />
         <Stat n={s.vendors} label="Vendors" go={go} to={canGo('setup', 'manage_inventory')} />
         <Stat n={s.low + s.out} label="Low / out of stock" tone={s.low + s.out ? 'warn' : ''} go={go} to={canGo('items', 'view_inventory', 'manage_inventory')} />
-      </div>
-      <div className="inv-quick">
-        {can(me, 'manage_inventory') && <button className="btn" onClick={() => go('items')}><Icon name="plus" size={16} /> Add item</button>}
-        {can(me, 'manage_purchase_orders') && <button className="btn" onClick={() => go('orders')}><Icon name="doc" size={16} /> Purchase order</button>}
-        {can(me, 'issue_inventory') && <button className="btn primary" onClick={() => go('issue')}><Icon name="send" size={16} /> Issue items</button>}
-        {can(me, 'view_inventory') && <button className="btn" onClick={() => go('reports')}><Icon name="download" size={16} /> Reports</button>}
-      </div>
+      </KpiGrid>
       <div className="inv-grid">
-        <div className="card"><h3 className="inv-h">Stock summary</h3>
+        <Section title="Stock summary">
           <div className="inv-mini"><div><b className="ok">{s.in_stock}</b><span>In stock</span></div><div><b className="warn">{s.low}</b><span>Low</span></div><div><b className="bad">{s.out}</b><span>Out</span></div><div><b>{money(s.value)}</b><span>Value</span></div></div>
-          <h3 className="inv-h" style={{ marginTop: 16 }}>Stock by category</h3>
+          <h4 className="inv-h2">Stock by category</h4>
           {d.by_category.length === 0 ? <div className="muted">No items yet.</div> : d.by_category.map((c) => <div key={c.id} className="inv-bar"><span>{c.name}</span><i><u style={{ width: `${Math.max(4, (c.qty / max) * 100)}%` }} /></i><b>{qty(c.qty)}</b></div>)}
-        </div>
-        <div className="card"><h3 className="inv-h">Needs attention</h3>
+        </Section>
+        <Section title="Needs attention">
           {d.low_items.length === 0 ? <div className="muted">Nothing is running low.</div> : d.low_items.map((i) => <div key={i.id} className="inv-row"><div><b>{i.name}</b><small>Reorder at {qty(i.reorder_level)}</small></div><span className={`inv-qty ${i.status}`}>{qty(i.qty)} {i.unit}</span></div>)}
-        </div>
-        <div className="card"><h3 className="inv-h">Purchase orders</h3>
+        </Section>
+        <Section title="Purchase orders">
           <div className="inv-mini"><div><b>{d.orders.total}</b><span>Orders</span></div><div><b className="warn">{d.orders.pending}</b><span>Pending</span></div><div><b>{d.orders.approved}</b><span>Approved</span></div><div><b className="ok">{d.orders.received}</b><span>Received</span></div></div>
-          {d.orders.recent.map((o) => <div key={o.id} className="inv-row"><div><b>{o.po_no}</b><small>{o.vendor || 'No vendor'} · {fmt(o.order_date)}</small></div><div style={{ textAlign: 'right' }}><b>{money(o.total)}</b><div><Pill map={PO} k={o.status} /></div></div></div>)}
-        </div>
-        <div className="card"><h3 className="inv-h">Recent issues</h3>
+          {d.orders.recent.map((o) => <div key={o.id} className="inv-row"><div><b>{o.po_no}</b><small>{o.vendor || 'No vendor'} · {fmt(o.order_date)}</small></div><div className="inv-r"><b>{money(o.total)}</b><div><Pill map={PO} k={o.status} /></div></div></div>)}
+        </Section>
+        <Section title="Recent issues">
           {d.recent_issues.length === 0 ? <div className="muted">Nothing issued yet.</div> : d.recent_issues.map((i) => <div key={i.id} className="inv-row"><div><b>{i.issued_to_name}</b><small>{i.receipt_no} · {fmt(i.issue_date)}</small></div><span className="muted">{i.items} item{i.items === 1 ? '' : 's'}</span></div>)}
-        </div>
+        </Section>
       </div>
-    </div>
+    </Page>
   );
 });
 
@@ -118,9 +119,9 @@ function ItemForm({ me, sid, meta, item, onClose, onSaved }) {
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
-    <Modal title={item ? 'Edit item' : 'Add item'} onClose={onClose}>
-      <form className="form" onSubmit={save}>
-        <div className="full"><Field label="Item name" req><input autoFocus required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field></div>
+    <FormDialog title={item ? 'Edit item' : 'Add item'} onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel="Save item" submitDisabled={!f.name.trim()}>
+      <FormGrid>
+        <Field label="Item name" req full><input autoFocus required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="Store"><select value={f.store_id || ''} onChange={(e) => setF({ ...f, store_id: e.target.value, category_id: '' })}><option value="">No store</option>{meta.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
         <Field label="Category"><select value={f.category_id || ''} onChange={(e) => setF({ ...f, category_id: e.target.value })}><option value="">No category</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
         <Field label="Item type"><select value={f.item_type} onChange={(e) => setF({ ...f, item_type: e.target.value })}><option value="consumable">Consumable (used up)</option><option value="asset">Asset (returnable)</option></select></Field>
@@ -128,10 +129,8 @@ function ItemForm({ me, sid, meta, item, onClose, onSaved }) {
         <Field label={item ? 'Stock in hand' : 'Opening stock'} hint={item ? 'Change only to correct a count' : ''}><input type="number" min="0" step="any" inputMode="decimal" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} /></Field>
         <Field label="Reorder level" hint="Shown as low stock at or below this"><input type="number" min="0" step="any" inputMode="decimal" value={f.reorder_level} onChange={(e) => setF({ ...f, reorder_level: e.target.value })} /></Field>
         <Field label="Rate (₹)"><input type="number" min="0" step="any" inputMode="decimal" value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} /></Field>
-        {err && <div className="err full">{err}</div>}
-        <button className="btn primary full" style={{ justifyContent: 'center' }} disabled={busy || !f.name.trim()}>{busy ? 'Saving...' : 'Save item'}</button>
-      </form>
-    </Modal>
+      </FormGrid>
+    </FormDialog>
   );
 }
 
@@ -144,59 +143,59 @@ function BulkAdd({ me, sid, meta, onClose, onSaved }) {
     try { const r = await api.post('/inventory/items/bulk', { items: rows, ...sq(me, sid) }); toast(`${r.added} items added`); onSaved(); onClose(); } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
-    <Modal title="Add many items" onClose={onClose}>
-      <div className="stack" style={{ maxWidth: 'none' }}>
-        <div className="form"><Field label="Store"><select value={store} onChange={(e) => { setStore(e.target.value); setCat(''); }}><option value="">No store</option>{meta.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-          <Field label="Category"><select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">No category</option>{meta.categories.filter((c) => !store || c.store_id === store || !c.store_id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field></div>
-        <Field label="One item per line" hint="name, stock, unit, reorder level, rate  (only the name is needed; you can paste from Excel)">
+    <FormDialog title="Add many items" onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel={`Add ${rows.length} item${rows.length === 1 ? '' : 's'}`} submitDisabled={!rows.length}>
+      <FormGrid>
+        <Field label="Store"><select value={store} onChange={(e) => { setStore(e.target.value); setCat(''); }}><option value="">No store</option>{meta.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+        <Field label="Category"><select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">No category</option>{meta.categories.filter((c) => !store || c.store_id === store || !c.store_id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+        <Field label="One item per line" full hint="name, stock, unit, reorder level, rate  (only the name is needed; you can paste from Excel)">
           <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'Notebook, 250, Nos, 50, 40\nBall pen, 120, Nos, 30, 10\nA4 paper, 40, ream, 50, 280'} /></Field>
-        {err && <div className="err">{err}</div>}
-        <button className="btn primary big" style={{ justifyContent: 'center' }} disabled={busy || !rows.length} onClick={save}>{busy ? 'Saving...' : `Add ${rows.length} item${rows.length === 1 ? '' : 's'}`}</button>
-      </div>
-    </Modal>
+      </FormGrid>
+    </FormDialog>
   );
 }
 
 export const Items = scoped(function Items({ me, sid }) {
   const { data: meta, error, refresh } = useMeta(me, sid);
-  const [q, setQ] = useState(''); const [store, setStore] = useState(''); const [cat, setCat] = useState(''); const [st, setSt] = useState(''); const [form, setForm] = useState(null); const [bulk, setBulk] = useState(false);
+  const [q, setQ] = useState(''); const [store, setStore] = useState(''); const [cat, setCat] = useState(''); const [st, setSt] = useState(''); const [isort, setIsort] = useState('name'); const [form, setForm] = useState(null); const [bulk, setBulk] = useState(false);
   const manage = can(me, 'manage_inventory');
-  const rows = useMemo(() => (meta?.items || []).filter((i) => (!q || i.name.toLowerCase().includes(q.toLowerCase())) && (!store || i.store_id === store) && (!cat || i.category_id === cat) && (!st || i.status === st)), [meta, q, store, cat, st]);
-  if (error && !meta) return <div className="err">{error}</div>;
+  const rows = useMemo(() => (meta?.items || []).filter((i) => (!q || i.name.toLowerCase().includes(q.toLowerCase())) && (!store || i.store_id === store) && (!cat || i.category_id === cat) && (!st || i.status === st)).sort((a, b) => isort === 'low' ? a.qty - b.qty : isort === 'high' ? b.qty - a.qty : String(a.name).localeCompare(String(b.name))), [meta, q, store, cat, st, isort]);
+  if (error && !meta) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading />;
   const nm = (list, id) => list.find((x) => x.id === id)?.name || '-';
   const del = async (i) => { if (!(await ask(`Delete ${i.name}?`))) return; try { await api.del(`/inventory/items/${i.id}${qs(sq(me, sid))}`); toast('Item deleted'); refresh(); } catch (x) { toast(x.message, true); } };
   const count = (k) => meta.items.filter((i) => i.status === k).length;
   return (
-    <div className="stack inv" style={{ maxWidth: 1100 }}>
-      <div className="inv-stats">
-        <Stat n={count('in')} label="In stock" /><Stat n={count('low')} label="Low stock" tone="warn" /><Stat n={count('out')} label="Out of stock" tone="bad" /><Stat n={meta.items.length} label="Total items" />
-      </div>
-      <div className="card ds-toolbar">
-        <SearchBox value={q} onChange={setQ} placeholder="Search items..." />
-        <select value={store} onChange={(e) => setStore(e.target.value)} aria-label="Store"><option value="">All stores</option>{meta.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-        <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Category"><option value="">All categories</option>{meta.categories.filter((c) => !store || c.store_id === store).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <select value={st} onChange={(e) => setSt(e.target.value)} aria-label="Status"><option value="">Any status</option><option value="in">In stock</option><option value="low">Low stock</option><option value="out">Out of stock</option></select>
-        {manage && <div className="row"><button className="btn primary" onClick={() => setForm({})}><Icon name="plus" size={16} /> Add item</button><button className="btn" onClick={() => setBulk(true)}>Add many</button></div>}
-      </div>
-      {rows.length === 0 ? <Empty>{meta.items.length ? 'No item matches.' : manage ? 'No items yet. Add stores and categories in Set-up, then add your first item.' : 'No items yet.'}</Empty> : (
-        <>
-          <div className="card inv-table" style={{ padding: 0 }}>
-            <table><thead><tr><th>Item</th><th>Category</th><th>Store</th><th className="r">Stock</th><th className="r">Reorder</th><th>Status</th>{manage && <th />}</tr></thead>
-              <tbody>{rows.map((i) => <tr key={i.id}><td><b>{i.name}</b>{i.item_type === 'asset' && <small className="muted"> · asset</small>}</td><td>{nm(meta.categories, i.category_id)}</td><td>{nm(meta.stores, i.store_id)}</td><td className="r"><b>{qty(i.qty)}</b> {i.unit}</td><td className="r">{qty(i.reorder_level)}</td><td><Pill map={STOCK} k={i.status} /></td>
-                {manage && <td className="r"><button className="icon-btn" aria-label="Edit" onClick={() => setForm(i)}><Icon name="edit" size={17} /></button><button className="icon-btn" aria-label="Delete" onClick={() => del(i)}><Icon name="trash" size={17} /></button></td>}</tr>)}</tbody></table>
-          </div>
-          <div className="inv-cards">{rows.map((i) => (
-            <div key={i.id} className="card inv-card">
-              <div className="row sp"><b>{i.name}</b><Pill map={STOCK} k={i.status} /></div>
-              <div className="muted">{nm(meta.categories, i.category_id)} · {nm(meta.stores, i.store_id)}</div>
-              <div className="row sp"><span><b className="inv-big">{qty(i.qty)}</b> {i.unit} <small className="muted">(reorder at {qty(i.reorder_level)})</small></span>
-                {manage && <span><button className="icon-btn" aria-label="Edit" onClick={() => setForm(i)}><Icon name="edit" size={18} /></button><button className="icon-btn" aria-label="Delete" onClick={() => del(i)}><Icon name="trash" size={18} /></button></span>}</div>
-            </div>))}</div>
-        </>)}
+    <Page className="inv">
+      <PageBar title="Items & stock" sub={`${meta.items.length} item${meta.items.length === 1 ? '' : 's'} across ${meta.stores.length} store${meta.stores.length === 1 ? '' : 's'}`}>
+        {manage && <Button icon="plus" onClick={() => setBulk(true)}>Add many</Button>}
+        {manage && <Button kind="primary" icon="plus" onClick={() => setForm({})}>Add item</Button>}
+      </PageBar>
+      <KpiGrid>
+        <Stat n={count('in')} label="In stock" tone="ok" /><Stat n={count('low')} label="Low stock" tone="warn" /><Stat n={count('out')} label="Out of stock" tone="bad" /><Stat n={meta.items.length} label="Total items" />
+      </KpiGrid>
+      <FilterBar q={q} onQ={setQ} placeholder="Search items..." count={rows.length}
+        filters={[
+          { key: 'store', label: 'Store', value: store, onChange: setStore, all: 'All stores', options: meta.stores.map((x) => ({ value: x.id, label: x.name })) },
+          { key: 'cat', label: 'Category', value: cat, onChange: setCat, all: 'All categories', options: meta.categories.filter((c) => !store || c.store_id === store).map((c) => ({ value: c.id, label: c.name })) },
+          { key: 'st', label: 'Stock status', value: st, onChange: setSt, all: 'Any status', options: [{ value: 'in', label: 'In stock' }, { value: 'low', label: 'Low stock' }, { value: 'out', label: 'Out of stock' }] },
+        ]}
+        sort={{ value: isort, onChange: setIsort, def: 'name', options: [{ value: 'name', label: 'Name A-Z' }, { value: 'low', label: 'Lowest stock first' }, { value: 'high', label: 'Highest stock first' }] }} />
+      <Section flush>
+        <DataTable rows={rows}
+          empty={<EmptyState icon="box" title={meta.items.length ? 'No item matches' : 'No items yet'}>{meta.items.length ? 'Try a different search or filter.' : manage ? 'Add stores and categories in Set-up, then add your first item.' : 'Nothing has been added yet.'}</EmptyState>}
+          columns={[
+            { key: 'name', label: 'Item', primary: true, render: (i) => <><b>{i.name}</b>{i.item_type === 'asset' && <small className="muted"> · asset</small>}</> },
+            { key: 'category', label: 'Category', render: (i) => nm(meta.categories, i.category_id) },
+            { key: 'store', label: 'Store', render: (i) => nm(meta.stores, i.store_id) },
+            { key: 'qty', label: 'Stock', align: 'right', render: (i) => <><b>{qty(i.qty)}</b> {i.unit}</> },
+            { key: 'reorder', label: 'Reorder', align: 'right', render: (i) => qty(i.reorder_level) },
+            { key: 'status', label: 'Status', render: (i) => <Pill map={STOCK} k={i.status} /> },
+            ...(manage ? [{ key: 'act', label: '', align: 'right', render: (i) => <span className="ds-nowrap"><button type="button" className="icon-btn" aria-label="Edit" onClick={() => setForm(i)}><Icon name="edit" size={17} /></button><button type="button" className="icon-btn" aria-label="Delete" onClick={() => del(i)}><Icon name="trash" size={17} /></button></span> }] : []),
+          ]} />
+      </Section>
       {form && <ItemForm me={me} sid={sid} meta={meta} item={form.id ? form : null} onClose={() => setForm(null)} onSaved={refresh} />}
       {bulk && <BulkAdd me={me} sid={sid} meta={meta} onClose={() => setBulk(false)} onSaved={refresh} />}
-    </div>
+    </Page>
   );
 });
 
@@ -209,36 +208,40 @@ function ListEditor({ me, sid, title, hint, path, rows, extra, fields, onChanged
   };
   const del = async (r) => { if (!(await ask(`Delete ${r.name}?`))) return; try { await api.del(`/inventory/${path}/${r.id}${qs(sq(me, sid))}`); toast('Deleted'); onChanged(); } catch (x) { toast(x.message, true); } };
   return (
-    <div className="card">
-      <div className="card-head"><div><h3>{title}</h3><small>{hint}</small></div><button className="btn sm primary" onClick={() => { setErr(''); setF({ name: '' }); }}><Icon name="plus" size={14} />Add</button></div>
-      {rows.length === 0 ? <div className="muted" style={{ padding: '14px 0' }}>None yet.</div> : rows.map((r) => (
-        <div key={r.id} className="inv-row"><div style={{ minWidth: 0 }}><b>{r.name}</b><small>{render ? render(r) : ''}</small></div>
-          <span><button className="icon-btn" aria-label="Edit" onClick={() => { setErr(''); setF({ ...r }); }}><Icon name="edit" size={17} /></button><button className="icon-btn" aria-label="Delete" onClick={() => del(r)}><Icon name="trash" size={17} /></button></span></div>))}
-      {f && <Modal title={`${f.id ? 'Edit' : 'Add'} ${title.toLowerCase().replace(/s$/, '')}`} onClose={() => setF(null)}>
-        <form className="form" onSubmit={save}>
-          <div className="full"><Field label="Name" req><input autoFocus required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field></div>
-          {extra?.(f, setF)}
-          {fields?.map(([k, label, full]) => <div key={k} className={full ? 'full' : ''}><Field label={label}><input value={f[k] || ''} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></Field></div>)}
-          {err && <div className="err full">{err}</div>}
-          <button className="btn primary full" style={{ justifyContent: 'center' }} disabled={busy || !f.name.trim()}>{busy ? 'Saving...' : 'Save'}</button>
-        </form></Modal>}
-    </div>
+    <Section title={title} sub={hint} actions={<Button kind="primary" size="sm" icon="plus" onClick={() => { setErr(''); setF({ name: '' }); }}>Add</Button>} flush>
+      {rows.length === 0 ? <EmptyState icon="box" title="None yet" /> : (
+        <List>{rows.map((r) => (
+          <ListRow key={r.id} title={r.name} sub={render ? render(r) : ''}>
+            <span className="ds-nowrap"><button type="button" className="icon-btn" aria-label="Edit" onClick={() => { setErr(''); setF({ ...r }); }}><Icon name="edit" size={17} /></button><button type="button" className="icon-btn" aria-label="Delete" onClick={() => del(r)}><Icon name="trash" size={17} /></button></span>
+          </ListRow>))}
+        </List>)}
+      {f && (
+        <FormDialog title={`${f.id ? 'Edit' : 'Add'} ${title.toLowerCase().replace(/s$/, '')}`} onClose={() => setF(null)} onSubmit={save} busy={busy} error={err} submitDisabled={!f.name.trim()}>
+          <FormGrid>
+            <Field label="Name" req full><input autoFocus required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+            {extra?.(f, setF)}
+            {fields?.map(([k, label, full]) => <Field key={k} label={label} full={full}><input value={f[k] || ''} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></Field>)}
+          </FormGrid>
+        </FormDialog>
+      )}
+    </Section>
   );
 }
 export const Setup = scoped(function Setup({ me, sid }) {
   const { data: m, error, refresh } = useMeta(me, sid);
-  if (error && !m) return <div className="err">{error}</div>;
+  if (error && !m) return <Notice tone="bad">{error}</Notice>;
   if (!m) return <Loading />;
   const p = { me, sid, onChanged: refresh };
   return (
-    <div className="stack inv" style={{ maxWidth: 1100 }}>
+    <Page className="inv">
+      <PageBar title="Set-up" sub="Stores, categories and vendors used across inventory" />
       <div className="inv-grid">
         <ListEditor {...p} title="Stores" hint="e.g. Main store, Lab store, Sports store" path="stores" rows={m.stores} render={(s) => `${m.categories.filter((c) => c.store_id === s.id).length} categories · ${m.items.filter((i) => i.store_id === s.id).length} items`} />
         <ListEditor {...p} title="Categories" hint="Organise items under each store" path="categories" rows={m.categories} render={(c) => `${m.stores.find((s) => s.id === c.store_id)?.name || 'All stores'} · ${m.items.filter((i) => i.category_id === c.id).length} items`}
-          extra={(f, setF) => <div className="full"><Field label="Store"><select value={f.store_id || ''} onChange={(e) => setF({ ...f, store_id: e.target.value })}><option value="">All stores</option>{m.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field></div>} />
+          extra={(f, setF) => <Field label="Store" full><select value={f.store_id || ''} onChange={(e) => setF({ ...f, store_id: e.target.value })}><option value="">All stores</option>{m.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>} />
       </div>
       <ListEditor {...p} title="Vendors" hint="Who you buy from" path="vendors" rows={m.vendors} fields={[['category', 'Supplies (e.g. Stationery)'], ['phone', 'Phone'], ['email', 'Email'], ['address', 'Address', true]]} render={(v) => [v.category, v.phone, v.email].filter(Boolean).join(' · ')} />
-    </div>
+    </Page>
   );
 });
 
@@ -253,18 +256,20 @@ function NewOrder({ me, sid, meta, onClose, onSaved }) {
   };
   const low = meta.items.filter((i) => i.status !== 'in');
   return (
-    <Modal title="New purchase order" onClose={onClose} wide>
-      <form className="form" onSubmit={save}>
+    <FormDialog title="New purchase order" onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel="Create order" wide>
+      <FormGrid>
         <Field label="Vendor"><select value={f.vendor_id} onChange={(e) => setF({ ...f, vendor_id: e.target.value })}><option value="">Choose vendor</option>{meta.vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></Field>
         <Field label="Order date"><input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-        <div className="full"><b>Items</b>{low.length > 0 && <button type="button" className="linkbtn" style={{ marginLeft: 10 }} onClick={() => setLines(low.slice(0, 20).map((i) => ({ item_id: i.id, qty: Math.max(1, (i.reorder_level || 1) * 2 - i.qty), rate: i.rate || '' })))}>Fill with low-stock items</button>}</div>
-        <div className="full"><LinePicker items={meta.items} lines={lines} setLines={setLines} withRate /></div>
-        <div className="full"><Field label="Notes"><input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field></div>
-        <div className="full row sp"><b>Total: {money(total)}</b></div>
-        {err && <div className="err full">{err}</div>}
-        <button className="btn primary full big" style={{ justifyContent: 'center' }} disabled={busy}>{busy ? 'Saving...' : 'Create order'}</button>
-      </form>
-    </Modal>
+        <Field label="Items" full>
+          <div className="ds-stack">
+            {low.length > 0 && <Button size="sm" onClick={() => setLines(low.slice(0, 20).map((i) => ({ item_id: i.id, qty: Math.max(1, (i.reorder_level || 1) * 2 - i.qty), rate: i.rate || '' })))}>Fill with low-stock items</Button>}
+            <LinePicker items={meta.items} lines={lines} setLines={setLines} withRate />
+          </div>
+        </Field>
+        <Field label="Notes" full><input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+      </FormGrid>
+      <b>Total: {money(total)}</b>
+    </FormDialog>
   );
 }
 
@@ -279,28 +284,28 @@ function OrderView({ me, sid, id, onClose, onChanged }) {
     try { const r = await api.post(`/inventory/orders/${id}/receive`, { ...sq(me, sid), lines: Object.entries(recv.q).map(([line_id, q]) => ({ line_id, qty: q })).filter((l) => Number(l.qty) > 0), date: recv.date }); toast(`${r.grn_no} saved, stock updated`); setRecv(null); done(); } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
-    <Modal title={o ? o.po_no : 'Purchase order'} onClose={onClose} wide>
+    <FormDialog title={o ? o.po_no : 'Purchase order'} onClose={onClose} noForm hideFooter wide error={err}>
       {!o ? <Loading /> : (
-        <div className="stack" style={{ maxWidth: 'none' }}>
-          <div className="row sp"><div><b>{o.vendor || 'No vendor'}</b><div className="muted">{fmt(o.order_date)}{o.vendor_phone ? ` · ${o.vendor_phone}` : ''}</div></div><Pill map={PO} k={o.status} /></div>
-          <div className="inv-lines ro">{o.lines.map((l) => (
-            <div key={l.id} className="inv-row"><div><b>{l.name}</b><small>{qty(l.qty)} {l.unit} × {money(l.rate)}</small></div>
-              {recv ? <input className="inv-recv" type="number" min="0" step="any" inputMode="decimal" max={l.qty - l.received_qty} placeholder={`0 / ${qty(l.qty - l.received_qty)}`} value={recv.q[l.id] ?? ''} disabled={l.received_qty >= l.qty} onChange={(e) => setRecv({ ...recv, q: { ...recv.q, [l.id]: e.target.value } })} aria-label={`Received ${l.name}`} />
-                : <div style={{ textAlign: 'right' }}><b>{money(l.qty * l.rate)}</b><small>{qty(l.received_qty)} of {qty(l.qty)} received</small></div>}</div>))}</div>
-          <div className="row sp"><b>Total {money(o.total)}</b>{o.notes && <span className="muted">{o.notes}</span>}</div>
-          {o.grns.length > 0 && <div><b>Goods received</b>{o.grns.map((g) => <div key={g.id} className="inv-row"><div><b>{g.grn_no}</b><small>{fmt(g.grn_date)} · {g.lines.map((l) => `${l.name} ${qty(l.qty)}`).join(', ')}</small></div></div>)}</div>}
-          {err && <div className="err">{err}</div>}
+        <div className="ds-stack">
+          <div className="inv-top"><div><b>{o.vendor || 'No vendor'}</b><div className="muted">{fmt(o.order_date)}{o.vendor_phone ? ` · ${o.vendor_phone}` : ''}</div></div><Pill map={PO} k={o.status} /></div>
+          <List>{o.lines.map((l) => (
+            <ListRow key={l.id} title={l.name} sub={`${qty(l.qty)} ${l.unit} × ${money(l.rate)}`}
+              meta={recv ? undefined : <span className="inv-r"><b>{money(l.qty * l.rate)}</b><small>{qty(l.received_qty)} of {qty(l.qty)} received</small></span>}>
+              {recv && <input className="inv-recv" type="number" min="0" step="any" inputMode="decimal" max={l.qty - l.received_qty} placeholder={`0 / ${qty(l.qty - l.received_qty)}`} value={recv.q[l.id] ?? ''} disabled={l.received_qty >= l.qty} onChange={(e) => setRecv({ ...recv, q: { ...recv.q, [l.id]: e.target.value } })} aria-label={`Received ${l.name}`} />}
+            </ListRow>))}</List>
+          <div className="inv-top"><b>Total {money(o.total)}</b>{o.notes && <span className="muted">{o.notes}</span>}</div>
+          {o.grns.length > 0 && <Section title="Goods received" flush><List>{o.grns.map((g) => <ListRow key={g.id} title={g.grn_no} sub={`${fmt(g.grn_date)} · ${g.lines.map((l) => `${l.name} ${qty(l.qty)}`).join(', ')}`} wrap />)}</List></Section>}
           {manage && (recv ? (
-            <div className="row"><input type="date" style={{ width: 'auto' }} value={recv.date} onChange={(e) => setRecv({ ...recv, date: e.target.value })} aria-label="Received on" /><button className="btn primary" disabled={busy} onClick={receive}>{busy ? 'Saving...' : 'Save GRN & add to stock'}</button><button className="btn" onClick={() => setRecv(null)}>Cancel</button></div>
+            <div className="inv-top"><input type="date" className="ds-ctx-select" value={recv.date} onChange={(e) => setRecv({ ...recv, date: e.target.value })} aria-label="Received on" /><Button kind="primary" loading={busy} onClick={receive}>Save GRN & add to stock</Button><Button onClick={() => setRecv(null)}>Cancel</Button></div>
           ) : (
-            <div className="row">
-              {o.status === 'pending' && <button className="btn primary" onClick={() => status('approved')}>Approve</button>}
-              {['approved', 'received'].includes(o.status) && <button className="btn primary" onClick={() => setRecv({ q: Object.fromEntries(o.lines.map((l) => [l.id, l.qty - l.received_qty])), date: new Date().toISOString().slice(0, 10) })}>Receive items</button>}
-              {['approved', 'received'].includes(o.status) && <button className="btn" onClick={() => status('closed', 'Close this order? Pending items will not be expected any more.')}>Close order</button>}
-              {['pending', 'approved'].includes(o.status) && <button className="btn danger" onClick={() => status('cancelled', 'Cancel this purchase order?')}>Cancel order</button>}
+            <div className="inv-top">
+              {o.status === 'pending' && <Button kind="primary" onClick={() => status('approved')}>Approve</Button>}
+              {['approved', 'received'].includes(o.status) && <Button kind="primary" onClick={() => setRecv({ q: Object.fromEntries(o.lines.map((l) => [l.id, l.qty - l.received_qty])), date: new Date().toISOString().slice(0, 10) })}>Receive items</Button>}
+              {['approved', 'received'].includes(o.status) && <Button onClick={() => status('closed', 'Close this order? Pending items will not be expected any more.')}>Close order</Button>}
+              {['pending', 'approved'].includes(o.status) && <Button kind="danger" onClick={() => status('cancelled', 'Cancel this purchase order?')}>Cancel order</Button>}
             </div>))}
         </div>)}
-    </Modal>
+    </FormDialog>
   );
 }
 
@@ -310,23 +315,22 @@ export const Orders = scoped(function Orders({ me, sid }) {
   const { data: meta, refresh: refreshMeta } = useMeta(me, sid);
   const manage = can(me, 'manage_purchase_orders');
   const all = () => { refresh(); refreshMeta(); };
-  if (error && !rows) return <div className="err">{error}</div>;
+  if (error && !rows) return <Notice tone="bad">{error}</Notice>;
   return (
-    <div className="stack inv" style={{ maxWidth: 1100 }}>
-      <div className="card ds-toolbar">
-        <SearchBox value={q} onChange={setQ} placeholder="Search PO number, vendor or item..." />
-        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status"><option value="">All orders</option>{Object.entries(PO).map(([k, v]) => <option key={k} value={k}>{v[1]}</option>)}</select>
-        {manage && <button className="btn primary" disabled={!meta} onClick={() => setAdding(true)}><Icon name="plus" size={16} /> New order</button>}
-      </div>
-      {!rows ? <Loading /> : rows.length === 0 ? <Empty>No purchase orders found.</Empty> : (
-        <div className="card" style={{ padding: 0 }}>{rows.map((o) => (
-          <button key={o.id} className="drow inv-order" onClick={() => setOpen(o.id)}>
-            <div style={{ flex: 1, minWidth: 0 }}><b>{o.po_no}</b> <span className="muted">· {o.vendor || 'No vendor'}</span><small>{fmt(o.order_date)} · {o.items.slice(0, 3).join(', ')}{o.items.length > 3 ? ` +${o.items.length - 3}` : ''}</small></div>
-            <div style={{ textAlign: 'right' }}><b>{money(o.total)}</b><div><Pill map={PO} k={o.status} /></div></div>
-          </button>))}</div>)}
+    <Page className="inv">
+      <PageBar title="Purchase orders" sub="Order from vendors, then receive goods into stock">
+        {manage && <Button kind="primary" icon="plus" disabled={!meta} onClick={() => setAdding(true)}>New order</Button>}
+      </PageBar>
+      <FilterBar q={q} onQ={setQ} placeholder="Search PO number, vendor or item..." count={rows?.length}
+        filters={[{ key: 'status', label: 'Order status', value: status, onChange: setStatus, all: 'All orders', options: Object.entries(PO).map(([k, v]) => ({ value: k, label: v[1] })) }]}/>
+      {!rows ? <Loading /> : rows.length === 0 ? <EmptyState icon="doc" title="No purchase orders found" /> : (
+        <Section flush><List>{rows.map((o) => (
+          <ListRow key={o.id} onClick={() => setOpen(o.id)} title={`${o.po_no} · ${o.vendor || 'No vendor'}`}
+            sub={`${fmt(o.order_date)} · ${o.items.slice(0, 3).join(', ')}${o.items.length > 3 ? ` +${o.items.length - 3}` : ''}`}
+            meta={<span className="inv-r"><b>{money(o.total)}</b><Pill map={PO} k={o.status} /></span>} />))}</List></Section>)}
       {adding && meta && <NewOrder me={me} sid={sid} meta={meta} onClose={() => setAdding(false)} onSaved={all} />}
       {open && <OrderView me={me} sid={sid} id={open} onClose={() => setOpen(null)} onChanged={all} />}
-    </div>
+    </Page>
   );
 });
 
@@ -334,11 +338,11 @@ export const Orders = scoped(function Orders({ me, sid }) {
 function Recipient({ me, sid, value, onPick }) {
   const [q, setQ] = useState(''); const dq = useDebounced(q, 300);
   const { data: list } = useApi(`/inventory/recipients${qs({ ...sq(me, sid), q: dq })}`, !value);
-  if (value) return <div className="inv-pick"><div><b>{value.name}</b><small>{value.code}{value.class ? ` · Class ${value.class}` : ''}</small></div><button type="button" className="linkbtn" onClick={() => onPick(null)}>Change</button></div>;
+  if (value) return <div className="inv-pick"><div><b>{value.name}</b><small>{value.code}{value.class ? ` · Class ${value.class}` : ''}</small></div><Button size="sm" onClick={() => onPick(null)}>Change</Button></div>;
   return (
     <div>
       <SearchBox value={q} onChange={setQ} placeholder="Search student or staff by name or ID..." />
-      <div className="inv-results">{(list || []).map((p) => <button type="button" key={p.user_id} className="drow" onClick={() => onPick(p)}><div style={{ flex: 1 }}><b>{p.name}</b><small>{p.code} · {p.role === 'student' ? `Class ${p.class || '-'}` : 'Staff'}</small></div></button>)}{list && !list.length && <div className="muted" style={{ padding: 10 }}>No one found.</div>}</div>
+      <div className="inv-results"><List>{(list || []).map((p) => <ListRow key={p.user_id} onClick={() => onPick(p)} title={p.name} sub={`${p.code} · ${p.role === 'student' ? `Class ${p.class || '-'}` : 'Staff'}`} />)}</List>{list && !list.length && <EmptyState icon="users" title="No one found" />}</div>
     </div>
   );
 }
@@ -349,19 +353,19 @@ function IssueDetail({ me, sid, id, school, onClose, onChanged }) {
     try { await api.post(`/inventory/issues/${id}/return${qs(sq(me, sid))}`, { lines: Object.entries(ret).map(([line_id, q]) => ({ line_id, qty: q })).filter((l) => Number(l.qty) > 0) }); toast('Stock updated'); setRet(null); refresh(); onChanged(); } catch (x) { setErr(x.message); }
   };
   return (
-    <Modal title={i ? i.receipt_no : 'Receipt'} onClose={onClose}>
+    <FormDialog title={i ? i.receipt_no : 'Receipt'} onClose={onClose} noForm hideFooter error={err}>
       {!i ? <Loading /> : (
-        <div className="stack" style={{ maxWidth: 'none' }}>
-          <div className="row sp"><div><b>{i.issued_to_name}</b><div className="muted">{i.issued_to_code} · {fmt(i.issue_date)}</div></div><button className="btn" onClick={() => printReceipt(i, school)}><Icon name="doc" size={16} /> Print receipt</button></div>
-          {i.lines.map((l) => (
-            <div key={l.id} className="inv-row"><div><b>{l.name}</b><small>{qty(l.qty)} {l.unit}{l.returned_qty ? ` · ${qty(l.returned_qty)} returned` : ''}</small></div>
-              {ret && l.returned_qty < l.qty && <input className="inv-recv" type="number" min="0" step="any" inputMode="decimal" max={l.qty - l.returned_qty} placeholder={`0 / ${qty(l.qty - l.returned_qty)}`} value={ret[l.id] ?? ''} onChange={(e) => setRet({ ...ret, [l.id]: e.target.value })} aria-label={`Return ${l.name}`} />}</div>))}
+        <div className="ds-stack">
+          <div className="inv-top"><div><b>{i.issued_to_name}</b><div className="muted">{i.issued_to_code} · {fmt(i.issue_date)}</div></div><Button icon="doc" onClick={() => printReceipt(i, school)}>Print receipt</Button></div>
+          <List>{i.lines.map((l) => (
+            <ListRow key={l.id} title={l.name} sub={`${qty(l.qty)} ${l.unit}${l.returned_qty ? ` · ${qty(l.returned_qty)} returned` : ''}`}>
+              {ret && l.returned_qty < l.qty && <input className="inv-recv" type="number" min="0" step="any" inputMode="decimal" max={l.qty - l.returned_qty} placeholder={`0 / ${qty(l.qty - l.returned_qty)}`} value={ret[l.id] ?? ''} onChange={(e) => setRet({ ...ret, [l.id]: e.target.value })} aria-label={`Return ${l.name}`} />}
+            </ListRow>))}</List>
           {i.notes && <div className="muted">{i.notes}</div>}
-          {err && <div className="err">{err}</div>}
-          {can(me, 'issue_inventory') && (ret ? <div className="row"><button className="btn primary" onClick={giveBack}>Save return</button><button className="btn" onClick={() => setRet(null)}>Cancel</button></div>
-            : i.lines.some((l) => l.returned_qty < l.qty) && <div><button className="btn" onClick={() => { setErr(''); setRet({}); }}>Take items back</button></div>)}
+          {can(me, 'issue_inventory') && (ret ? <div className="inv-top"><Button kind="primary" onClick={giveBack}>Save return</Button><Button onClick={() => setRet(null)}>Cancel</Button></div>
+            : i.lines.some((l) => l.returned_qty < l.qty) && <div><Button onClick={() => { setErr(''); setRet({}); }}>Take items back</Button></div>)}
         </div>)}
-    </Modal>
+    </FormDialog>
   );
 }
 export const IssueItems = scoped(function IssueItems({ me, sid }) {
@@ -373,7 +377,7 @@ export const IssueItems = scoped(function IssueItems({ me, sid }) {
   const [who, setWho] = useState(null); const [manual, setManual] = useState(''); const [lines, setLines] = useState([{ item_id: '', qty: '' }]); const [f, setF] = useState({ date: '', notes: '' });
   const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [last, setLast] = useState(null);
   const canIssue = can(me, 'issue_inventory');
-  if (error && !meta) return <div className="err">{error}</div>;
+  if (error && !meta) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading />;
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setErr('');
@@ -383,28 +387,33 @@ export const IssueItems = scoped(function IssueItems({ me, sid }) {
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
-    <div className="stack inv" style={{ maxWidth: 1100 }}>
+    <Page className="inv">
+      <PageBar title="Issue items" sub="Give stock to a student, staff member or department" />
       {canIssue && (
-        <form className="card form" onSubmit={submit}>
-          <div className="full"><b>New issue</b></div>
-          <div className="full"><Field label="Issue to" req><Recipient me={me} sid={sid} value={who} onPick={setWho} /></Field>
-            {!who && <div style={{ marginTop: 8 }}><input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="...or type a name / department (no account)" aria-label="Name" /></div>}</div>
-          <div className="full"><LinePicker items={meta.items.filter((i) => i.qty > 0)} lines={lines} setLines={setLines} stockCap /></div>
-          <Field label="Date"><input type="date" value={f.date || meta.today} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-          <Field label="Notes"><input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-          {err && <div className="err full">{err}</div>}
-          <button className="btn primary full big" style={{ justifyContent: 'center' }} disabled={busy || (!who && !manual.trim())}>{busy ? 'Saving...' : 'Issue items'}</button>
-        </form>)}
-      {last && <div className="notice ok row sp"><span><b>{last.receipt_no}</b> issued to {last.issued_to_name}.</span><button className="btn" onClick={() => printReceipt(last, schoolName)}><Icon name="doc" size={16} /> Print receipt</button></div>}
-      <div className="card ds-toolbar"><SearchBox value={q} onChange={setQ} placeholder="Search receipt no., name, employee code or item..." /></div>
-      {!rows ? <Loading /> : rows.length === 0 ? <Empty>Nothing issued yet.</Empty> : (
-        <div className="card" style={{ padding: 0 }}>{rows.map((i) => (
-          <button key={i.id} className="drow inv-order" onClick={() => setOpen(i.id)}>
-            <div style={{ flex: 1, minWidth: 0 }}><b>{i.issued_to_name}</b> <span className="muted">· {i.issued_to_code}</span><small>{i.receipt_no} · {fmt(i.issue_date)} · {i.items.slice(0, 3).join(', ')}{i.items.length > 3 ? ` +${i.items.length - 3}` : ''}</small></div>
-            <div style={{ textAlign: 'right' }}><b>{qty(i.qty)}</b><small>{i.returned ? `${qty(i.returned)} returned` : 'issued'}</small></div>
-          </button>))}</div>)}
+        <Section title="New issue">
+          <form className="ds-stack" onSubmit={submit}>
+            <Field label="Issue to" req>
+              <div className="ds-stack"><Recipient me={me} sid={sid} value={who} onPick={setWho} />
+                {!who && <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="...or type a name / department (no account)" aria-label="Name" />}</div>
+            </Field>
+            <LinePicker items={meta.items.filter((i) => i.qty > 0)} lines={lines} setLines={setLines} stockCap />
+            <FormGrid>
+              <Field label="Date"><input type="date" value={f.date || meta.today} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+              <Field label="Notes"><input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+            </FormGrid>
+            {err && <Notice tone="bad">{err}</Notice>}
+            <div><Button type="submit" kind="primary" icon="send" loading={busy} disabled={!who && !manual.trim()}>Issue items</Button></div>
+          </form>
+        </Section>)}
+      {last && <Notice tone="ok" action={<Button size="sm" icon="doc" onClick={() => printReceipt(last, schoolName)}>Print receipt</Button>}><b>{last.receipt_no}</b> issued to {last.issued_to_name}.</Notice>}
+      <FilterBar q={q} onQ={setQ} placeholder="Search receipt no., name, employee code or item..." count={rows?.length} />
+      {!rows ? <Loading /> : rows.length === 0 ? <EmptyState icon="send" title="Nothing issued yet" /> : (
+        <Section flush><List>{rows.map((i) => (
+          <ListRow key={i.id} onClick={() => setOpen(i.id)} title={`${i.issued_to_name} · ${i.issued_to_code}`}
+            sub={`${i.receipt_no} · ${fmt(i.issue_date)} · ${i.items.slice(0, 3).join(', ')}${i.items.length > 3 ? ` +${i.items.length - 3}` : ''}`}
+            meta={<span className="inv-r"><b>{qty(i.qty)}</b><small>{i.returned ? `${qty(i.returned)} returned` : 'issued'}</small></span>} />))}</List></Section>)}
       {open && <IssueDetail me={me} sid={sid} id={open} school={schoolName} onClose={() => setOpen(null)} onChanged={() => { refresh(); refreshMeta(); }} />}
-    </div>
+    </Page>
   );
 });
 
@@ -423,42 +432,54 @@ export const InventoryReports = scoped(function InventoryReports({ me, sid }) {
   const printIssues = () => printHtml('Issue report', `<h1>Issued items</h1><h2>${esc(from || 'Start')} to ${esc(to || 'today')}</h2><table><tr><th>Receipt</th><th>Date</th><th>Issued to</th><th>Item</th><th>Qty</th><th>Returned</th></tr>${(iss || []).map((l) => `<tr><td>${esc(l.receipt_no)}</td><td>${esc(fmt(l.date))}</td><td>${esc(l.to)} ${esc(l.code || '')}</td><td>${esc(l.item)}</td><td>${qty(l.qty)}</td><td>${qty(l.returned)}</td></tr>`).join('')}</table>`);
   const total = rows.reduce((s, i) => s + i.value, 0);
   return (
-    <div className="stack inv" style={{ maxWidth: 1100 }}>
-      <div className="pills">
-        {stockOk && <button className={`pill ${tab === 'stock' ? 'on' : ''}`} onClick={() => setTab('stock')}>Stock</button>}
-        <button className={`pill ${tab === 'issues' ? 'on' : ''}`} onClick={() => setTab('issues')}>Issued & returned</button>
-      </div>
+    <Page className="inv">
+      <PageBar title="Inventory reports" sub="Stock levels, value, and what was issued" />
+      <Tabs value={tab} onChange={setTab} items={[...(stockOk ? [{ key: 'stock', label: 'Stock' }] : []), { key: 'issues', label: 'Issued & returned' }]} />
       {tab === 'stock' ? (
         <>
-          <div className="card ds-toolbar">
-            <select value={store} onChange={(e) => setStore(e.target.value)} aria-label="Store"><option value="">All stores</option>{(meta?.stores || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-            <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Category"><option value="">All categories</option>{(meta?.categories || []).filter((c) => !store || c.store_id === store).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-            <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Item type"><option value="">All types</option><option value="consumable">Consumable</option><option value="asset">Asset</option></select>
-            <label className="row" style={{ gap: 6 }}><input type="checkbox" style={{ width: 'auto' }} checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} /> Low / out only</label>
-            <div className="row"><button className="btn" onClick={printStock} disabled={!rows.length}>Print</button><button className="btn" onClick={exportStock} disabled={!rows.length}>Export to Excel</button></div>
-          </div>
-          {!stock ? <Loading /> : rows.length === 0 ? <Empty>No items match.</Empty> : (
-            <>
-              <div className="muted">{rows.length} items · stock value {money(total)}</div>
-              <div className="card inv-table" style={{ padding: 0 }}><table><thead><tr><th>Item</th><th>Store</th><th>Category</th><th className="r">Stock</th><th className="r">Reorder</th><th className="r">Value</th><th>Status</th></tr></thead>
-                <tbody>{rows.map((i) => <tr key={i.id}><td><b>{i.name}</b></td><td>{i.store || '-'}</td><td>{i.category || '-'}</td><td className="r">{qty(i.qty)} {i.unit}</td><td className="r">{qty(i.reorder_level)}</td><td className="r">{money(i.value)}</td><td><Pill map={STOCK} k={i.status} /></td></tr>)}</tbody></table></div>
-              <div className="inv-cards">{rows.map((i) => <div key={i.id} className="card inv-card"><div className="row sp"><b>{i.name}</b><Pill map={STOCK} k={i.status} /></div><div className="muted">{i.category || '-'} · {i.store || '-'}</div><div className="row sp"><span><b className="inv-big">{qty(i.qty)}</b> {i.unit}</span><span>{money(i.value)}</span></div></div>)}</div>
-            </>)}
+          <FilterBar count={rows.length}
+            filters={[
+              { key: 'store', label: 'Store', value: store, onChange: setStore, all: 'All stores', options: (meta?.stores || []).map((x) => ({ value: x.id, label: x.name })) },
+              { key: 'cat', label: 'Category', value: cat, onChange: setCat, all: 'All categories', options: (meta?.categories || []).filter((c) => !store || c.store_id === store).map((c) => ({ value: c.id, label: c.name })) },
+              { key: 'type', label: 'Item type', value: type, onChange: setType, all: 'All types', options: [{ value: 'consumable', label: 'Consumable' }, { value: 'asset', label: 'Asset' }] },
+              { key: 'low', label: 'Stock level', value: lowOnly ? 'low' : '', onChange: (v) => setLowOnly(v === 'low'), all: 'All items', options: [{ value: 'low', label: 'Low / out only' }] },
+            ]}
+            end={<><Button onClick={printStock} disabled={!rows.length}>Print</Button><Button onClick={exportStock} disabled={!rows.length}>Export to Excel</Button></>} />
+          {!stock ? <Loading /> : (
+            <Section title="Stock" sub={`${rows.length} items · stock value ${money(total)}`} flush>
+              <DataTable rows={rows} empty={<EmptyState icon="box" title="No items match" />}
+                columns={[
+                  { key: 'name', label: 'Item', primary: true, render: (i) => <b>{i.name}</b> },
+                  { key: 'store', label: 'Store', render: (i) => i.store || '-' },
+                  { key: 'category', label: 'Category', render: (i) => i.category || '-' },
+                  { key: 'qty', label: 'Stock', align: 'right', render: (i) => `${qty(i.qty)} ${i.unit}` },
+                  { key: 'reorder', label: 'Reorder', align: 'right', render: (i) => qty(i.reorder_level) },
+                  { key: 'value', label: 'Value', align: 'right', render: (i) => money(i.value) },
+                  { key: 'status', label: 'Status', render: (i) => <Pill map={STOCK} k={i.status} /> },
+                ]} />
+            </Section>)}
         </>
       ) : (
         <>
-          <div className="card ds-toolbar">
-            <Field label="From"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-            <Field label="To"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-            <div className="row"><button className="btn" onClick={printIssues} disabled={!iss?.length}>Print</button><button className="btn" onClick={exportIssues} disabled={!iss?.length}>Export to Excel</button></div>
-          </div>
-          {!iss ? <Loading /> : iss.length === 0 ? <Empty>Nothing issued in this period.</Empty> : (
-            <>
-              <div className="card inv-table" style={{ padding: 0 }}><table><thead><tr><th>Date</th><th>Receipt</th><th>Issued to</th><th>Item</th><th className="r">Qty</th><th className="r">Returned</th></tr></thead>
-                <tbody>{iss.map((l, n) => <tr key={n}><td>{fmt(l.date)}</td><td>{l.receipt_no}</td><td><b>{l.to}</b> <small className="muted">{l.code}</small></td><td>{l.item}</td><td className="r">{qty(l.qty)} {l.unit}</td><td className="r">{qty(l.returned)}</td></tr>)}</tbody></table></div>
-              <div className="inv-cards">{iss.map((l, n) => <div key={n} className="card inv-card"><div className="row sp"><b>{l.item}</b><span><b>{qty(l.qty)}</b> {l.unit}</span></div><div className="muted">{l.to} {l.code ? `(${l.code})` : ''}</div><small className="muted">{l.receipt_no} · {fmt(l.date)}{l.returned ? ` · ${qty(l.returned)} returned` : ''}</small></div>)}</div>
-            </>)}
+          <FilterBar count={iss?.length}
+            filters={[
+              { key: 'from', label: 'From date', type: 'date', value: from, onChange: setFrom },
+              { key: 'to', label: 'To date', type: 'date', value: to, onChange: setTo },
+            ]}
+            end={<><Button onClick={printIssues} disabled={!iss?.length}>Print</Button><Button onClick={exportIssues} disabled={!iss?.length}>Export to Excel</Button></>} />
+          {!iss ? <Loading /> : (
+            <Section title="Issued & returned" flush>
+              <DataTable rows={iss} rowKey={(l, n) => n} empty={<EmptyState icon="send" title="Nothing issued in this period" />}
+                columns={[
+                  { key: 'date', label: 'Date', render: (l) => fmt(l.date) },
+                  { key: 'receipt_no', label: 'Receipt' },
+                  { key: 'to', label: 'Issued to', primary: true, render: (l) => <><b>{l.to}</b> <small className="muted">{l.code}</small></> },
+                  { key: 'item', label: 'Item' },
+                  { key: 'qty', label: 'Qty', align: 'right', render: (l) => `${qty(l.qty)} ${l.unit}` },
+                  { key: 'returned', label: 'Returned', align: 'right', render: (l) => qty(l.returned) },
+                ]} />
+            </Section>)}
         </>)}
-    </div>
+    </Page>
   );
 });

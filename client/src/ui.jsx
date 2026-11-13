@@ -32,6 +32,7 @@ const P = {
   doc: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6',
   shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
   edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  filter: 'M4 6h16M7 12h10M10 18h4',
   sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
   chevron: 'm9 18 6-6-6-6',
@@ -66,8 +67,8 @@ export function Modal({ title, onClose, children, wide }) {
   );
 }
 
-export const Field = ({ label, children, hint, req }) => (
-  <label className="field"><span>{label}{req && <b className="req" aria-hidden="true"> *</b>}</span>{children}{hint && <small>{hint}</small>}</label>
+export const Field = ({ label, children, hint, req, full }) => (
+  <label className={`field${full ? ' ds-full' : ''}`}><span>{label}{req && <b className="req" aria-hidden="true"> *</b>}</span>{children}{hint && <small>{hint}</small>}</label>
 );
 
 export const Empty = ({ children }) => <div className="empty">{children}</div>;
@@ -240,5 +241,170 @@ export const SaveBar = ({ summary, error, dirty, action }) => (
   <div className="ds-savebar">
     <div className="ds-savebar-s">{error ? <span className="ds-savebar-e">{error}</span> : summary}{dirty && <i className="ds-savebar-d" title="Unsaved changes" />}</div>
     <div className="ds-savebar-a">{action}</div>
+  </div>
+);
+
+
+/* =====================================================================================================
+   DESIGN SYSTEM v2  -  the ONE set of building blocks every module uses (styles: ds.css, tokens: tokens.css)
+   Page anatomy (see /DESIGN-STANDARD.md):   Page > PageBar > Tabs? > FilterBar? > KpiGrid? > Section / DataTable / ListRow
+   Create / edit = FormDialog.  Delete / dangerous = ask().  Nothing here hard-codes a colour, size or radius.
+   ===================================================================================================== */
+
+/** Wrap every screen in <Page>. It gives the standard max width and the standard vertical rhythm between blocks. */
+export const Page = ({ children, narrow, className = '' }) => <div className={`ds-page ${narrow ? 'ds-page-narrow' : ''} ${className}`}>{children}</div>;
+
+/** Map any status word to one of 5 tones, so "paid" is the same green in Fees, Payroll and Inventory. */
+const TONE_WORDS = {
+  ok: ['ok', 'paid', 'present', 'approved', 'active', 'done', 'complete', 'completed', 'success', 'in stock', 'received', 'enrolled', 'admitted', 'open', 'good'],
+  warn: ['warn', 'due', 'late', 'pending', 'partial', 'low', 'low stock', 'waiting', 'in progress', 'review', 'half day', 'ordered'],
+  bad: ['bad', 'overdue', 'absent', 'rejected', 'cancelled', 'canceled', 'failed', 'error', 'out', 'out of stock', 'blocked', 'dropped', 'expired'],
+  info: ['info', 'leave', 'on leave', 'draft', 'new', 'scheduled', 'issued', 'sent', 'enquiry', 'applied'],
+};
+export const toneFor = (status) => {
+  const s = String(status ?? '').trim().toLowerCase();
+  if (['ok', 'warn', 'bad', 'info', 'mute'].includes(s)) return s;
+  for (const t of Object.keys(TONE_WORDS)) if (TONE_WORDS[t].includes(s)) return t;
+  return 'mute';
+};
+
+/** Status pill. <StatusBadge>Paid</StatusBadge> picks the tone from the word; or pass tone="warn" explicitly. */
+export const StatusBadge = ({ tone, children, dot = true, title }) => (
+  <span className={`ds-badge ds-t-${tone || toneFor(children)} ${dot ? 'ds-badge-dot' : ''}`} title={title}>{children}</span>
+);
+
+/** One button to rule them all. kind: primary | secondary (default) | ghost | danger.  size: md (default) | sm. */
+export const Button = ({ kind = 'secondary', size = 'md', icon, loading, children, className = '', type = 'button', ...rest }) => (
+  <button type={type} className={`ds-btn ds-btn-${kind} ds-btn-${size} ${className}`} disabled={loading || rest.disabled} {...rest}>
+    {loading ? <span className="ds-spin" aria-hidden="true" /> : icon ? <Icon name={icon} size={size === 'sm' ? 15 : 17} /> : null}
+    {children != null && children !== false ? <span>{children}</span> : null}
+  </button>
+);
+
+/** Tabs switch between VIEWS of the same screen (not filters; filters use FilterBar).  items: [{ key, label, count? }] */
+export const Tabs = ({ items, value, onChange, className = '' }) => (
+  <div className={`ds-tabs ${className}`} role="tablist">
+    {items.map((t) => (
+      <button key={t.key} type="button" role="tab" aria-selected={value === t.key} className={`ds-tab ${value === t.key ? 'on' : ''}`} onClick={() => onChange(t.key)}>
+        {t.label}{t.count != null && <span className="ds-tab-n">{t.count}</span>}
+      </button>
+    ))}
+  </div>
+);
+
+/** Headline numbers. <KpiGrid><Kpi label="Students" value={412} sub="12 new" tone="ok" /></KpiGrid>  tone colours the number only. */
+export const KpiGrid = ({ children, cols }) => <div className="ds-kpis" style={cols ? { '--ds-kpi-cols': cols } : undefined}>{children}</div>;
+export const Kpi = ({ label, value, sub, tone, icon, onClick }) => {
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag type={onClick ? 'button' : undefined} className={`ds-kpi ${onClick ? 'ds-kpi-click' : ''}`} onClick={onClick}>
+      {icon && <span className="ds-kpi-ic"><Icon name={icon} size={18} /></span>}
+      <span className="ds-kpi-t"><span className="ds-kpi-l">{label}</span><b className={`ds-kpi-v ${tone ? `ds-c-${tone}` : ''}`}>{value}</b>{sub ? <span className="ds-kpi-s">{sub}</span> : null}</span>
+    </Tag>
+  );
+};
+
+/** A titled card: title/sub on the left, small actions on the right, then the body.  flush = no body padding (for tables / lists). */
+export const Section = ({ title, sub, actions, flush, children, className = '' }) => (
+  <section className={`ds-section ${className}`}>
+    {(title || actions) && (
+      <header className="ds-section-h">
+        <div className="ds-section-t">{title && <h3>{title}</h3>}{sub ? <span>{sub}</span> : null}</div>
+        {actions ? <div className="ds-section-a">{actions}</div> : null}
+      </header>
+    )}
+    <div className={flush ? 'ds-section-b flush' : 'ds-section-b'}>{children}</div>
+  </section>
+);
+
+/** Same empty / loading look everywhere. */
+export const EmptyState = ({ icon = 'box', title, children, action }) => (
+  <div className="ds-empty"><span className="ds-empty-ic"><Icon name={icon} size={22} /></span>{title && <b>{title}</b>}{children ? <p>{children}</p> : null}{action}</div>
+);
+
+/** Responsive table: a real table from 760px up, stacked cards on phones. Nothing to configure per screen.
+ *  columns: [{ key, label, render?(row), align?: 'right'|'center', primary?: true (card title on phones), nowrap?: true }]
+ *  rows: array of objects. rowKey: (row, index) => id. onRowClick optional. empty: node shown when there are no rows.
+ *  foot: (column) => node for a totals row under the table (return null for columns with nothing to show). */
+export function DataTable({ columns, rows, rowKey = (r) => r.id, onRowClick, empty, dense, foot }) {
+  if (!rows || !rows.length) return empty || <EmptyState title="Nothing here yet" />;
+  return (
+    <div className="ds-table-wrap">
+      <table className={`ds-table ${dense ? 'ds-table-dense' : ''}`}>
+        <thead><tr>{columns.map((c) => <th key={c.key} className={c.align ? `ds-al-${c.align}` : ''}>{c.label}</th>)}</tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={rowKey(r, i)} className={onRowClick ? 'ds-row-click' : ''} onClick={onRowClick ? () => onRowClick(r) : undefined}>
+              {columns.map((c) => (
+                <td key={c.key} data-label={c.label} className={`${c.align ? `ds-al-${c.align}` : ''} ${c.primary ? 'ds-td-primary' : ''} ${c.nowrap ? 'ds-nowrap' : ''}`}>{c.render ? c.render(r) : r[c.key]}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+        {foot ? <tfoot><tr>{columns.map((c) => <td key={c.key} data-label={c.label} className={c.align ? `ds-al-${c.align}` : ''}>{foot(c)}</td>)}</tr></tfoot> : null}
+      </table>
+    </div>
+  );
+}
+
+/** Rows for people / things (students, items, requests).  <ListRow lead={<Avatar/>} title sub meta={<StatusBadge/>} onClick>
+ *  wrap = let the second line wrap (records with notes / reasons); children = small action buttons after the meta. */
+export const List = ({ children }) => <div className="ds-list">{children}</div>;
+export const ListRow = ({ lead, title, sub, meta, onClick, wrap, children }) => {
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag type={onClick ? 'button' : undefined} className={`ds-lrow ${onClick ? 'ds-lrow-click' : ''} ${wrap ? 'ds-lrow-wrap' : ''}`} onClick={onClick}>
+      {lead ? <span className="ds-lrow-lead">{lead}</span> : null}
+      <span className="ds-lrow-t"><b>{title}</b>{sub ? <span>{sub}</span> : null}</span>
+      {meta ? <span className="ds-lrow-meta">{meta}</span> : null}
+      {children}
+      {onClick ? <Icon name="chevron" size={16} /> : null}
+    </Tag>
+  );
+};
+
+/** Every create / edit form opens in this. Same header, same docked footer (Cancel left of the primary button), same error slot.
+ *  <FormDialog title="Add visitor" onClose={..} onSubmit={save} busy={saving} error={err} submitLabel="Save">...<Field/>...</FormDialog> */
+export function FormDialog({ title, sub, onClose, onSubmit, busy, error, submitDisabled, submitLabel = 'Save', cancelLabel = 'Cancel', wide, danger, hideFooter, noForm, children }) {
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+  // noForm: a detail dialog with several independent sections, each with its own <form> and Save button (nested forms are not valid HTML)
+  const Wrap = noForm ? 'div' : 'form';
+  return (
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <Wrap className={`sheet ds-dlg ${wide ? 'wide' : ''}`} role="dialog" aria-label={title} {...(noForm ? {} : { onSubmit: (e) => { e.preventDefault(); if (!busy && onSubmit) onSubmit(e); } })}>
+        <div className="sheet-head ds-dlg-h"><div><h2>{title}</h2>{sub ? <p>{sub}</p> : null}</div><button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button></div>
+        <div className="sheet-body ds-dlg-b">{children}{error ? <div className="ds-dlg-err" role="alert">{error}</div> : null}</div>
+        {!hideFooter && (
+          <div className="ds-dlg-f">
+            <Button onClick={onClose} disabled={busy}>{cancelLabel}</Button>
+            <Button type="submit" kind={danger ? 'danger' : 'primary'} loading={busy} disabled={submitDisabled}>{submitLabel}</Button>
+          </div>
+        )}
+      </Wrap>
+    </div>
+  );
+}
+
+/** Inline message under a header or after an action ("Visitor added...").  tone: ok | warn | bad | info | mute.  action = optional button / link. */
+export const Notice = ({ tone = 'info', children, action }) => <div className={`ds-notice ds-t-${tone}`} role="status"><span>{children}</span>{action}</div>;
+
+/** Two-column field grid for forms (one column on phones). Give a Field `full` to span both columns. */
+export const FormGrid = ({ children }) => <div className="ds-form">{children}</div>;
+
+/** Pick ONE option inside a form (same name and options as mobile Choice). Not for switching views: that is Tabs.  options: [{ value, label }] */
+export const Choice = ({ options, value, onChange, label }) => (
+  <div className="ds-choice" role="radiogroup" aria-label={label}>
+    {options.map((o) => <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={`ds-choice-o ${value === o.value ? 'on' : ''}`} onClick={() => onChange(o.value)}>{o.label}</button>)}
+  </div>
+);
+
+/** Pick SEVERAL options inside a form (days, classes, subjects). Same look as Choice; options: [{ value, label, disabled?, title? }], values: array of selected values. */
+export const MultiChoice = ({ options, values, onToggle, label }) => (
+  <div className="ds-choice" role="group" aria-label={label}>
+    {options.map((o) => <button key={o.value} type="button" aria-pressed={values.includes(o.value)} disabled={o.disabled} title={o.title} className={`ds-choice-o ${values.includes(o.value) ? 'on' : ''}`} onClick={() => onToggle(o.value)}>{o.label}</button>)}
   </div>
 );

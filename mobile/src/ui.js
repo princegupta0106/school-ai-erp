@@ -137,12 +137,12 @@ export function DateField({ value, onChange, disabled, min, max }) {
   );
 }
 
-export function Sheet({ title, onClose, children }) {
+export function Sheet({ title, onClose, children, footer }) {
   return (
     <RNModal animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
         <View style={s.sheetHead}><Text style={{ fontSize: 18, fontWeight: '700', color: C.ink, flex: 1 }}>{title}</Text><Pressable onPress={onClose}><Text style={{ color: C.brand, fontSize: 16, fontWeight: '600' }}>Close</Text></Pressable></View>
-        <KbView><ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">{children}</ScrollView></KbView>
+        <KbView><ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">{children}</ScrollView>{footer}</KbView>
         <Notifier />
       </SafeAreaView>
     </RNModal>

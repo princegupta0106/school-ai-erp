@@ -1,0 +1,262 @@
+{
+ "web/AcademicsModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/AdmissionsModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/AttendanceModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/AuditModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/BackupModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/CommunicationModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/DocumentsModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/ExamModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/FeesModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/HomeworkModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/InventoryModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/PayrollModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/QueriesModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/SchoolModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/StudentProfileModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/TimetableModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/TransportModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/UsersModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "web/VisitorsModule.jsx": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Academics.js": {
+  "hex": 1,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Admissions.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/ApplyForm.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Assistant.js": {
+  "hex": 11,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Attendance.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Audit.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Backup.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Balances.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/ChangePassword.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/ComingSoon.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Customize.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Dashboard.js": {
+  "hex": 3,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Documents.js": {
+  "hex": 4,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Fees.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Homework.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Inventory.js": {
+  "hex": 13,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/LeaveRequests.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Login.js": {
+  "hex": 1,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Messages.js": {
+  "hex": 4,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/MyLeave.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/NoticeBoard.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Notifications.js": {
+  "hex": 1,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/PaySettings.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Payroll.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Permissions.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Queries.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/School.js": {
+  "hex": 1,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/SendNotification.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/StudentProfile.js": {
+  "hex": 11,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Timetable.js": {
+  "hex": 26,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Transport.js": {
+  "hex": 10,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Users.js": {
+  "hex": 1,
+  "inline": 0,
+  "legacy": 0
+ },
+ "mobile/Visitors.js": {
+  "hex": 0,
+  "inline": 0,
+  "legacy": 0
+ }
+}

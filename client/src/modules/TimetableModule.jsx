@@ -4,7 +4,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi, invalidate } from '../cache.js';
-import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, initials } from '../ui.jsx';
+import { Icon, Field, MultiChoice, toast, Loading, ask, initials, PageBar, Button, Kpi, StatusBadge, EmptyState, FormDialog, Notice, Tabs } from '../ui.jsx';
+
+const NoData = ({ children }) => <EmptyState icon="calendar">{children}</EmptyState>;
+const Badge = ({ children, tone }) => <StatusBadge tone={tone || 'mute'} dot={false}>{children}</StatusBadge>;
+import { FilterBar } from '../FilterBar.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 /* ------------------------------------------------------------------ helpers */
@@ -13,7 +17,7 @@ const qs = (o) => { const p = new URLSearchParams(Object.fromEntries(Object.entr
 const can = (me, ...f) => f.some((x) => me.features.includes(x));
 const DAY = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_LONG = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const PALETTE = ['#6366f1', '#f97316', '#10b981', '#ec4899', '#0ea5e9', '#eab308', '#8b5cf6', '#ef4444', '#14b8a6', '#d946ef', '#84cc16', '#f43f5e'];
+const PALETTE = [7, 1, 4, 5, 2, 8, 3, 9, 6, 9, 4, 5].map((n) => `var(--cat-${n})`);
 const clsName = (c) => (c ? `${c.name}${c.section ? ` ${c.section}` : ''}` : '');
 const dowOf = (d) => { const n = new Date(`${d}T00:00:00`).getDay(); return n === 0 ? 7 : n; };
 const fmtDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) : '');
@@ -50,10 +54,8 @@ const Chip = ({ color, title, sub, tag, onClick, active }) => (
     <b>{title}</b>{sub && <small>{sub}</small>}{tag && <i>{tag}</i>}
   </button>
 );
-const Stat = ({ n, label, color, icon }) => (
-  <div className="tt-stat" style={{ '--c': color }}><span className="tt-stat-ic"><Icon name={icon} size={20} /></span><div><b>{n}</b><span>{label}</span></div></div>
-);
-const Ring = ({ pct, label, color = '#10b981' }) => {
+const Stat = ({ n, label, icon }) => <Kpi value={n} label={label} icon={icon} />;
+const Ring = ({ pct, label, color = 'var(--st-ok)' }) => {
   const R = 44; const C = 2 * Math.PI * R; const p = Math.max(0, Math.min(100, pct));
   return (
     <svg className="tt-ring" viewBox="0 0 110 110" role="img" aria-label={`${p}% ${label}`}>
@@ -65,9 +67,9 @@ const Ring = ({ pct, label, color = '#10b981' }) => {
   );
 };
 const Bar = ({ value, max, color }) => (
-  <div className="tt-bar"><i style={{ width: `${max ? Math.min(100, (value / max) * 100) : 0}%`, background: value > max ? '#ef4444' : color }} /></div>
+  <div className="tt-bar"><i style={{ width: `${max ? Math.min(100, (value / max) * 100) : 0}%`, background: value > max ? 'var(--st-bad)' : color }} /></div>
 );
-const Err = ({ error }) => (error ? <div className="err">{error}</div> : null);
+const Err = ({ error }) => (error ? <Notice tone="bad">{error}</Notice> : null);
 const Hint = ({ children }) => <div className="tt-hint">{children}</div>;
 
 // the weekly grid used by every screen. cell(day, period) returns what goes inside the box.
@@ -87,7 +89,7 @@ function Grid({ meta, cell, todayDay }) {
   );
 }
 const NoStructure = ({ go, me }) => (
-  <Empty>The timetable structure is not set up yet.{can(me, 'manage_timetable_setup') && go ? <> <button className="btn primary" style={{ marginLeft: 8 }} onClick={() => go('setup')}>Set it up</button></> : ' Ask your school admin to set it up.'}</Empty>
+  <NoData>The timetable structure is not set up yet.{can(me, 'manage_timetable_setup') && go ? <> <Button kind="primary" size="sm" onClick={() => go('setup')}>Set it up</Button></> : ' Ask your school admin to set it up.'}</NoData>
 );
 
 /* ================================================================== 1. OVERVIEW + WORKLOAD */
@@ -95,7 +97,7 @@ export const TimetableHome = scoped(function TimetableHome({ me, sid, go }) {
   const { meta, T, error } = useMeta(me, sid);
   const { data: w } = useApi(`/timetable/workload${qs(sq(me, sid))}`, true, { keepPrevious: true });
   const [sort, setSort] = useState('load');
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta || !w) return <Loading />;
   if (!meta.periods.length) return <NoStructure go={go} me={me} />;
   const t = w.totals; const cov = t.required ? Math.round((t.scheduled / t.required) * 100) : 0;
@@ -103,39 +105,40 @@ export const TimetableHome = scoped(function TimetableHome({ me, sid, go }) {
     .sort((a, b) => (sort === 'name' ? a.t.name.localeCompare(b.t.name) : b.assigned - a.assigned));
   const classRows = w.classes.map((c) => ({ ...c, c: T.cls[c.class_id] })).filter((c) => c.c);
   return (
-    <div className="stack tt">
-      <div className="tt-stats">
-        <Stat n={t.teachers} label="Teachers" color="#6366f1" icon="users" />
-        <Stat n={t.required} label="Periods planned a week" color="#0ea5e9" icon="calendar" />
-        <Stat n={t.scheduled} label="Periods scheduled" color="#10b981" icon="check" />
-        <Stat n={t.unassigned} label="Still to schedule" color="#f97316" icon="bolt" />
-        <Stat n={t.clashes} label="Clashes" color="#ec4899" icon="shield" />
-        <Stat n={t.substitutions_today} label="Substitutions today" color="#8b5cf6" icon="userplus" />
+    <div className="stack tt ds-page">
+      <PageBar title="Timetable" sub="Coverage, clashes and teacher workload" />
+      <div className="tt-stats ds-kpis">
+        <Stat n={t.teachers} label="Teachers" icon="users" />
+        <Stat n={t.required} label="Periods planned a week" icon="calendar" />
+        <Stat n={t.scheduled} label="Periods scheduled" icon="check" />
+        <Stat n={t.unassigned} label="Still to schedule" icon="bolt" />
+        <Stat n={t.clashes} label="Clashes" icon="shield" />
+        <Stat n={t.substitutions_today} label="Substitutions today" icon="userplus" />
       </div>
 
       <div className="tt-two">
         <div className="card tt-cov">
           <Ring pct={cov} label="scheduled" />
-          <div className="stack" style={{ gap: 6 }}>
+          <div className="stack tt-gap6">
             <b>Timetable coverage</b>
             <span className="muted">{t.scheduled} of {t.required} planned periods are placed in class timetables.</span>
-            <span className="tt-legend"><i style={{ background: '#10b981' }} />Scheduled {t.scheduled}<i style={{ background: '#f97316' }} />To schedule {t.unassigned}</span>
-            {can(me, 'manage_timetable') && <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={() => go('class')}><Icon name="edit" size={16} />Build class timetables</button>}
+            <span className="tt-legend"><i style={{ background: 'var(--st-ok)' }} />Scheduled {t.scheduled}<i style={{ background: 'var(--st-warn)' }} />To schedule {t.unassigned}</span>
+            {can(me, 'manage_timetable') && <button className="btn primary tt-self-start" onClick={() => go('class')}><Icon name="edit" size={16} />Build class timetables</button>}
           </div>
         </div>
-        <div className="card stack" style={{ gap: 8 }}>
+        <div className="card stack tt-gap8">
           <b>Class-wise coverage</b>
           {classRows.length === 0 ? <span className="muted">No classes yet.</span> : (
             <div className="tt-classes">{classRows.map((c) => (
               <div key={c.class_id} className="tt-cls"><div className="row sp"><b>{clsName(c.c)}</b><small>{c.scheduled}/{c.required || '-'}</small></div>
-                <Bar value={c.scheduled} max={c.required || 1} color="#10b981" /></div>))}</div>)}
+                <Bar value={c.scheduled} max={c.required || 1} color="var(--st-ok)" /></div>))}</div>)}
         </div>
       </div>
 
-      <div className="card stack" style={{ gap: 10 }}>
-        <div className="page-head"><div className="ph-t"><b>Teacher workload</b><span>Bar = periods a week given in the teacher's profile. Red means over the limit of {w.max_load}.</span></div>
-          <div className="ph-a"><div className="pills"><button className={`pill ${sort === 'load' ? 'on' : ''}`} onClick={() => setSort('load')}>Busiest first</button><button className={`pill ${sort === 'name' ? 'on' : ''}`} onClick={() => setSort('name')}>A to Z</button></div></div></div>
-        {rows.length === 0 ? <Empty>No teachers yet.</Empty> : <div>{rows.map((x, i) => {
+      <div className="card stack tt-gap10">
+        <div className="ds-split"><div className="ph-t"><b>Teacher workload</b><span>Bar = periods a week given in the teacher's profile. Red means over the limit of {w.max_load}.</span></div>
+          <div className="ph-a"><FilterBar sort={{ value: sort, onChange: setSort, def: 'load', options: [{ value: 'load', label: 'Busiest first' }, { value: 'name', label: 'A to Z' }] }} /></div></div>
+        {rows.length === 0 ? <NoData>No teachers yet.</NoData> : <div>{rows.map((x, i) => {
           const col = PALETTE[i % PALETTE.length]; const over = x.assigned > w.max_load;
           return (
             <div key={x.teacher_id} className="wl-row">
@@ -171,12 +174,12 @@ function ClassPeriods({ me, sid, meta, refresh }) {
     <div className="card stack">
       <b>3. Periods per week - each subject, each class</b>
       <span className="muted">Type how many periods a week a class gets of a subject (e.g. Games 2, Maths 7). Teachers simply take these. "Same for all" copies the first class's number down the column.</span>
-      <div className="tt-wrap"><table className="tt-grid"><thead><tr><th>Class</th>{subs.map((sb) => <th key={sb.id}>{sb.name}<br /><button type="button" className="btn" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => fillCol(sb.id)}>same for all</button></th>)}<th>Total / {slotsPerWeek}</th></tr></thead>
+      <div className="tt-wrap"><table className="tt-grid"><thead><tr><th>Class</th>{subs.map((sb) => <th key={sb.id}>{sb.name}<br /><button type="button" className="btn tt-mini"  onClick={() => fillCol(sb.id)}>same for all</button></th>)}<th>Total / {slotsPerWeek}</th></tr></thead>
         <tbody>{meta.classes.map((c) => {
           const tot = subs.reduce((n, sb) => n + (Number(vals[`${c.id}|${sb.id}`]) || 0), 0);
-          return <tr key={c.id}><th><b>{clsName(c)}</b></th>{subs.map((sb) => { const k = `${c.id}|${sb.id}`; return <td key={sb.id}>{k in vals ? <input type="number" min="0" max="40" style={{ width: 56 }} value={vals[k]} onChange={(e) => set(k, e.target.value)} /> : <span className="tt-dash">-</span>}</td>; })}<td className={tot > slotsPerWeek ? 'tt-over' : ''}><b>{tot}</b></td></tr>;
+          return <tr key={c.id}><th><b>{clsName(c)}</b></th>{subs.map((sb) => { const k = `${c.id}|${sb.id}`; return <td key={sb.id}>{k in vals ? <input type="number" min="0" max="40" className="tt-w56" value={vals[k]} onChange={(e) => set(k, e.target.value)} /> : <span className="tt-dash">-</span>}</td>; })}<td className={tot > slotsPerWeek ? 'tt-over' : ''}><b>{tot}</b></td></tr>;
         })}</tbody></table></div>
-      <button className="btn primary" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={save}>{busy ? 'Saving...' : 'Save periods per week'}</button>
+      <button className="btn primary tt-self-start" disabled={busy} onClick={save}>{busy ? 'Saving...' : 'Save periods per week'}</button>
     </div>
   );
 }
@@ -189,7 +192,7 @@ export const TimetableSetup = scoped(function TimetableSetup({ me, sid }) {
     if (!meta || ready) return;
     setDays(meta.settings.days); setLoad(meta.settings.max_load); setRows(meta.periods.map((p) => ({ ...p }))); setReady(true);
   }, [meta]); // eslint-disable-line
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading />;
   const set = (i, patch) => setRows(rows.map((r, n) => (n === i ? { ...r, ...patch } : r)));
   const add = (brk) => { const last = rows[rows.length - 1]; setRows([...rows, { name: brk ? 'Break' : `Period ${rows.filter((r) => !r.is_break).length + 1}`, start_time: last?.end_time || '08:00', end_time: '', is_break: !!brk }]); };
@@ -204,30 +207,31 @@ export const TimetableSetup = scoped(function TimetableSetup({ me, sid }) {
     catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
-    <div className="stack tt" style={{ maxWidth: 820 }}>
+    <div className="stack tt ds-page">
+      <PageBar title="Periods & days" sub="Set up the school day" />
       <div className="card stack">
         <b>1. School days</b>
-        <div className="pills">{[1, 2, 3, 4, 5, 6, 7].map((d) => <button key={d} type="button" className={`pill ${days.includes(d) ? 'on' : ''}`} onClick={() => setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d].sort())}>{DAY_LONG[d]}</button>)}</div>
-        <div style={{ maxWidth: 260 }}><Field label="Most periods a teacher should take in a week" hint="Used to warn when a teacher is overloaded"><input type="number" min="1" max="80" value={load} onChange={(e) => setLoad(e.target.value)} /></Field></div>
+        <MultiChoice label="Days" values={days} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: d, label: DAY_LONG[d] }))} onToggle={(d) => setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d].sort())} />
+        <div className="tt-max260"><Field label="Most periods a teacher should take in a week" hint="Used to warn when a teacher is overloaded"><input type="number" min="1" max="80" value={load} onChange={(e) => setLoad(e.target.value)} /></Field></div>
       </div>
       <div className="card stack">
         <div className="row sp"><b>2. The school day</b>
           <div className="row"><button type="button" className="btn" onClick={quick}><Icon name="bolt" size={16} />Quick start</button><button type="button" className="btn" onClick={() => add(false)}><Icon name="plus" size={16} />Period</button><button type="button" className="btn" onClick={() => add(true)}>☕ Break</button></div></div>
-        {rows.length === 0 && <Empty>No periods yet. Tap <b>Quick start</b> for a ready-made day, then change the times.</Empty>}
+        {rows.length === 0 && <NoData>No periods yet. Tap <b>Quick start</b> for a ready-made day, then change the times.</NoData>}
         {rows.map((r, i) => (
           <div key={r.id || i} className={`tt-prow ${r.is_break ? 'brk' : ''}`}>
             <span className="tt-no">{r.is_break ? '☕' : rows.slice(0, i + 1).filter((x) => !x.is_break).length}</span>
             <input aria-label="Name" value={r.name} onChange={(e) => set(i, { name: e.target.value })} />
             <input aria-label="Starts" type="time" value={r.start_time} onChange={(e) => set(i, { start_time: e.target.value })} />
             <input aria-label="Ends" type="time" value={r.end_time} onChange={(e) => set(i, { end_time: e.target.value })} />
-            <label className="check" style={{ padding: '6px 9px' }}><input type="checkbox" checked={r.is_break} onChange={(e) => set(i, { is_break: e.target.checked })} />Break</label>
+            <label className="check tt-pad" ><input type="checkbox" checked={r.is_break} onChange={(e) => set(i, { is_break: e.target.checked })} />Break</label>
             <button type="button" className="icon-btn" aria-label="Move up" onClick={() => move(i, -1)}><Icon name="up" size={16} /></button>
             <button type="button" className="icon-btn" aria-label="Move down" onClick={() => move(i, 1)}><Icon name="down" size={16} /></button>
             <button type="button" className="icon-btn" aria-label="Remove" onClick={() => setRows(rows.filter((_, n) => n !== i))}><Icon name="trash" size={16} /></button>
           </div>))}
       </div>
       <Err error={err} />
-      <button className="btn primary big" style={{ alignSelf: 'flex-start' }} onClick={save} disabled={busy}>{busy ? 'Saving...' : 'Save structure'}</button>
+      <button className="btn primary big tt-self-start" onClick={save} disabled={busy}>{busy ? 'Saving...' : 'Save structure'}</button>
       <ClassPeriods me={me} sid={sid} meta={meta} refresh={refresh} />
       <Hint>Next: open a teacher in <b>Users</b> and tick which subjects they teach in which classes (no period counts there). Then use <b>Auto generate</b>.</Hint>
     </div>
@@ -266,11 +270,11 @@ function CellEditor({ me, sid, cls, day, period, current, T, onClose, onSaved })
     } catch (x) { toast(x.message, true); setBusy(false); }
   };
   return (
-    <Modal title={`${DAY_LONG[day]} - ${period.name} - Class ${clsName(cls)}`} onClose={onClose}>
+    <FormDialog title={`${DAY_LONG[day]} - ${period.name} - Class ${clsName(cls)}`} onClose={onClose} noForm hideFooter>
       <Hint>{period.start_time} - {period.end_time}. Pick who takes this class now. Teachers already busy at this time are greyed out.</Hint>
       <Err error={error} />
       {!opts && !error ? <Loading rows={3} /> : opts && opts.length === 0 ? (
-        <Empty>No teacher has been given this class yet. Open a teacher's profile (Users) and add the class and subject under <b>Teaching</b>.</Empty>
+        <NoData>No teacher has been given this class yet. Open a teacher's profile (Users) and add the class and subject under <b>Teaching</b>.</NoData>
       ) : (
         <div className="tt-opts">{(opts || []).map((o) => {
           const sel = current && current.teacher_id === o.teacher_id && current.subject_id === o.subject_id;
@@ -280,8 +284,8 @@ function CellEditor({ me, sid, cls, day, period, current, T, onClose, onSaved })
               <small>{o.busy ? `Busy in Class ${o.busy}` : sel ? 'Selected now' : `${o.scheduled} of ${o.periods_per_week} placed`}</small>
             </button>);
         })}</div>)}
-      {current && <button className="btn danger" style={{ marginTop: 12 }} disabled={busy} onClick={() => put(null)}><Icon name="trash" size={16} />Clear this period</button>}
-    </Modal>
+      {current && <Button kind="danger" icon="trash" disabled={busy} onClick={() => put(null)}>Clear this period</Button>}
+    </FormDialog>
   );
 }
 
@@ -291,10 +295,10 @@ export const ClassTimetable = scoped(function ClassTimetable({ me, sid }) {
   const canEdit = can(me, 'manage_timetable');
   const classId = cid || meta?.classes?.[0]?.id || '';
   const sl = useApi(classId ? `/timetable/slots${qs({ ...sq(me, sid), class_id: classId })}` : '', !!classId, { keepPrevious: true });
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading />;
   if (!meta.periods.length) return <NoStructure me={me} />;
-  if (!meta.classes.length) return <Empty>Add classes first (Users, Classes).</Empty>;
+  if (!meta.classes.length) return <NoData>Add classes first (Users, Classes).</NoData>;
   const cls = T.cls[classId]; const slots = sl.data || [];
   const at = Object.fromEntries(slots.map((s) => [keyOf(s), s]));
   const req = meta.assignments.filter((a) => a.class_id === classId);
@@ -303,10 +307,11 @@ export const ClassTimetable = scoped(function ClassTimetable({ me, sid }) {
   const textOf = (d, p) => { const s = at[`${d}|${p.id}`]; return s ? `<b>${esc(T.subject[s.subject_id]?.name)}</b><small>${esc(T.teacher[s.teacher_id]?.name)}</small>` : ''; };
   const print = () => printGrid({ title: `Timetable - Class ${clsName(cls)}`, sub: meta.periods.length ? '' : '', heads: ['', ...meta.settings.days.map((d) => DAY_LONG[d])], rows: meta.periods.map((p) => (p.is_break ? [`${esc(p.name)}<small>${p.start_time} - ${p.end_time}</small>`, { brk: p.name }] : [`${esc(p.name)}<small>${p.start_time} - ${p.end_time}</small>`, ...meta.settings.days.map((d) => textOf(d, p))])) });
   return (
-    <div className="stack tt">
+    <div className="stack tt ds-page">
+      <PageBar title="Class timetable" sub="Tap a box to choose the teacher" />
       <div className="row sp">
-        <div className="pills scroll">{meta.classes.map((c) => <button key={c.id} className={`pill ${c.id === classId ? 'on' : ''}`} onClick={() => setCid(c.id)}>{clsName(c)}</button>)}</div>
-        <div className="row">{canEdit && slots.length > 0 && <button className="btn danger" onClick={async () => { if (!(await ask(`Delete the whole timetable of Class ${clsName(cls)}?`, { yes: 'Delete', danger: true }))) return; try { await api.post(`/timetable/clear${qs(sq(me, sid))}`, { class_ids: [classId] }); toast('Timetable deleted'); invalidate('/timetable'); sl.refresh(); } catch (x) { toast(x.message, true); } }}><Icon name="trash" size={16} />Delete</button>}<div className="pills"><button className={`pill ${view === 'grid' ? 'on' : ''}`} onClick={() => setView('grid')}>Day-wise</button><button className={`pill ${view === 'subject' ? 'on' : ''}`} onClick={() => setView('subject')}>Subject-wise</button></div>
+        <Tabs value={classId} onChange={setCid} items={meta.classes.map((c) => ({ key: c.id, label: clsName(c) }))} />
+        <div className="row">{canEdit && slots.length > 0 && <button className="btn danger" onClick={async () => { if (!(await ask(`Delete the whole timetable of Class ${clsName(cls)}?`, { yes: 'Delete', danger: true }))) return; try { await api.post(`/timetable/clear${qs(sq(me, sid))}`, { class_ids: [classId] }); toast('Timetable deleted'); invalidate('/timetable'); sl.refresh(); } catch (x) { toast(x.message, true); } }}><Icon name="trash" size={16} />Delete</button>}<Tabs value={view} onChange={setView} items={[{ key: 'grid', label: 'Day-wise' }, { key: 'subject', label: 'Subject-wise' }]} />
         <button className="btn" onClick={print}><Icon name="file" size={16} />Print</button></div>
       </div>
       {view === 'subject' && <SubjectWise meta={meta} T={T} classId={classId} slots={slots} />}
@@ -315,15 +320,15 @@ export const ClassTimetable = scoped(function ClassTimetable({ me, sid }) {
         if (s) return <Chip color={T.color[s.subject_id]} title={T.subject[s.subject_id]?.name} sub={T.teacher[s.teacher_id]?.name} onClick={canEdit ? () => setEdit({ d, p, s }) : undefined} />;
         return canEdit ? <button type="button" className="tt-empty" aria-label="Add period" onClick={() => setEdit({ d, p })}><Icon name="plus" size={16} /></button> : <span className="tt-dash">-</span>;
       }} />}
-      <div className="card stack" style={{ gap: 10 }}>
+      <div className="card stack tt-gap10">
         <b>Subjects & teachers of {/^class\b/i.test(clsName(cls)) ? '' : 'Class '}{clsName(cls)}</b>
         {req.length === 0 ? <span className="muted">No teacher has been given this class yet. In <b>Users</b>, open a teacher and add this class under <b>Teaching</b>.</span> : (
           <div className="tt-req">{req.map((a) => {
             const n = placed(a); const col = T.color[a.subject_id];
             return (
               <div key={`${a.teacher_id}${a.subject_id}`} className="tt-reqrow" style={{ '--c': col }}>
-                <span className="tt-dot" /><div style={{ flex: 1, minWidth: 0 }}><b>{T.subject[a.subject_id]?.name}</b><small>{T.teacher[a.teacher_id]?.name || 'Teacher'}</small></div>
-                <div style={{ width: 110 }}><Bar value={n} max={a.periods_per_week} color={col} /></div><span className={n > a.periods_per_week ? 'tt-over' : n === a.periods_per_week ? 'tt-done' : 'muted'}>{n}/{a.periods_per_week}</span>
+                <span className="tt-dot" /><div className="tt-f1"><b>{T.subject[a.subject_id]?.name}</b><small>{T.teacher[a.teacher_id]?.name || 'Teacher'}</small></div>
+                <div className="tt-w110"><Bar value={n} max={a.periods_per_week} color={col} /></div><span className={n > a.periods_per_week ? 'tt-over' : n === a.periods_per_week ? 'tt-done' : 'muted'}>{n}/{a.periods_per_week}</span>
               </div>);
           })}</div>)}
         {noTeacher.length > 0 && <div className="notice warn">No teacher yet for: <b>{noTeacher.join(', ')}</b>. Add the class + subject in a teacher's profile (Users) so it can be scheduled.</div>}
@@ -338,9 +343,9 @@ function SubjectWise({ meta, T, classId, slots }) {
   const subjectIds = [...new Set([...(meta.class_subjects?.[classId] || []), ...meta.assignments.filter((a) => a.class_id === classId).map((a) => a.subject_id)])];
   const pname = Object.fromEntries(meta.periods.map((p) => [p.id, p.name.replace(/^Period\s*/i, 'P')]));
   const order = Object.fromEntries(meta.periods.map((p, i) => [p.id, i]));
-  if (!subjectIds.length) return <Empty>No subjects defined for this class yet (Timetable &gt; Class subjects).</Empty>;
+  if (!subjectIds.length) return <NoData>No subjects defined for this class yet (Timetable &gt; Class subjects).</NoData>;
   return (
-    <div className="stack" style={{ gap: 10 }}>
+    <div className="stack tt-gap10">
       {subjectIds.map((sub) => {
         const mine = slots.filter((s) => s.subject_id === sub).sort((a, b) => (a.day - b.day) || (order[a.period_id] - order[b.period_id]));
         const teachers = [...new Set([...meta.assignments.filter((a) => a.class_id === classId && a.subject_id === sub).map((a) => a.teacher_id), ...mine.map((s) => s.teacher_id)])];
@@ -348,8 +353,8 @@ function SubjectWise({ meta, T, classId, slots }) {
         return (
           <div key={sub} className="card" style={{ borderLeft: `5px solid ${T.color[sub]}` }}>
             <div className="row sp"><b>{T.subject[sub]?.name}</b><span className={mine.length > planned && planned ? 'tt-over' : 'muted'}>{mine.length}{planned ? ` / ${planned}` : ''} periods a week</span></div>
-            <div className="muted" style={{ margin: '4px 0 8px' }}>{teachers.length ? teachers.map((t) => T.teacher[t]?.name || 'Teacher').join(', ') : 'No teacher yet'}</div>
-            <div className="pills">{mine.length ? mine.map((s) => <span key={s.id} className="tt-tag" style={{ '--c': T.color[sub] }}>{DAY[s.day]} {pname[s.period_id]}</span>) : <span className="muted">Not placed in the timetable yet</span>}</div>
+            <div className="muted tt-gap-y" >{teachers.length ? teachers.map((t) => T.teacher[t]?.name || 'Teacher').join(', ') : 'No teacher yet'}</div>
+            <div className="tt-tags">{mine.length ? mine.map((s) => <span key={s.id} className="tt-tag" style={{ '--c': T.color[sub] }}>{DAY[s.day]} {pname[s.period_id]}</span>) : <span className="muted">Not placed in the timetable yet</span>}</div>
           </div>);
       })}
     </div>
@@ -369,10 +374,10 @@ export const ClassPlan = scoped(function ClassPlan({ me, sid }) {
     if (dirty && built.current === classId) return;
     built.current = classId; setRows(original(meta, classId)); setAlso([]); setDirty(false);
   }, [meta, classId]); // eslint-disable-line
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta || !rows) return <Loading />;
-  if (!meta.classes.length) return <Empty>Add classes first (Users, Classes).</Empty>;
-  if (!meta.subjects.length) return <Empty>Add subjects first (Exams & Report Cards, Subjects), then choose which classes study them here.</Empty>;
+  if (!meta.classes.length) return <NoData>Add classes first (Users, Classes).</NoData>;
+  if (!meta.subjects.length) return <NoData>Add subjects first (Exams & Report Cards, Subjects), then choose which classes study them here.</NoData>;
   const cls = T.cls[classId]; const orig = original(meta, classId);
   const slotsPerWeek = meta.periods.filter((p) => !p.is_break).length * meta.settings.days.length;
   const total = rows.reduce((n, r) => n + (Number(r.periods_per_week) || 0), 0);
@@ -394,33 +399,34 @@ export const ClassPlan = scoped(function ClassPlan({ me, sid }) {
   };
   const overT = [...new Set(rows.map((r) => r.teacher_id).filter(Boolean))].filter((t) => loadOf(t) > meta.settings.max_load);
   return (
-    <div className="stack tt" style={{ maxWidth: 900 }}>
+    <div className="stack tt ds-page">
+      <PageBar title="Class subjects" sub="Which subjects each class studies, and how many periods a week" />
       <Hint>For each class: choose its subjects, the teacher of each, and how many periods a week it gets. Change the teacher or remove a subject any time - then use <b>Auto generate</b> to rebuild the timetable.</Hint>
-      <div className="pills scroll">{meta.classes.map((c) => <button key={c.id} className={`pill ${c.id === classId ? 'on' : ''}`} onClick={() => { if (dirty && !window.confirm('Discard unsaved changes?')) return; setDirty(false); built.current = ''; setCid(c.id); }}>{clsName(c)}</button>)}</div>
-      <div className="card stack" style={{ gap: 8 }}>
+      <Tabs value={classId} onChange={(id) => { if (dirty && !window.confirm('Discard unsaved changes?')) return; setDirty(false); built.current = ''; setCid(id); }} items={meta.classes.map((c) => ({ key: c.id, label: clsName(c) }))} />
+      <div className="card stack tt-gap8">
         <div className="row sp"><b>Class {clsName(cls)}</b><span className={total > slotsPerWeek ? 'tt-over' : 'muted'}>{total} of {slotsPerWeek} periods a week used</span></div>
         {rows.length === 0 && <span className="muted">No subjects yet. Add some below.</span>}
         {rows.map((r, i) => {
           const [mine, others] = teacherOpts(r.subject_id);
           return (
             <div key={r.subject_id} className="tt-trow" style={{ '--c': T.color[r.subject_id], flexWrap: 'wrap' }}>
-              <span className="tt-dot" /><b style={{ flex: '1 1 140px', minWidth: 0 }}>{T.subject[r.subject_id]?.name}</b>
-              <select aria-label="Teacher" style={{ flex: '1 1 200px' }} disabled={!can2} value={r.teacher_id} onChange={(e) => patch(i, { teacher_id: e.target.value })}>
+              <span className="tt-dot" /><b className="tt-f140">{T.subject[r.subject_id]?.name}</b>
+              <select aria-label="Teacher" className="tt-f200" disabled={!can2} value={r.teacher_id} onChange={(e) => patch(i, { teacher_id: e.target.value })}>
                 <option value="">No teacher</option>
                 {mine.length > 0 && <optgroup label={`Teaches ${T.subject[r.subject_id]?.name}`}>{mine.map((t) => <option key={t.user_id} value={t.user_id}>{t.name}</option>)}</optgroup>}
                 {others.length > 0 && <optgroup label="Other teachers">{others.map((t) => <option key={t.user_id} value={t.user_id}>{t.name}</option>)}</optgroup>}
               </select>
-              <input type="number" min="0" max="40" aria-label="Periods per week" style={{ width: 64 }} disabled={!can2} value={r.periods_per_week} onChange={(e) => patch(i, { periods_per_week: e.target.value })} /><small className="muted">/wk</small>
+              <input type="number" min="0" max="40" aria-label="Periods per week" className="tt-w64" disabled={!can2} value={r.periods_per_week} onChange={(e) => patch(i, { periods_per_week: e.target.value })} /><small className="muted">/wk</small>
               {can2 && <button type="button" className="icon-btn" aria-label="Remove subject" onClick={() => { setRows(rows.filter((_, n) => n !== i)); setDirty(true); }}><Icon name="trash" size={16} /></button>}
             </div>);
         })}
-        {can2 && free.length > 0 && <div><div className="muted" style={{ marginBottom: 6 }}>Add a subject</div><div className="pills">{free.map((sb) => <button key={sb.id} type="button" className="pill" onClick={() => { setRows([...rows, { subject_id: sb.id, teacher_id: '', periods_per_week: '' }]); setDirty(true); }}><Icon name="plus" size={12} /> {sb.name}</button>)}</div></div>}
+        {can2 && free.length > 0 && <Field label="Add a subject"><div className="tt-tags">{free.map((sb) => <Button key={sb.id} size="sm" icon="plus" onClick={() => { setRows([...rows, { subject_id: sb.id, teacher_id: '', periods_per_week: '' }]); setDirty(true); }}>{sb.name}</Button>)}</div></Field>}
         {overT.length > 0 && <div className="notice warn">Over the weekly limit ({meta.settings.max_load}): {overT.map((t) => `${T.teacher[t]?.name} (${loadOf(t)})`).join(', ')}</div>}
       </div>
       {can2 && meta.classes.length > 1 && (
-        <div className="card stack" style={{ gap: 8 }}><b>Also give this exact plan (subjects, teachers, periods) to</b>
-          <div className="pills">{meta.classes.filter((c) => c.id !== classId).map((c) => <button key={c.id} type="button" className={`pill ${also.includes(c.id) ? 'on' : ''}`} onClick={() => setAlso(also.includes(c.id) ? also.filter((x) => x !== c.id) : [...also, c.id])}>{clsName(c)}</button>)}</div></div>)}
-      {can2 && <button className="btn primary big" style={{ alignSelf: 'flex-start' }} disabled={busy || !dirty && !also.length} onClick={save}>{busy ? 'Saving...' : 'Save class plan'}</button>}
+        <div className="card stack tt-gap8"><b>Also give this exact plan (subjects, teachers, periods) to</b>
+          <MultiChoice label="Classes" values={also} options={meta.classes.filter((c) => c.id !== classId).map((c) => ({ value: c.id, label: clsName(c) }))} onToggle={(id) => setAlso(also.includes(id) ? also.filter((x) => x !== id) : [...also, id])} /></div>)}
+      {can2 && <button className="btn primary big tt-self-start" disabled={busy || !dirty && !also.length} onClick={save}>{busy ? 'Saving...' : 'Save class plan'}</button>}
     </div>
   );
 });
@@ -430,7 +436,7 @@ export const AutoTimetable = scoped(function AutoTimetable({ me, sid }) {
   const { meta, T, error, refresh } = useMeta(me, sid);
   const [sel, setSel] = useState(null); const [mode, setMode] = useState('replace'); const [auto, setAuto] = useState(true);
   const [res, setRes] = useState(null); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(''); const [pday, setPday] = useState(0);
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading />;
   if (!meta.periods.length) return <NoStructure me={me} />;
   const chosen = sel || new Set(meta.classes.map((c) => c.id));
@@ -448,22 +454,23 @@ export const AutoTimetable = scoped(function AutoTimetable({ me, sid }) {
   const tag = (id, sub) => `${clsName(T.cls[id])} - ${T.subject[sub]?.name}`;
   const totalMissing = res ? res.shortfall.reduce((n, x) => n + x.missing, 0) : 0;
   return (
-    <div className="stack tt">
+    <div className="stack tt ds-page">
+      <PageBar title="Auto timetable" sub="Fill the timetable automatically" />
       <Hint>Set the periods per week of each subject in <b>Structure</b>, and give teachers their classes (Users &gt; teacher &gt; Teaching). The timetable is kept predictable: a teacher gets the same period for the same class on every day of the week (e.g. Period 2 in Class 6 A daily). Daily subjects go first, in the early periods; light subjects (1-3 a week, like games) go to Wednesday and Saturday, in the last periods. No teacher is ever in two classes at once; weekly limit {meta.settings.max_load}.</Hint>
-      <div className="card stack" style={{ gap: 10 }}>
+      <div className="card stack tt-gap10">
         <div className="row sp"><b>1. Classes</b><span className="row"><button className="btn" onClick={() => { setSel(new Set(meta.classes.map((c) => c.id))); setRes(null); }}>All</button><button className="btn" onClick={() => { setSel(new Set()); setRes(null); }}>None</button></span></div>
-        <div className="pills">{meta.classes.map((c) => <button key={c.id} className={`pill ${chosen.has(c.id) ? 'on' : ''}`} onClick={() => toggle(c.id)}>{clsName(c)}</button>)}</div>
+        <MultiChoice label="Classes" values={[...chosen]} options={meta.classes.map((c) => ({ value: c.id, label: clsName(c) }))} onToggle={toggle} />
         <b>2. If a class already has some periods</b>
-        <div className="pills"><button className={`pill ${mode === 'fill' ? 'on' : ''}`} onClick={() => { setMode('fill'); setRes(null); }}>Keep them, fill the empty boxes</button><button className={`pill ${mode === 'replace' ? 'on' : ''}`} onClick={() => { setMode('replace'); setRes(null); }}>Clear and make a fresh timetable</button></div>
-        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); setRes(null); }} style={{ width: 'auto' }} /> If a subject has no teacher in a class, pick one who already teaches that subject (lightest load first)</label>
+        <Tabs value={mode} onChange={(m) => { setMode(m); setRes(null); }} items={[{ key: 'fill', label: 'Keep them, fill the empty boxes' }, { key: 'replace', label: 'Clear and make a fresh timetable' }]} />
+        <label className="row tt-gap8"><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); setRes(null); }} className="tt-wauto" /> If a subject has no teacher in a class, pick one who already teaches that subject (lightest load first)</label>
         <div className="row"><button className="btn primary" disabled={busy || !chosen.size} onClick={() => run(false)}><Icon name="bolt" size={16} />{res ? 'Try another arrangement' : 'Preview timetable'}</button>
           {res && !res.applied && <button className="btn" disabled={busy} onClick={() => run(true)}><Icon name="check" size={16} />Save this timetable</button>}
           <button className="btn danger" disabled={busy || !chosen.size} onClick={async () => { if (!(await ask(`Delete the saved timetable of ${chosen.size === meta.classes.length ? 'ALL classes' : `${chosen.size} class(es)`}? This cannot be undone.`, { yes: 'Delete', danger: true }))) return; try { const r2 = await api.post(`/timetable/clear${qs(sq(me, sid))}`, { class_ids: chosen.size === meta.classes.length ? [] : [...chosen] }); toast(`Deleted ${r2.removed} periods`); invalidate('/timetable'); setRes(null); refresh && refresh(); } catch (x) { toast(x.message, true); } }}><Icon name="trash" size={16} />Delete old timetable</button></div>
       </div>
       {res && (
-        <div className="card stack" style={{ gap: 10 }}>
+        <div className="card stack tt-gap10">
           <b>{res.applied ? 'Saved' : 'Preview'}: {res.placed} periods placed{res.new_assignments ? `, ${res.new_assignments} teacher(s) auto-selected` : ''}</b>
-          <div className="pills">{res.per_class.map((c) => <span key={c.class_id} className="tt-tag" style={{ '--c': (c.placed + c.kept) >= c.slots_total ? '#10b981' : '#6366f1' }}>{clsName(T.cls[c.class_id])}: {c.placed + c.kept}/{c.slots_total}</span>)}</div>
+          <div className="tt-tags">{res.per_class.map((c) => <span key={c.class_id} className="tt-tag" style={{ '--c': (c.placed + c.kept) >= c.slots_total ? 'var(--st-ok)' : 'var(--cat-7)' }}>{clsName(T.cls[c.class_id])}: {c.placed + c.kept}/{c.slots_total}</span>)}</div>
           {totalMissing > 0 && <div className="notice warn">Could not place {totalMissing} period(s) (no free common slot, or teacher limit reached):<br />{res.shortfall.map((x) => `${tag(x.class_id, x.subject_id)} (${x.missing} short, ${T.teacher[x.teacher_id]?.name || 'teacher'})`).join('; ')}</div>}
           {res.notes.length > 0 && <div className="notice warn">Note: {res.notes.map((x) => `${tag(x.class_id, x.subject_id)} - ${x.text}`).join('; ')}</div>}
           {!res.applied && <span className="muted">Not saved yet. Check each day below (all classes and all teachers), then press <b>Save this timetable</b> (or <b>Try another arrangement</b>).</span>}
@@ -471,9 +478,9 @@ export const AutoTimetable = scoped(function AutoTimetable({ me, sid }) {
         </div>)}
       {res && res.slots && (
         <div className="stack">
-          <div className="pills scroll">{meta.settings.days.map((x) => <button key={x} className={`pill ${x === pd ? 'on' : ''}`} onClick={() => setPday(x)}>{DAY_LONG[x]}</button>)}</div>
-          <div className="card stack" style={{ gap: 8 }}><b>{DAY_LONG[pd]} - all classes</b><DayMatrix meta={meta} T={T} slots={res.slots} day={pd} mode="class" /></div>
-          <div className="card stack" style={{ gap: 8 }}><b>{DAY_LONG[pd]} - all teachers</b><DayMatrix meta={meta} T={T} slots={res.slots} day={pd} mode="teacher" /></div>
+          <Tabs value={pd} onChange={setPday} items={meta.settings.days.map((x) => ({ key: x, label: DAY_LONG[x] }))} />
+          <div className="card stack tt-gap8"><b>{DAY_LONG[pd]} - all classes</b><DayMatrix meta={meta} T={T} slots={res.slots} day={pd} mode="class" /></div>
+          <div className="card stack tt-gap8"><b>{DAY_LONG[pd]} - all teachers</b><DayMatrix meta={meta} T={T} slots={res.slots} day={pd} mode="teacher" /></div>
         </div>)}
     </div>
   );
@@ -486,10 +493,10 @@ export const TeacherTimetable = scoped(function TeacherTimetable({ me, sid }) {
   const teacherId = tid || meta?.teachers?.[0]?.user_id || '';
   const sl = useApi(teacherId ? `/timetable/slots${qs({ ...sq(me, sid), teacher_id: teacherId })}` : '', !!teacherId, { keepPrevious: true });
   const { data: w } = useApi(`/timetable/workload${qs(sq(me, sid))}`, true, { keepPrevious: true });
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading />;
   if (!meta.periods.length) return <NoStructure me={me} />;
-  if (!meta.teachers.length) return <Empty>No teachers yet.</Empty>;
+  if (!meta.teachers.length) return <NoData>No teachers yet.</NoData>;
   const slots = sl.data || []; const at = Object.fromEntries(slots.map((s) => [keyOf(s), s]));
   const mine = meta.assignments.filter((a) => a.teacher_id === teacherId);
   const stat = w?.teachers.find((x) => x.teacher_id === teacherId);
@@ -498,21 +505,22 @@ export const TeacherTimetable = scoped(function TeacherTimetable({ me, sid }) {
   const print = () => printGrid({ title: `Timetable - ${name}`, sub: `${slots.length} periods a week`, heads: ['', ...meta.settings.days.map((d) => DAY_LONG[d])], rows: meta.periods.map((p) => (p.is_break ? [`${esc(p.name)}<small>${p.start_time} - ${p.end_time}</small>`, { brk: p.name }] : [`${esc(p.name)}<small>${p.start_time} - ${p.end_time}</small>`, ...meta.settings.days.map((d) => { const s = at[`${d}|${p.id}`]; return s ? `<b>${esc(clsName(T.cls[s.class_id]))}</b><small>${esc(T.subject[s.subject_id]?.name)}</small>` : ''; })])) });
   const excel = () => downloadCsv(`timetable-${name.replace(/\s+/g, '-')}.csv`, [['Period', 'Time', ...meta.settings.days.map((d) => DAY_LONG[d])], ...meta.periods.map((p) => [p.name, `${p.start_time}-${p.end_time}`, ...meta.settings.days.map((d) => (p.is_break ? 'Break' : (at[`${d}|${p.id}`] ? lab(at[`${d}|${p.id}`]) : '')))])]);
   return (
-    <div className="stack tt">
+    <div className="stack tt ds-page">
+      <PageBar title="Teacher timetable" sub="Each teacher's week" />
       <div className="row sp">
-        <select style={{ width: 'auto', minWidth: 220 }} value={teacherId} onChange={(e) => setTid(e.target.value)}>{meta.teachers.map((t) => <option key={t.user_id} value={t.user_id}>{t.name}{t.designation ? ` (${t.designation})` : ''}</option>)}</select>
+        <select className="tt-wauto tt-min220" value={teacherId} onChange={(e) => setTid(e.target.value)}>{meta.teachers.map((t) => <option key={t.user_id} value={t.user_id}>{t.name}{t.designation ? ` (${t.designation})` : ''}</option>)}</select>
         <div className="row"><button className="btn" onClick={print}><Icon name="file" size={16} />Print</button><button className="btn" onClick={excel}><Icon name="download" size={16} />Excel</button></div>
       </div>
-      <div className="tt-stats">
-        <Stat n={slots.length} label="Periods in timetable" color="#6366f1" icon="calendar" />
-        <Stat n={stat?.assigned ?? 0} label={`Planned (limit ${meta.settings.max_load})`} color="#f97316" icon="bolt" />
-        <Stat n={stat?.classes ?? 0} label="Classes" color="#10b981" icon="school" />
-        <Stat n={stat?.subjects ?? 0} label="Subjects" color="#ec4899" icon="academics" />
+      <div className="tt-stats ds-kpis">
+        <Stat n={slots.length} label="Periods in timetable" icon="calendar" />
+        <Stat n={stat?.assigned ?? 0} label={`Planned (limit ${meta.settings.max_load})`} icon="bolt" />
+        <Stat n={stat?.classes ?? 0} label="Classes" icon="school" />
+        <Stat n={stat?.subjects ?? 0} label="Subjects" icon="academics" />
       </div>
       <Grid meta={meta} cell={(d, p) => { const s = at[`${d}|${p.id}`]; return s ? <Chip color={T.color[s.subject_id]} title={clsName(T.cls[s.class_id])} sub={T.subject[s.subject_id]?.name} /> : <span className="tt-dash">free</span>; }} />
-      <div className="card stack" style={{ gap: 8 }}>
+      <div className="card stack tt-gap8">
         <b>Teaches</b>
-        {mine.length === 0 ? <span className="muted">Nothing assigned yet. Add classes and subjects in this teacher's profile (Users).</span> : <div className="pills">{mine.map((a) => <span key={a.class_id + a.subject_id} className="tt-tag" style={{ '--c': T.color[a.subject_id] }}>{T.subject[a.subject_id]?.name} - Class {clsName(T.cls[a.class_id])} - {a.periods_per_week}/wk</span>)}</div>}
+        {mine.length === 0 ? <span className="muted">Nothing assigned yet. Add classes and subjects in this teacher's profile (Users).</span> : <div className="tt-tags">{mine.map((a) => <span key={a.class_id + a.subject_id} className="tt-tag" style={{ '--c': T.color[a.subject_id] }}>{T.subject[a.subject_id]?.name} - Class {clsName(T.cls[a.class_id])} - {a.periods_per_week}/wk</span>)}</div>}
       </div>
     </div>
   );
@@ -523,7 +531,7 @@ export const SchoolTimetable = scoped(function SchoolTimetable({ me, sid }) {
   const { meta, T, error } = useMeta(me, sid);
   const { data: slots } = useApi(`/timetable/slots${qs(sq(me, sid))}`, true, { keepPrevious: true });
   const [day, setDay] = useState(0); const [who, setWho] = useState('class');
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta || !slots) return <Loading />;
   if (!meta.periods.length) return <NoStructure me={me} />;
   const d = day || (meta.settings.days.includes(dowOf(meta.today)) ? dowOf(meta.today) : meta.settings.days[0]);
@@ -531,9 +539,10 @@ export const SchoolTimetable = scoped(function SchoolTimetable({ me, sid }) {
   const short = (n) => String(n || '').split(' ')[0];
   const print = () => printGrid({ title: `School timetable - ${DAY_LONG[d]}`, sub: '', heads: ['Class', ...meta.periods.map((p) => `${esc(p.name)}<small>${p.start_time}-${p.end_time}</small>`)], rows: meta.classes.map((c) => [esc(clsName(c)), ...meta.periods.map((p) => { if (p.is_break) return '<span style="color:#999">break</span>'; const s = at.get(`${c.id}|${p.id}`); return s ? `<b>${esc(T.subject[s.subject_id]?.name)}</b><small>${esc(short(T.teacher[s.teacher_id]?.name))}</small>` : ''; })]) });
   return (
-    <div className="stack tt">
-      <div className="row sp"><div className="pills scroll">{meta.settings.days.map((x) => <button key={x} className={`pill ${x === d ? 'on' : ''}`} onClick={() => setDay(x)}>{DAY_LONG[x]}</button>)}</div>
-        <div className="row"><div className="pills"><button className={`pill ${who === 'class' ? 'on' : ''}`} onClick={() => setWho('class')}>Classes</button><button className={`pill ${who === 'teacher' ? 'on' : ''}`} onClick={() => setWho('teacher')}>Teachers</button></div>
+    <div className="stack tt ds-page">
+      <PageBar title="School timetable" sub="Every class, one day at a time" />
+      <div className="row sp"><Tabs value={d} onChange={setDay} items={meta.settings.days.map((x) => ({ key: x, label: DAY_LONG[x] }))} />
+        <div className="row"><Tabs value={who} onChange={setWho} items={[{ key: 'class', label: 'Classes' }, { key: 'teacher', label: 'Teachers' }]} />
         <button className="btn" onClick={print}><Icon name="file" size={16} />Print</button></div></div>
       <DayMatrix meta={meta} T={T} slots={slots} day={d} mode={who} />
     </div>
@@ -547,7 +556,7 @@ export const Substitutions = scoped(function Substitutions({ me, sid }) {
   const when = date || meta?.today || '';
   const plan = useApi(tid && when ? `/timetable/substitutions/plan${qs({ ...sq(me, sid), date: when, teacher_id: tid })}` : '', !!(tid && when), { keepPrevious: true });
   const week = useApi(meta ? `/timetable/substitutions${qs({ ...sq(me, sid), from: meta.today })}` : '', !!meta, { keepPrevious: true });
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading />;
   if (!meta.periods.length) return <NoStructure me={me} />;
   const refreshAll = () => { plan.refresh(); week.refresh(); };
@@ -561,17 +570,18 @@ export const Substitutions = scoped(function Substitutions({ me, sid }) {
   const per = Object.fromEntries(meta.periods.map((p) => [p.id, p]));
   const data = plan.data;
   return (
-    <div className="stack tt" style={{ maxWidth: 900 }}>
+    <div className="stack tt ds-page">
+      <PageBar title="Substitutions" sub="Cover for absent teachers" />
       {can(me, 'manage_substitutions') && (
         <div className="card stack">
           <b>Teacher absent?</b>
           <div className="row">
-            <input type="date" style={{ width: 'auto' }} value={when} onChange={(e) => setDate(e.target.value)} />
-            <select style={{ flex: '1 1 220px' }} value={tid} onChange={(e) => setTid(e.target.value)}><option value="">Choose the absent teacher</option>{meta.teachers.map((t) => <option key={t.user_id} value={t.user_id}>{t.name}</option>)}</select>
+            <input type="date" className="tt-wauto" value={when} onChange={(e) => setDate(e.target.value)} />
+            <select className="tt-f220" value={tid} onChange={(e) => setTid(e.target.value)}><option value="">Choose the absent teacher</option>{meta.teachers.map((t) => <option key={t.user_id} value={t.user_id}>{t.name}</option>)}</select>
           </div>
           {tid && data && data.school_day === false && <Hint>{DAY_LONG[data.day]} is not a school day.</Hint>}
           {tid && data && data.absent_on_leave && <Hint>This teacher has approved leave on this date.</Hint>}
-          {tid && data && data.school_day && data.periods.length === 0 && <Empty>{T.teacher[tid]?.name} has no classes on {fmtDate(when)}.</Empty>}
+          {tid && data && data.school_day && data.periods.length === 0 && <NoData>{T.teacher[tid]?.name} has no classes on {fmtDate(when)}.</NoData>}
           {tid && data && data.periods.map((p) => {
             const k = `${p.class_id}|${p.period_id}`; const per1 = per[p.period_id]; const col = T.color[p.subject_id];
             return (
@@ -581,7 +591,7 @@ export const Substitutions = scoped(function Substitutions({ me, sid }) {
                   <div className="row sp"><span>Covered by <b>{T.teacher[p.substitution.substitute_teacher_id]?.name}</b></span><button className="btn danger" onClick={() => remove(p.substitution.id)}>Remove</button></div>
                 ) : p.candidates.length === 0 ? <span className="muted">Nobody is free in this period.</span> : (
                   <div className="row">
-                    <select style={{ flex: '1 1 220px' }} value={pick[k] || p.candidates[0].teacher_id} onChange={(e) => setPick({ ...pick, [k]: e.target.value })}>
+                    <select className="tt-f220" value={pick[k] || p.candidates[0].teacher_id} onChange={(e) => setPick({ ...pick, [k]: e.target.value })}>
                       {p.candidates.map((c) => <option key={c.teacher_id} value={c.teacher_id}>{c.same_subject ? '⭐ ' : ''}{T.teacher[c.teacher_id]?.name} {c.same_subject ? '(teaches this subject)' : c.same_class ? '(knows this class)' : ''} - {c.load_today} today</option>)}
                     </select>
                     <button className="btn primary" onClick={() => assign(p)}><Icon name="userplus" size={16} />Assign</button>
@@ -589,12 +599,12 @@ export const Substitutions = scoped(function Substitutions({ me, sid }) {
               </div>);
           })}
         </div>)}
-      <div className="card stack" style={{ gap: 8 }}>
+      <div className="card stack tt-gap8">
         <b>Upcoming substitutions</b>
         {!week.data ? <Loading rows={2} /> : week.data.length === 0 ? <span className="muted">None in the next 7 days.</span> : week.data.map((s) => (
-          <div key={s.id} className="tt-subrow" style={{ '--c': T.color[s.subject_id] || '#6366f1' }}>
+          <div key={s.id} className="tt-subrow" style={{ '--c': T.color[s.subject_id] || 'var(--cat-7)' }}>
             <span className="tt-dot" /><b>{fmtDate(s.sub_date)}</b><span>{per[s.period_id]?.name}</span><Badge>Class {clsName(T.cls[s.class_id])}</Badge>
-            <span className="muted" style={{ flex: 1 }}>{T.teacher[s.absent_teacher_id]?.name || 'Teacher'} {'->'} <b style={{ color: 'var(--ink)' }}>{T.teacher[s.substitute_teacher_id]?.name}</b></span>
+            <span className="muted tt-f1" >{T.teacher[s.absent_teacher_id]?.name || 'Teacher'} {'->'} <b className="tt-ink">{T.teacher[s.substitute_teacher_id]?.name}</b></span>
             {can(me, 'manage_substitutions') && <button className="icon-btn" aria-label="Remove substitution" onClick={() => remove(s.id)}><Icon name="trash" size={16} /></button>}
           </div>))}
       </div>
@@ -610,24 +620,25 @@ export function MyTimetable({ me }) {
     cls: Object.fromEntries(m.classes.map((c) => [c.id, c])), subject: Object.fromEntries(m.subjects.map((s) => [s.id, s])), color: Object.fromEntries(m.subjects.map((s, i) => [s.id, PALETTE[i % PALETTE.length]])),
     teacher: Object.fromEntries((m.teachers || []).map((t) => [t.user_id, t])), period: Object.fromEntries(m.periods.map((p) => [p.id, p])),
   } : null), [m]);
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!m) return <Loading />;
-  if (m.kind === 'none') return <Empty>Timetables belong to a school.</Empty>;
-  if (!m.periods.length) return <Empty>The timetable has not been set up yet.</Empty>;
+  if (m.kind === 'none') return <NoData>Timetables belong to a school.</NoData>;
+  if (!m.periods.length) return <NoData>The timetable has not been set up yet.</NoData>;
   const meta = { periods: m.periods, settings: m.settings };
 
   if (m.kind === 'class') {
     const kids = m.children || [];
     const k = kids.find((x) => x.user_id === kid) || kids[0];
-    if (!k || !k.class_id) return <Empty>No class found.</Empty>;
+    if (!k || !k.class_id) return <NoData>No class found.</NoData>;
     const slots = m.slots.filter((s) => s.class_id === k.class_id); const at = Object.fromEntries(slots.map((s) => [keyOf(s), s]));
     const today = m.subs.filter((s) => s.class_id === k.class_id && s.sub_date === m.today);
     return (
-      <div className="stack tt">
-        {kids.length > 1 && <div className="pills">{kids.map((x) => <button key={x.user_id} className={`pill ${x.user_id === k.user_id ? 'on' : ''}`} onClick={() => setKid(x.user_id)}>{x.name}</button>)}</div>}
+      <div className="stack tt ds-page">
+        <PageBar title="My timetable" sub="Your week at a glance" />
+        {kids.length > 1 && <Tabs value={k.user_id} onChange={setKid} items={kids.map((x) => ({ key: x.user_id, label: x.name }))} />}
         <div className="tt-banner"><b>Class {clsName(T.cls[k.class_id])}</b><span>{k.name}'s weekly timetable</span></div>
         {today.length > 0 && <div className="notice warn">Today: {today.map((s) => `${T.period[s.period_id]?.name} is taken by ${T.teacher[s.substitute_teacher_id]?.name}`).join('; ')}.</div>}
-        {slots.length === 0 ? <Empty>The timetable for this class is not ready yet.</Empty> : (
+        {slots.length === 0 ? <NoData>The timetable for this class is not ready yet.</NoData> : (
           <Grid meta={meta} todayDay={m.day} cell={(d, p) => { const s = at[`${d}|${p.id}`]; return s ? <Chip color={T.color[s.subject_id]} title={T.subject[s.subject_id]?.name} sub={T.teacher[s.teacher_id]?.name} /> : <span className="tt-dash">-</span>; }} />)}
       </div>
     );
@@ -637,18 +648,19 @@ export function MyTimetable({ me }) {
   const todays = m.slots.filter((s) => s.day === m.day).length + m.duties.filter((s) => s.sub_date === m.today).length;
   const planned = (m.assignments || []).reduce((n, a) => n + a.periods_per_week, 0);
   return (
-    <div className="stack tt">
-      <div className="tt-stats">
-        <Stat n={m.slots.length} label="Periods a week" color="#6366f1" icon="calendar" />
-        <Stat n={todays} label="Periods today" color="#f97316" icon="bolt" />
-        <Stat n={`${planned}/${m.max_load}`} label="Workload (planned / limit)" color="#10b981" icon="check" />
+    <div className="stack tt ds-page">
+      <PageBar title="My timetable" sub="Your week at a glance" />
+      <div className="tt-stats ds-kpis">
+        <Stat n={m.slots.length} label="Periods a week" icon="calendar" />
+        <Stat n={todays} label="Periods today" icon="bolt" />
+        <Stat n={`${planned}/${m.max_load}`} label="Workload (planned / limit)" icon="check" />
       </div>
       {m.duties.length > 0 && (
-        <div className="card stack" style={{ gap: 8 }}><b>Your cover duties</b>
-          {m.duties.map((s) => <div key={s.id} className="tt-subrow" style={{ '--c': T.color[s.subject_id] || '#8b5cf6' }}><span className="tt-dot" /><b>{fmtDate(s.sub_date)}</b><span>{T.period[s.period_id]?.name} ({T.period[s.period_id]?.start_time})</span><Badge>Class {clsName(T.cls[s.class_id])}</Badge><span className="muted">{T.subject[s.subject_id]?.name}</span></div>)}
+        <div className="card stack tt-gap8"><b>Your cover duties</b>
+          {m.duties.map((s) => <div key={s.id} className="tt-subrow" style={{ '--c': T.color[s.subject_id] || 'var(--cat-3)' }}><span className="tt-dot" /><b>{fmtDate(s.sub_date)}</b><span>{T.period[s.period_id]?.name} ({T.period[s.period_id]?.start_time})</span><Badge>Class {clsName(T.cls[s.class_id])}</Badge><span className="muted">{T.subject[s.subject_id]?.name}</span></div>)}
         </div>)}
       {m.covered.length > 0 && <div className="notice ok">Your classes are covered: {m.covered.map((s) => `${fmtDate(s.sub_date)} ${T.period[s.period_id]?.name} (${T.teacher[s.substitute_teacher_id]?.name})`).join('; ')}.</div>}
-      {m.slots.length === 0 ? <Empty>No periods in your timetable yet.</Empty> : (
+      {m.slots.length === 0 ? <NoData>No periods in your timetable yet.</NoData> : (
         <Grid meta={meta} todayDay={m.day} cell={(d, p) => { const s = at[`${d}|${p.id}`]; return s ? <Chip color={T.color[s.subject_id]} title={`Class ${clsName(T.cls[s.class_id])}`} sub={T.subject[s.subject_id]?.name} /> : <span className="tt-dash">free</span>; }} />)}
     </div>
   );
@@ -659,7 +671,7 @@ export function MyTimetable({ me }) {
 export function TeachingEditor({ me, sid, rows, onChange }) {
   const { data: meta, error } = useApi(`/timetable/meta${qs(sq(me, sid))}`, !!(sid || me.role !== 'super_admin'), { keepPrevious: true });
   const [subject, setSubject] = useState(''); const [ppw, setPpw] = useState(5); const [picked, setPicked] = useState([]);
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!meta) return <Loading rows={2} />;
   const color = Object.fromEntries(meta.subjects.map((s, i) => [s.id, PALETTE[i % PALETTE.length]]));
   const subj = Object.fromEntries(meta.subjects.map((s) => [s.id, s])); const cls = Object.fromEntries(meta.classes.map((c) => [c.id, c]));
@@ -677,18 +689,18 @@ export function TeachingEditor({ me, sid, rows, onChange }) {
   const sorted = [...rows].map((r, i) => ({ ...r, i })).sort((a, b) => (subj[a.subject_id]?.name || '').localeCompare(subj[b.subject_id]?.name || '') || clsName(cls[a.class_id]).localeCompare(clsName(cls[b.class_id]), undefined, { numeric: true }));
   if (!meta.subjects.length || !meta.classes.length) return <Hint>Add subjects (Exams & Report Cards, Subjects) and classes (Users, Classes) first, then come back here.</Hint>;
   return (
-    <div className="stack" style={{ gap: 10 }}>
+    <div className="stack tt-gap10">
       <div className="tt-add">
         <div className="row">
-          <select style={{ flex: '1 1 180px' }} value={subject} onChange={(e) => setSubject(e.target.value)}><option value="">Subject...</option>{meta.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+          <select className="tt-f180" value={subject} onChange={(e) => setSubject(e.target.value)}><option value="">Subject...</option>{meta.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         </div>
-        <div className="pills">{meta.classes.map((c) => <button type="button" key={c.id} disabled={!!subject && (has(c.id, subject) || !studies(c.id, subject))} title={subject && !studies(c.id, subject) ? 'This class does not study this subject. Add it under Timetable > Class subjects.' : ''} className={`pill ${picked.includes(c.id) ? 'on' : ''}`} onClick={() => setPicked(picked.includes(c.id) ? picked.filter((x) => x !== c.id) : [...picked, c.id])}>{clsName(c)}</button>)}</div>
-        <button type="button" className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={addMany}><Icon name="plus" size={16} />Add {picked.length > 1 ? `${picked.length} classes` : 'class'}</button>
+        <MultiChoice label="Classes" values={picked} options={meta.classes.map((c) => ({ value: c.id, label: clsName(c), disabled: !!subject && (has(c.id, subject) || !studies(c.id, subject)), title: subject && !studies(c.id, subject) ? 'This class does not study this subject. Add it under Timetable > Class subjects.' : '' }))} onToggle={(id) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id])} />
+        <button type="button" className="btn primary tt-self-start" onClick={addMany}><Icon name="plus" size={16} />Add {picked.length > 1 ? `${picked.length} classes` : 'class'}</button>
       </div>
       {rows.length === 0 ? <span className="muted">Not teaching any class yet. Pick a subject, tick the classes, tap Add (periods per week are set by the admin in Timetable > Structure). Greyed-out classes do not study that subject.</span> : (
         <div className="tt-trows">{sorted.map((r) => (
           <div key={r.i} className="tt-trow" style={{ '--c': color[r.subject_id] }}>
-            <span className="tt-dot" /><b style={{ flex: 1, minWidth: 0 }}>{subj[r.subject_id]?.name}<small>Class {clsName(cls[r.class_id])}</small></b>
+            <span className="tt-dot" /><b className="tt-f1">{subj[r.subject_id]?.name}<small>Class {clsName(cls[r.class_id])}</small></b>
             {r.scheduled > 0 && <small className="muted">{r.scheduled} placed</small>}
             <small className="muted">{meta.class_periods?.[r.class_id]?.[r.subject_id] ?? '?'} /wk</small>
             <button type="button" className="icon-btn" aria-label="Remove" onClick={() => onChange(rows.filter((_, n) => n !== r.i))}><Icon name="x" size={16} /></button>
@@ -717,7 +729,7 @@ export function TeachingCard({ me, user }) {
       {rows !== null && rows.length === 0 && editable && <div className="notice warn">No class + subject given yet. Teaching staff need at least one.</div>}
       {rows === null ? <Loading rows={2} /> : editable ? <TeachingEditor me={me} sid={sid} rows={rows} onChange={setRows} /> : <span className="muted">You can't edit this.</span>}
       <Err error={err} />
-      {rows !== null && editable && <button type="button" className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={save} disabled={busy}>{busy ? 'Saving...' : 'Save teaching details'}</button>}
+      {rows !== null && editable && <button type="button" className="btn primary tt-self-start" onClick={save} disabled={busy}>{busy ? 'Saving...' : 'Save teaching details'}</button>}
     </div>
   );
 }

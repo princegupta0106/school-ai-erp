@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "lint:design": "node ../tools/design-lint.mjs",
+    "audit:design": "node ../tools/design-audit.mjs",
+    "prune:css": "node ../tools/prune-css.mjs"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",

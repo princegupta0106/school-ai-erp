@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { View, Text } from 'react-native';
 import { api, withQs } from '../api';
-import { C, dateTime, live } from '../theme';
-import { Icon } from '../icons';
-import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Chips, Field, Input, Check, useRun, confirmAsk, toast } from '../ui';
+import { C, T, dateTime } from '../theme';
+import { Dim, Loading, Btn, Choice, Chips, Field, Input, Check, useRun, confirmAsk, toast } from '../ui';
+import { Pad, Notice, PageHeader, Section, StatusChip, EmptyState, FormSheet } from '../kit';
 import { useApi } from '../useApi';
 import { useSchoolId } from '../useSchool';
 
@@ -24,7 +24,7 @@ function NoticeForm({ me, qs, sid, edit, onClose, onSaved }) {
     onSaved(); onClose();
   }, edit ? 'Notice updated' : 'Notice posted');
   return (
-    <Sheet title={edit ? 'Edit notice' : 'New notice'} onClose={onClose}>
+    <FormSheet title={edit ? 'Edit notice' : 'New notice'} onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel={edit ? 'Save changes' : 'Post notice'} submitDisabled={bad}>
       {!edit && canSchool && canClass && <Field label="Send to"><Choice value={f.audience} onChange={set('audience')} options={[{ value: 'school', label: 'Whole school' }, { value: 'class', label: 'Selected classes' }]} /></Field>}
       {!edit && f.audience === 'class' && (
         <Field label="Classes" hint="Students, parents and teachers of these classes will see it">
@@ -33,39 +33,31 @@ function NoticeForm({ me, qs, sid, edit, onClose, onSaved }) {
       <Field req label="Title"><Input maxLength={150} value={f.title} onChangeText={set('title')} placeholder="e.g. Parent-teacher meeting on Saturday" /></Field>
       <Field req label="Notice"><Input multiline style={{ minHeight: 140 }} maxLength={5000} value={f.body} onChangeText={set('body')} placeholder="Write the notice..." /></Field>
       <Check label="Pin to the top" value={f.is_pinned} onChange={set('is_pinned')} />
-      <ErrorBox>{err}</ErrorBox>
-      <Btn title={busy ? 'Saving...' : edit ? 'Save changes' : 'Post notice'} disabled={busy || bad} onPress={save} />
-    </Sheet>
+    </FormSheet>
   );
 }
 
-const Chip = ({ children, head }) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: head ? C.soft : C.muteBg, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>{children}</View>;
-
-function Notice({ n, qs, onChanged, onEdit }) {
+function NoticeCard({ n, qs, onChanged, onEdit }) {
   const [open, setOpen] = useState(false);
   const long = n.body.length > 280 || n.body.split('\n').length > 5;
   const act = async (fn, ok) => { try { await fn(); if (ok) toast(ok); onChanged(); } catch (x) { toast(x.message, true); } };
   return (
-    <Card style={n.is_pinned ? { borderColor: C.brand, borderWidth: 1.5 } : undefined}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          {n.is_pinned && <Chip head><Icon name="pin" size={12} color={C.brand} /><Text style={{ color: C.brand, fontSize: 12, fontWeight: '700' }}>Pinned</Text></Chip>}
-          {n.audience === 'school' ? <Chip><Text style={chipTxt}>Whole school</Text></Chip> : n.classes.map((c) => <Chip key={c.id}><Text style={chipTxt}>Class {clsName(c)}</Text></Chip>)}
-        </View>
-        {n.can_edit && <View style={{ flexDirection: 'row', gap: 14, marginLeft: 8 }}>
-          <Pressable hitSlop={8} onPress={() => act(() => api.patch(withQs(`${base}/announcements/${n.id}`, qs), { is_pinned: !n.is_pinned }), n.is_pinned ? 'Unpinned' : 'Pinned')}><Icon name="pin" size={18} color={n.is_pinned ? C.brand : C.mute} /></Pressable>
-          <Pressable hitSlop={8} onPress={() => onEdit(n)}><Icon name="edit" size={18} color={C.mute} /></Pressable>
-          <Pressable hitSlop={8} onPress={() => confirmAsk('Delete this notice?', () => act(() => api.del(withQs(`${base}/announcements/${n.id}`, qs)), 'Notice deleted'))}><Icon name="trash" size={18} color={C.bad} /></Pressable>
-        </View>}
+    <Section title={n.title}
+      right={n.can_edit ? <View style={{ flexDirection: 'row', gap: T.sp[1] }}>
+        <Btn small kind="ghost" title={n.is_pinned ? 'Unpin' : 'Pin'} onPress={() => act(() => api.patch(withQs(`${base}/announcements/${n.id}`, qs), { is_pinned: !n.is_pinned }), n.is_pinned ? 'Unpinned' : 'Pinned')} />
+        <Btn small kind="ghost" title="Edit" onPress={() => onEdit(n)} />
+        <Btn small kind="danger" title="Delete" onPress={() => confirmAsk('Delete this notice?', () => act(() => api.del(withQs(`${base}/announcements/${n.id}`, qs)), 'Notice deleted'))} />
+      </View> : null}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: T.sp[2], marginBottom: T.sp[2] }}>
+        {n.is_pinned && <StatusChip tone="info">Pinned</StatusChip>}
+        {n.audience === 'school' ? <StatusChip tone="mute">Whole school</StatusChip> : n.classes.map((c) => <StatusChip key={c.id} tone="mute">{`Class ${clsName(c)}`}</StatusChip>)}
       </View>
-      <Text style={{ fontSize: 17, fontWeight: '700', color: C.ink, marginTop: 8 }}>{n.title}</Text>
-      <Text style={{ color: C.ink, marginTop: 4, lineHeight: 20 }} numberOfLines={long && !open ? 5 : undefined}>{n.body}</Text>
-      {long && <Pressable onPress={() => setOpen(!open)}><Text style={{ color: C.brand, fontWeight: '600', marginTop: 4 }}>{open ? 'Show less' : 'Read more'}</Text></Pressable>}
-      <Dim style={{ marginTop: 8 }}>{n.author} · {dateTime(n.created_at)}</Dim>
-    </Card>
+      <Text style={{ color: C.ink, fontSize: T.fs.md, lineHeight: 20 }} numberOfLines={long && !open ? 5 : undefined}>{n.body}</Text>
+      {long && <Btn small kind="ghost" title={open ? 'Show less' : 'Read more'} onPress={() => setOpen(!open)} />}
+      <Dim style={{ marginTop: T.sp[2] }}>{n.author} · {dateTime(n.created_at)}</Dim>
+    </Section>
   );
 }
-const chipTxt = live(() => ({ color: C.mute, fontSize: 12, fontWeight: '600' }));
 
 export default function NoticeBoard({ me }) {
   const { sid, picker, qs } = useSchoolId(me);
@@ -79,17 +71,17 @@ export default function NoticeBoard({ me }) {
     try { const last = [...d.items, ...older.items].at(-1); const x = await api.get(withQs(`${base}/announcements`, `${qs ? `${qs}&` : ''}before=${encodeURIComponent(last.created_at)}`)); setOlder({ items: [...older.items, ...x.items], more: x.more }); }
     catch (e) { toast(e.message, true); } finally { setBusy(false); }
   };
-  if (!sid) return <Empty>Create a school first.</Empty>;
+  if (!sid) return <Pad><EmptyState icon="school" title="Create a school first" /></Pad>;
   const more = older.more ?? d?.more;
   const all = d ? [...d.pinned, ...d.items, ...older.items] : [];
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} refreshControl={<RefreshControl refreshing={loading && !!d} onRefresh={refresh} />}>
+    <Pad reload={refresh} loading={loading} hasData={!!d}>
       {picker}
-      {canPost && <><Btn title="New notice" onPress={() => setForm({})} /><View style={{ height: 12 }} /></>}
-      <ErrorBox>{error}</ErrorBox>
-      {!d ? (error ? null : <Loading />) : all.length === 0 ? <Empty>No notices yet.</Empty> : all.map((n) => <Notice key={n.id} n={n} qs={qs} onChanged={refresh} onEdit={setForm} />)}
+      <PageHeader title="Notice board" sub="Announcements for the school, classes and staff" right={canPost ? <Btn small title="New notice" onPress={() => setForm({})} /> : null} />
+      {!!error && <Notice tone="bad">{error}</Notice>}
+      {!d ? (error ? <Btn small kind="ghost" title="Retry" onPress={reload} /> : <Loading />) : all.length === 0 ? <Section><EmptyState icon="megaphone" title="No notices yet">{canPost ? 'Post the first one with the button above.' : 'Check back later.'}</EmptyState></Section> : all.map((n) => <NoticeCard key={n.id} n={n} qs={qs} onChanged={refresh} onEdit={setForm} />)}
       {more && <Btn kind="ghost" title={busy ? 'Loading...' : 'Load older notices'} disabled={busy} onPress={loadOlder} />}
       {form && <NoticeForm me={me} qs={qs} sid={sid} edit={form.id ? form : null} onClose={() => setForm(null)} onSaved={refresh} />}
-    </ScrollView>
+    </Pad>
   );
 }

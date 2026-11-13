@@ -3,6 +3,7 @@ import { View, Text, ScrollView, RefreshControl } from 'react-native';
 import { api, withQs } from '../api';
 import { C, span } from '../theme';
 import { Card, Dim, Empty, Loading, ErrorBox, Badge, Btn, Sheet, Choice, Input, useRun, confirmAsk } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
 import { useSchoolId } from '../useSchool';
 import ApplyForm from './ApplyForm';
@@ -20,8 +21,7 @@ export default function LeaveRequests({ me }) {
   return (
     <ScrollView contentContainerStyle={{ padding: 16 }} refreshControl={<RefreshControl refreshing={loading && !!data} onRefresh={reload} />} keyboardShouldPersistTaps="handled">
       {picker}
-      <Choice value={status} onChange={setStatus} options={['', 'pending', 'approved', 'rejected', 'cancelled'].map((x) => ({ value: x, label: x ? x[0].toUpperCase() + x.slice(1) : 'All' }))} />
-      <View style={{ height: 12 }} />
+      <FilterBar inline filters={[{ key: 'status', label: 'Status', value: status, onChange: setStatus, all: 'All requests', options: ['pending', 'approved', 'rejected', 'cancelled'].map((x) => ({ value: x, label: x[0].toUpperCase() + x.slice(1) })) }]} />
       {can && st && emps && <><Btn kind="ghost" title="Record leave for someone" onPress={() => setRec(true)} /><View style={{ height: 12 }} /></>}
       {st && <Dim style={{ marginBottom: 12 }}>Approval mode: {st.settings.approval_mode === 'auto' ? 'automatic (requests are approved instantly)' : 'manual (needs an approver)'}</Dim>}
       <ErrorBox>{error}</ErrorBox>

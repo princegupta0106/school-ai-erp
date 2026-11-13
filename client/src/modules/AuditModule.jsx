@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useData } from '../cache.js';
 import { fetchers } from '../fetchers.js';
-import { Icon, Empty, Modal, toast, Loading } from '../ui.jsx';
+import { toast, Loading, Page, PageBar, Button, Section, DataTable, StatusBadge, EmptyState, FormDialog, Notice } from '../ui.jsx';
+import { FilterBar } from '../FilterBar.jsx';
 
 const MODULES = {
   auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', fees: 'Fees',
@@ -30,14 +31,14 @@ function Detail({ log, sup, onClose }) {
   ].filter(Boolean);
   const { error: _e, ...rest } = log.detail || {};
   return (
-    <Modal title="Log entry" onClose={onClose} wide>
-      <dl className="kv">{rows.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v || '-'}</dd></React.Fragment>)}</dl>
+    <FormDialog title="Log entry" onClose={onClose} wide hideFooter>
+      <dl className="ds-kv">{rows.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v || '-'}</dd></React.Fragment>)}</dl>
       {Object.keys(rest).length > 0 && <>
-        <div className="nav-label" style={{ margin: '14px 0 6px' }}>Details recorded</div>
-        <pre className="pre">{JSON.stringify(rest, null, 2)}</pre>
+        <div className="ds-label">Details recorded</div>
+        <pre className="ds-code">{JSON.stringify(rest, null, 2)}</pre>
       </>}
-      <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>Passwords, salary figures and message text are never stored in the log.</p>
-    </Modal>
+      <p className="ds-note">Passwords, salary figures and message text are never stored in the log.</p>
+    </FormDialog>
   );
 }
 
@@ -66,65 +67,38 @@ export function AuditLogs({ me }) {
     catch (e) { toast(e.message, true); } finally { setMore(false); }
   };
   const exportCsv = () => api.download(`/audit/export?${params()}`, 'audit-log.csv').catch((e) => toast(e.message, true));
-  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
-  const dirty = JSON.stringify(f) !== JSON.stringify(EMPTY);
+  const sv = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
 
+  const cols = [
+    { key: 'created_at', label: 'When', nowrap: true, render: (l) => when(l.created_at) },
+    ...(sup ? [{ key: 'school', label: 'School', render: (l) => l.school_name || (l.school_id ? 'Removed school' : 'Platform') }] : []),
+    { key: 'actor', label: 'Who', primary: true, render: (l) => <>{l.actor_name || l.actor_login || 'Unknown'}<span className="ds-subline">{ROLE[l.actor_role] || (l.actor_login ? 'Not signed in' : '')}</span></> },
+    { key: 'summary', label: 'What', render: (l) => <>{l.summary}<span className="ds-subline">{KIND[l.kind]}</span></> },
+    { key: 'module', label: 'Module', render: (l) => MODULES[l.module] || l.module },
+    { key: 'success', label: 'Result', render: (l) => <StatusBadge tone={l.success ? 'ok' : 'bad'}>{l.success ? 'OK' : 'Failed'}</StatusBadge> },
+  ];
   return (
-    <div className="stack">
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div className="row sp">
-          <div className="muted" style={{ fontSize: 14 }}>
-            {sup ? 'Everything that happens on the platform, for every school.' : 'Everything that happens in your school.'} Entries cannot be edited or deleted.
-          </div>
-          <button className="btn" onClick={exportCsv}><Icon name="download" size={16} />Export CSV</button>
-        </div>
-        <div className="row">
-          <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 200 }}>
-            <input placeholder="Search who, what, or who it was done to..." value={f.q} onChange={set('q')} />
-          </div>
-          {sup && <select style={{ width: 'auto' }} value={f.school_id} onChange={set('school_id')}>
-            <option value="">All schools</option><option value="platform">Platform only (no school)</option>
-            {(schools || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>}
-          <select style={{ width: 'auto' }} value={f.module} onChange={set('module')}>
-            <option value="">All modules</option>{Object.entries(MODULES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-          <select style={{ width: 'auto' }} value={f.kind} onChange={set('kind')}>
-            <option value="">Changes, views &amp; sign-ins</option><option value="change">Changes only</option><option value="view">Views only</option><option value="auth">Sign-ins only</option>
-          </select>
-          <select style={{ width: 'auto' }} value={f.result} onChange={set('result')}>
-            <option value="">Any result</option><option value="ok">Successful</option><option value="failed">Failed / refused</option>
-          </select>
-        </div>
-        <div className="row">
-          <label className="row" style={{ gap: 6 }}><span className="muted" style={{ fontSize: 13 }}>From</span><input type="date" style={{ width: 'auto' }} value={f.from} max={f.to || undefined} onChange={set('from')} /></label>
-          <label className="row" style={{ gap: 6 }}><span className="muted" style={{ fontSize: 13 }}>To</span><input type="date" style={{ width: 'auto' }} value={f.to} min={f.from || undefined} onChange={set('to')} /></label>
-          {dirty && <button className="linkbtn" onClick={() => { setF(EMPTY); setApplied(EMPTY); }}>Clear filters</button>}
-        </div>
-      </div>
-
-      {err && <div className="err">{err}</div>}
-      {!rows ? <Loading /> : rows.length === 0 && !err ? <Empty>No log entries match.</Empty> : (
-        <div className="card scrollx" style={{ padding: 0 }}>
-          <table className="rt audit">
-            <thead><tr><th>When</th>{sup && <th>School</th>}<th>Who</th><th>What</th><th>Module</th><th>Result</th></tr></thead>
-            <tbody>
-              {rows.map((l) => (
-                <tr key={l.id} className="click" onClick={() => setOpen(l)}>
-                  <td>{when(l.created_at)}</td>
-                  {sup && <td>{l.school_name || (l.school_id ? 'Removed school' : <span className="muted">Platform</span>)}</td>}
-                  <td><b>{l.actor_name || l.actor_login || 'Unknown'}</b><div className="muted" style={{ fontSize: 12 }}>{ROLE[l.actor_role] || (l.actor_login ? 'Not signed in' : '')}</div></td>
-                  <td className="what">{l.summary}<div className="muted" style={{ fontSize: 12 }}>{KIND[l.kind]}</div></td>
-                  <td>{MODULES[l.module] || l.module}</td>
-                  <td>{l.success ? <span className="badge ok">OK</span> : <span className="badge off">Failed</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <Page>
+      <PageBar title="Audit log" sub={`${sup ? 'Everything that happens on the platform, for every school.' : 'Everything that happens in your school.'} Entries cannot be edited or deleted.`}>
+        <Button icon="download" onClick={exportCsv}>Export CSV</Button>
+      </PageBar>
+      <FilterBar q={f.q} onQ={(v) => setF((x) => ({ ...x, q: v }))} placeholder="Search who, what, or who it was done to..." count={rows ? rows.length : undefined}
+        filters={[
+          sup && { key: 'school_id', label: 'School', value: f.school_id, onChange: sv('school_id'), all: 'All schools', options: [{ value: 'platform', label: 'Platform only (no school)' }, ...(schools || []).map((x) => ({ value: x.id, label: x.name }))], type: 'select' },
+          { key: 'module', label: 'Module', value: f.module, onChange: sv('module'), all: 'All modules', options: Object.entries(MODULES).map(([k, v]) => ({ value: k, label: v })), type: 'select' },
+          { key: 'kind', label: 'Type', value: f.kind, onChange: sv('kind'), all: 'Changes, views & sign-ins', options: [{ value: 'change', label: 'Changes only' }, { value: 'view', label: 'Views only' }, { value: 'auth', label: 'Sign-ins only' }] },
+          { key: 'result', label: 'Result', value: f.result, onChange: sv('result'), all: 'Any result', options: [{ value: 'ok', label: 'Successful' }, { value: 'failed', label: 'Failed / refused' }] },
+          { key: 'from', label: 'From date', type: 'date', value: f.from, onChange: sv('from') },
+          { key: 'to', label: 'To date', type: 'date', value: f.to, onChange: sv('to') },
+        ].filter(Boolean)} />
+      {err && <Notice tone="bad" action={<Button size="sm" onClick={load}>Retry</Button>}>{err}</Notice>}
+      {!rows ? <Loading /> : (
+        <Section flush>
+          <DataTable columns={cols} rows={rows} onRowClick={setOpen} empty={err ? <EmptyState icon="shield" title="Could not load the log" /> : <EmptyState icon="shield" title="No log entries match">Try a wider date range or fewer filters.</EmptyState>} />
+        </Section>
       )}
-      {next && <button className="btn" style={{ alignSelf: 'center' }} disabled={more} onClick={loadMore}>{more ? 'Loading...' : 'Load older entries'}</button>}
+      {next && <div className="ds-more"><Button loading={more} onClick={loadMore}>Load older entries</Button></div>}
       {open && <Detail log={open} sup={sup} onClose={() => setOpen(null)} />}
-    </div>
+    </Page>
   );
 }

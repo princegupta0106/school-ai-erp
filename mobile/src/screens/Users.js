@@ -5,6 +5,7 @@ import { api } from '../api';
 import { C, ROLE_LABEL, initials } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Field, DateField, Check, toast, confirmAsk } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
 import { Pad, List, Row } from './Attendance';
 
@@ -280,10 +281,11 @@ export function UserList({ me }) {
   if (!users) return <Pad><Loading /></Pad>;
   return (
     <Pad reload={reload} loading={loading} hasData>
-      <Input placeholder="Search name, ID or phone" value={q} onChangeText={setQ} autoCapitalize="none" />
-      <Gap h={10} />
-      {sup && schools && schools.length > 0 && <View style={{ marginBottom: 10 }}><Choice value={school} onChange={setSchool} options={[{ value: '', label: 'All schools' }, ...schools.map((s) => ({ value: s.id, label: s.name }))]} /></View>}
-      <View style={{ marginBottom: 12 }}><Choice value={role} onChange={setRole} options={['', 'school_admin', 'staff', 'parent', 'student', 'other'].map((r) => ({ value: r, label: r ? ROLE_LABEL[r] : 'All' }))} /></View>
+      <FilterBar inline q={q} onQ={setQ} placeholder="Search name, ID or phone" count={rows.length}
+        filters={[
+          { key: 'role', label: 'Role', value: role, onChange: setRole, all: 'All roles', options: ['school_admin', 'staff', 'parent', 'student', 'other'].map((r) => ({ value: r, label: ROLE_LABEL[r] })) },
+          sup && schools && schools.length > 0 && { key: 'school', label: 'School', value: school, onChange: setSchool, all: 'All schools', options: schools.map((x) => ({ value: x.id, label: x.name })) },
+        ].filter(Boolean)} />
       <Dim style={{ marginBottom: 8 }}>{rows.length} user{rows.length === 1 ? '' : 's'}</Dim>
       {rows.length === 0 ? <Empty>No users match.</Empty> : (
         <List>{rows.slice(0, limit).map((u, i, a) => (

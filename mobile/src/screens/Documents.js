@@ -7,6 +7,7 @@ import { api } from '../api';
 import { C, SH } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Field, DateField, Check, toast, confirmAsk } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
 import { scoped, qs, Pad, Notice, List, Row } from './Attendance';
 import { DESIGNS, designOf, TYPES, TYPE_LIST, PLACEHOLDERS, defaultFields, resolveTemplate, sampleContent } from '../docRender';
@@ -126,8 +127,8 @@ function PersonPicker({ sc, meta, kind, onPick }) {
   }, [dq, cls, kind]); // eslint-disable-line
   return (
     <View>
-      <Input placeholder={kind === 'staff' ? 'Search staff by name, employee ID or login' : 'Search student by name, admission no. or login'} value={q} onChangeText={setQ} autoCapitalize="none" />
-      {kind === 'student' && <View style={{ marginTop: 10 }}><Choice value={cls} onChange={setCls} options={[{ value: '', label: 'All classes' }, ...(meta.classes || []).map((c) => ({ value: c.id, label: c.label }))]} /></View>}
+      <FilterBar inline q={q} onQ={setQ} placeholder={kind === 'staff' ? 'Search staff by name, employee ID or login' : 'Search student by name, admission no. or login'}
+        filters={kind === 'student' ? [{ key: 'cls', label: 'Class', value: cls, onChange: setCls, all: 'All classes', options: (meta.classes || []).map((c) => ({ value: c.id, label: c.label })) }] : []} />
       <Gap h={10} /><ErrorBox>{err}</ErrorBox>
       {busy && !rows.length ? <Loading /> : !rows.length ? <Dim>{dq.trim() || cls ? 'No one found.' : `Type a name${kind === 'student' ? ' or pick a class' : ''} to find the ${kind}.`}</Dim> : (
         <List>{rows.map((p, i) => (
@@ -348,9 +349,11 @@ export const IssuedList = scoped(function IssuedList({ me, sc }) {
   useEffect(() => { setPage(0); }, [type, status, dq]);
   return (
     <Pad reload={reload} loading={loading} hasData={!!res}>
-      <Input placeholder="Search name or number" value={q} onChangeText={setQ} autoCapitalize="none" /><Gap h={10} />
-      <View style={{ marginBottom: 10 }}><Choice value={type} onChange={setType} options={[{ value: '', label: 'All types' }, ...TYPE_LIST.map((t) => ({ value: t.key, label: t.short }))]} /></View>
-      <View style={{ marginBottom: 12 }}><Choice value={status} onChange={setStatus} options={[{ value: '', label: 'Issued & cancelled' }, { value: 'issued', label: 'Issued' }, { value: 'cancelled', label: 'Cancelled' }]} /></View>
+      <FilterBar inline q={q} onQ={setQ} placeholder="Search name or number" count={res?.rows.length}
+        filters={[
+          { key: 'type', label: 'Document type', value: type, onChange: setType, all: 'All types', options: TYPE_LIST.map((t) => ({ value: t.key, label: t.short })) },
+          { key: 'status', label: 'Status', value: status, onChange: setStatus, all: 'Issued & cancelled', options: [{ value: 'issued', label: 'Issued' }, { value: 'cancelled', label: 'Cancelled' }] },
+        ]} />
       <ErrorBox>{err}</ErrorBox>
       {!res && !err && <Loading />}
       {res && !res.rows.length && <Empty>No documents yet.</Empty>}

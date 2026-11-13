@@ -22,3 +22,37 @@ export async function downloadAndShare(apiPath, fileName, mimeType = 'applicatio
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device');
   await Sharing.shareAsync(uri, { mimeType, UTI: mimeType === 'application/pdf' ? 'com.adobe.pdf' : mimeType === 'text/csv' ? 'public.comma-separated-values-text' : mimeType === 'application/zip' ? 'public.zip-archive' : mimeType === 'application/gzip' ? 'org.gnu.gnu-zip-archive' : 'public.data', dialogTitle: fileName });
 }
+
+// Turns an HTML page into a PDF on the phone and opens the share / print sheet (receipts, stock reports).
+export async function sharePdfHtml(html, title = 'Document', size = { width: 794, height: 1123 }) {
+  let Print; let Sharing;
+  try { Print = await import('expo-print'); Sharing = await import('expo-sharing'); } catch { throw new Error('PDF support is not installed. Run run-mobile again so expo-print is installed.'); }
+  const { uri } = await Print.printToFileAsync({ html, width: size.width, height: size.height });
+  if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device');
+  await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: title });
+}
+
+// Saves text (e.g. a CSV for Excel) as a file and opens the share sheet. Falls back to sharing the text itself.
+export async function shareTextFile(fileName, text, mimeType = 'text/csv') {
+  let uri = '';
+  try {
+    const FS = await import('expo-file-system/legacy');
+    uri = `${FS.cacheDirectory}${fileName}`;
+    await FS.writeAsStringAsync(uri, text, { encoding: 'utf8' });
+  } catch {
+    try {
+      const { File, Paths } = await import('expo-file-system');
+      const f = new File(Paths.cache, fileName);
+      if (f.exists) f.delete();
+      f.create(); f.write(text); uri = f.uri;
+    } catch { uri = ''; }
+  }
+  if (uri) {
+    try {
+      const Sharing = await import('expo-sharing');
+      if (await Sharing.isAvailableAsync()) { await Sharing.shareAsync(uri, { mimeType, UTI: 'public.comma-separated-values-text', dialogTitle: fileName }); return; }
+    } catch { /* fall through to plain text share */ }
+  }
+  const { Share } = await import('react-native');
+  await Share.share({ title: fileName, message: text });
+}

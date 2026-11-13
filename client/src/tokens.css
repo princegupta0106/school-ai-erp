@@ -1,0 +1,48 @@
+/* =====================================================================================================
+   DESIGN TOKENS  (single source of truth for the web client)  -  loaded FIRST, before styles.css
+   Rule: new or migrated screens use ONLY these variables (plus the colour variables at the top of styles.css).
+   Never write a hex colour, a pixel font-size or a border-radius in a module. Pick a token.
+   Existing colour variables (--bg --card --ink --mute --line --accent --soft ...) stay exactly where they are;
+   this file adds the scales that were missing and gives every status colour ONE semantic name.
+   ===================================================================================================== */
+:root{
+  /* ---- type scale (6 sizes, nothing in between) ---- */
+  --fs-xs:12px;      /* captions, table headers, badges */
+  --fs-sm:13px;      /* secondary text, buttons, filters */
+  --fs-md:14px;      /* body, inputs */
+  --fs-lg:16px;      /* section / page titles */
+  --fs-xl:20px;      /* big page title (top bar) */
+  --fs-num:22px;     /* KPI numbers */
+  --fw-regular:400;--fw-medium:500;--fw-semi:600;--fw-bold:700;
+
+  /* ---- spacing scale (4px grid) ---- */
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;
+
+  /* ---- radius scale (4 values) ---- */
+  --rad-sm:8px;      /* inputs, buttons, small tiles */
+  --rad-md:12px;     /* cards, dialogs */
+  --rad-lg:16px;     /* sheets, big surfaces */
+  --rad-pill:99px;   /* badges, chips, tabs */
+
+  /* ---- controls ---- */
+  --ctl-h:36px;      /* default input / button height */
+  --ctl-h-sm:30px;   /* compact buttons inside rows and tables */
+  --tap:44px;        /* minimum touch target on phones */
+
+  /* ---- status colours: ONE semantic name per meaning (values map to the existing --p / --l / --a / --v palette) ---- */
+  --st-ok:var(--p);      --st-ok-bg:var(--p-bg);       /* paid, present, approved, in stock */
+  --st-warn:var(--l);    --st-warn-bg:var(--l-bg);     /* due, late, pending, low stock */
+  --st-bad:var(--a);     --st-bad-bg:var(--a-bg);      /* overdue, absent, rejected, out of stock */
+  --st-info:var(--v);    --st-info-bg:var(--v-bg);     /* on leave, info, draft */
+  --st-mute:var(--mute); --st-mute-bg:color-mix(in srgb,var(--ink) 8%,transparent);  /* neutral, inactive */
+
+  /* ---- categorical palette (routes, buses, classes, subjects: identity colours, not status) ---- */
+  --cat-1:#f97316;--cat-2:#0ea5e9;--cat-3:#8b5cf6;--cat-4:#10b981;--cat-5:#ec4899;--cat-6:#14b8a6;--cat-7:#6366f1;--cat-8:#ca8a04;--cat-9:#d946ef;
+
+  /* ---- layout ---- */
+  --page-max:1240px;
+  --page-gap:var(--sp-4);   /* vertical gap between blocks on a page */
+}
+@media (max-width:820px){
+  :root{--ctl-h:40px;--page-gap:var(--sp-3)}
+}

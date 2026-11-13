@@ -45,3 +45,13 @@ export const dayKey = (iso) => new Date(iso).toDateString();
 export const dayLabel = (iso) => { const d = new Date(iso); const t = new Date(); const y = new Date(); y.setDate(t.getDate() - 1); return d.toDateString() === t.toDateString() ? 'Today' : d.toDateString() === y.toDateString() ? 'Yesterday' : `${DAY[d.getDay()]}, ${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`; };
 export const when = (iso) => { const d = new Date(iso); return d.toDateString() === new Date().toDateString() ? timeStr(iso) : `${d.getDate()} ${MON[d.getMonth()]}`; };
 export const dateTime = (iso) => { const d = new Date(iso); return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}, ${timeStr(iso)}`; };
+
+// ---- Design tokens (same scales as client/src/tokens.css). Screens use these instead of raw numbers. ----
+export const T = {
+  fs: { xs: 12, sm: 13, md: 14, lg: 16, xl: 20, num: 22 },          // type scale: caption, secondary, body, title, big title, KPI number
+  fw: { regular: '400', medium: '500', semi: '600', bold: '700' },
+  sp: { 1: 4, 2: 8, 3: 12, 4: 16, 5: 24, 6: 32 },                    // 4px grid
+  rad: { sm: 8, md: 12, lg: 16, pill: 999 },                         // inputs, cards, sheets, chips
+  ctl: 44,                                                           // minimum control height / tap target
+  page: 16,                                                          // screen padding
+};

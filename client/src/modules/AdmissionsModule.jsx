@@ -2,7 +2,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Field, Modal, Badge, toast, Loading, ask, askText, initials, SearchInput } from '../ui.jsx';
+import { Icon, Field, toast, Loading, ask, askText, initials, Page, PageBar, KpiGrid, Kpi, Section, List, ListRow, StatusBadge, EmptyState, FormDialog, FormGrid, Notice, Button, Choice } from '../ui.jsx';
+import { FilterBar } from '../FilterBar.jsx';
 import { scoped } from './AttendanceModule.jsx';
 
 const sq = (me, sid) => (me.role === 'super_admin' ? { school_id: sid } : {});
@@ -15,8 +16,8 @@ const diffDays = (a, b) => Math.round((D(a) - D(b)) / 86400000);
 
 export const STAGE = {
   new: { label: 'New', tone: 'info' }, contacted: { label: 'Contacted', tone: 'mute' }, follow_up: { label: 'Follow-up', tone: 'warn' },
-  pending_documents: { label: 'Pending documents', tone: 'warn' }, shortlisted: { label: 'Shortlisted', tone: '' },
-  admitted: { label: 'Admitted', tone: 'ok' }, rejected: { label: 'Rejected', tone: 'off' },
+  pending_documents: { label: 'Pending documents', tone: 'warn' }, shortlisted: { label: 'Shortlisted', tone: 'info' },
+  admitted: { label: 'Admitted', tone: 'ok' }, rejected: { label: 'Rejected', tone: 'bad' },
 };
 const STEPS = [['new', 'Enquiry'], ['contacted', 'Contacted'], ['pending_documents', 'Application'], ['shortlisted', 'Shortlisted'], ['admitted', 'Admitted']];
 const stepIndex = (e) => (e.stage === 'rejected' ? Math.max(0, e.reached) : e.stage === 'follow_up' ? 1 : Math.max(0, STEPS.findIndex(([k]) => k === e.stage)));
@@ -30,18 +31,19 @@ const classText = (e) => (e.class_name ? `Class ${e.class_name}` : 'Class not se
 function DueChip({ e, today }) {
   if (!e.next_followup_on || ['admitted', 'rejected'].includes(e.stage)) return null;
   const n = diffDays(e.next_followup_on, today);
-  if (n < 0) return <Badge tone="off">{n === -1 ? 'Overdue 1 day' : `Overdue ${-n} days`}</Badge>;
-  if (n === 0) return <Badge tone="warn">Due today</Badge>;
-  return <Badge tone="mute">{n === 1 ? 'Tomorrow' : fmtD(e.next_followup_on)}</Badge>;
+  if (n < 0) return <StatusBadge tone="bad">{n === -1 ? 'Overdue 1 day' : `Overdue ${-n} days`}</StatusBadge>;
+  if (n === 0) return <StatusBadge tone="warn">Due today</StatusBadge>;
+  return <StatusBadge tone="mute">{n === 1 ? 'Tomorrow' : fmtD(e.next_followup_on)}</StatusBadge>;
 }
-const StageBadge = ({ stage }) => <Badge tone={STAGE[stage]?.tone}>{STAGE[stage]?.label || stage}</Badge>;
+const StageBadge = ({ stage }) => <StatusBadge tone={STAGE[stage]?.tone}>{STAGE[stage]?.label || stage}</StatusBadge>;
+const Failed = ({ error }) => <Notice tone="bad">{error}</Notice>;
 const Bar = ({ value, max = 100, tone }) => <div className="adm-bar"><i className={tone || ''} style={{ width: `${Math.max(2, Math.min(100, pct(value, max)))}%` }} /></div>;
 
 /* ============================================================ ENQUIRY FORM FIELDS (add + edit) */
 function EnquiryFields({ f, setF, meta }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
-    <>
+    <FormGrid>
       <Field label="Student name" req><input required value={f.student_name} onChange={set('student_name')} placeholder="Full name" maxLength={120} /></Field>
       <Field label="Applying for class">
         <select value={f.class_id || ''} onChange={set('class_id')}><option value="">Not decided</option>{meta.classes.map((c) => <option key={c.id} value={c.id}>Class {c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
@@ -52,11 +54,11 @@ function EnquiryFields({ f, setF, meta }) {
       <Field label="Locality / area" hint="Used in locality reports"><input value={f.locality || ''} onChange={set('locality')} placeholder="e.g. Baner" maxLength={80} /></Field>
       <Field label="Gender"><select value={f.gender || ''} onChange={set('gender')}><option value="">Not set</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></Field>
       <Field label="Date of birth"><input type="date" value={f.dob || ''} onChange={set('dob')} /></Field>
-      <div className="full"><span className="adm-lbl">How did they find us?</span><div className="pills">{Object.entries(SRC).map(([k, v]) => <button type="button" key={k} className={`pill ${f.source === k ? 'on' : ''}`} onClick={() => setF({ ...f, source: k })}>{v}</button>)}</div></div>
+      <Field full label="How did they find us?"><Choice label="Source" value={f.source} onChange={(k) => setF({ ...f, source: k })} options={Object.entries(SRC).map(([value, label]) => ({ value, label }))} /></Field>
       <Field label="Assigned to"><select value={f.assigned_to || ''} onChange={set('assigned_to')}><option value="">Me</option>{meta.staff.map((s) => <option key={s.user_id} value={s.user_id}>{s.name}</option>)}</select></Field>
       <Field label="Next follow-up"><input type="date" value={f.next_followup_on || ''} min={meta.today} onChange={set('next_followup_on')} /></Field>
-      <div className="full"><Field label="Notes"><textarea rows={3} value={f.notes || ''} onChange={set('notes')} placeholder="What did the parent ask for?" maxLength={1000} /></Field></div>
-    </>
+      <Field full label="Notes"><textarea rows={3} value={f.notes || ''} onChange={set('notes')} placeholder="What did the parent ask for?" maxLength={1000} /></Field>
+    </FormGrid>
   );
 }
 const blank = (meta) => ({ student_name: '', class_id: '', parent_name: '', phone: '', email: '', locality: '', gender: '', dob: '', source: 'walk_in', assigned_to: '', next_followup_on: meta?.today || '', notes: '' });
@@ -66,22 +68,23 @@ export const AddEnquiry = scoped(function AddEnquiry({ me, sid, go }) {
   const { data: meta, error } = useMeta(me, sid);
   const [f, setF] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [last, setLast] = useState(null);
   useEffect(() => { if (meta && !f) setF(blank(meta)); }, [meta]); // eslint-disable-line
-  if (error) return <div className="err">{error}</div>;
-  if (!meta || !f) return <Loading />;
-  const save = async (e) => {
-    e.preventDefault(); setBusy(true); setErr('');
+  if (error) return <Page narrow><Failed error={error} /></Page>;
+  if (!meta || !f) return <Page narrow><Loading /></Page>;
+  const save = async () => {
+    setBusy(true); setErr('');
     try { const row = await api.post('/admissions', { ...sq(me, sid), ...f }); setLast(row); toast('Enquiry added'); setF(blank(meta)); window.scrollTo?.(0, 0); }
     catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
-    <div className="stack" style={{ maxWidth: 760 }}>
-      {last && <div className="notice ok"><b>{last.student_name}</b> was added and a follow-up is set for {fmtD(last.next_followup_on) || 'later'}.{me.features.includes('view_enquiries') && <> <button className="linkbtn" onClick={() => go('list')}>See all enquiries</button></>}</div>}
-      <form className="card form" onSubmit={save}>
-        <EnquiryFields f={f} setF={setF} meta={meta} />
-        {err && <div className="err full">{err}</div>}
-        <button className="btn primary full big" disabled={busy || !f.student_name.trim() || !f.phone.trim()} style={{ justifyContent: 'center' }}>{busy ? 'Saving...' : 'Add enquiry'}</button>
+    <Page narrow>
+      <PageBar title="Add enquiry" sub="Record a new admission enquiry" />
+      {last && <Notice tone="ok" action={me.features.includes('view_enquiries') ? <Button size="sm" onClick={() => go('list')}>See all enquiries</Button> : null}><b>{last.student_name}</b> was added and a follow-up is set for {fmtD(last.next_followup_on) || 'later'}.</Notice>}
+      <form onSubmit={(e) => { e.preventDefault(); save(); }} className="ds-stack">
+        <Section><EnquiryFields f={f} setF={setF} meta={meta} /></Section>
+        {err && <Notice tone="bad">{err}</Notice>}
+        <div className="ds-spread"><span /><Button type="submit" kind="primary" loading={busy} disabled={!f.student_name.trim() || !f.phone.trim()}>Add enquiry</Button></div>
       </form>
-    </div>
+    </Page>
   );
 });
 
@@ -112,52 +115,53 @@ function EnquiryDrawer({ id, me, sid, onClose }) {
   return (
     <div className="adm-scrim" onMouseDown={(ev) => ev.target === ev.currentTarget && onClose()}>
       <aside className="adm-drawer" role="dialog" aria-label="Enquiry details">
-        {error ? <div className="err" style={{ margin: 16 }}>{error}</div> : !e ? <div style={{ padding: 16 }}><Loading /></div> : (
+        {error ? <div className="adm-pad"><Failed error={error} /></div> : !e ? <div className="adm-pad"><Loading /></div> : (
           <>
             <header className="adm-dh">
               <div className="avatar big">{initials(e.student_name)}</div>
-              <div style={{ flex: 1, minWidth: 0 }}><h2>{e.student_name}</h2><div className="muted">{classText(e)} · {SRC[e.source]}{e.session_name ? ` · ${e.session_name}` : ''}</div></div>
+              <div className="ds-grow"><h2>{e.student_name}</h2><div className="muted">{classText(e)} · {SRC[e.source]}{e.session_name ? ` · ${e.session_name}` : ''}</div></div>
               <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button>
             </header>
             <div className="adm-db">
               <div className="adm-steps" aria-label="Progress">
                 {STEPS.map(([k, l], i) => <div key={k} className={`s ${i < stepIndex(e) ? 'done' : ''} ${i === stepIndex(e) && e.stage !== 'rejected' ? 'cur' : ''}`}><i />{l}</div>)}
               </div>
-              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}><StageBadge stage={e.stage} /><DueChip e={e} today={today} />{e.stage === 'rejected' && e.lost_reason && <span className="muted">Reason: {e.lost_reason}</span>}</div>
+              <div className="ds-inline"><StageBadge stage={e.stage} /><DueChip e={e} today={today} />{e.stage === 'rejected' && e.lost_reason && <span className="muted">Reason: {e.lost_reason}</span>}</div>
 
               <div className="adm-actions">
-                {e.phone && <a className="btn" href={`tel:${e.phone}`}><Icon name="phone" size={17} /> Call</a>}
-                {wa && <a className="btn" href={wa} target="_blank" rel="noreferrer"><Icon name="chat" size={17} /> WhatsApp</a>}
-                {can('update_enquiry') && !closed && <button className="btn" onClick={() => setEdit({ ...e })}><Icon name="edit" size={17} /> Edit</button>}
+                {e.phone && <a className="ds-btn ds-btn-secondary ds-btn-md" href={`tel:${e.phone}`}><Icon name="phone" size={17} /><span>Call</span></a>}
+                {wa && <a className="ds-btn ds-btn-secondary ds-btn-md" href={wa} target="_blank" rel="noreferrer"><Icon name="chat" size={17} /><span>WhatsApp</span></a>}
+                {can('update_enquiry') && !closed && <Button icon="edit" onClick={() => setEdit({ ...e })}>Edit</Button>}
               </div>
 
               {!closed && can('update_enquiry') && (
-                <section className="card adm-sec">
-                  <h3>Log a follow-up</h3>
-                  <div className="pills">{['call', 'whatsapp', 'visit', 'email', 'note'].map((k) => <button key={k} className={`pill ${kind === k ? 'on' : ''}`} onClick={() => setKind(k)}>{KIND[k]}</button>)}</div>
-                  <textarea rows={3} value={note} onChange={(ev) => setNote(ev.target.value)} placeholder="What was discussed?" maxLength={1000} />
-                  <div className="adm-next"><Field label="Next follow-up"><input type="date" value={next} min={today} onChange={(ev) => setNext(ev.target.value)} /></Field>
-                    <div className="pills">{[['Tomorrow', 1], ['In 3 days', 3], ['Next week', 7]].map(([l, n]) => <button key={l} className="pill" onClick={() => setNext(addDays(today, n))}>{l}</button>)}</div></div>
-                  <button className="btn primary" disabled={busy || (kind === 'note' && !note.trim())} onClick={log}>Save follow-up</button>
-                </section>
+                <Section title="Log a follow-up">
+                  <div className="ds-stack">
+                    <Choice label="Kind" value={kind} onChange={setKind} options={['call', 'whatsapp', 'visit', 'email', 'note'].map((k) => ({ value: k, label: KIND[k] }))} />
+                    <textarea rows={3} value={note} onChange={(ev) => setNote(ev.target.value)} placeholder="What was discussed?" maxLength={1000} />
+                    <div className="adm-next"><Field label="Next follow-up"><input type="date" value={next} min={today} onChange={(ev) => setNext(ev.target.value)} /></Field>
+                      <div className="ds-chips">{[['Tomorrow', 1], ['In 3 days', 3], ['Next week', 7]].map(([l, n]) => <Button key={l} size="sm" onClick={() => setNext(addDays(today, n))}>{l}</Button>)}</div></div>
+                    <div className="ds-spread"><span /><Button kind="primary" loading={busy} disabled={kind === 'note' && !note.trim()} onClick={log}>Save follow-up</Button></div>
+                  </div>
+                </Section>
               )}
 
               {!closed && can('update_enquiry') && (
-                <section className="card adm-sec">
-                  <h3>Move to stage</h3>
-                  <div className="pills">{['contacted', 'follow_up', 'pending_documents', 'shortlisted'].map((s) => <button key={s} className={`pill ${e.stage === s ? 'on' : ''}`} disabled={busy || e.stage === s} onClick={() => move(s)}>{STAGE[s].label}</button>)}
-                    <button className="pill bad" disabled={busy} onClick={() => move('rejected')}>Reject / drop</button></div>
-                  {e.stage === 'pending_documents' && e.missing_docs && <div className="muted">Missing: {e.missing_docs}</div>}
-                </section>
+                <Section title="Move to stage">
+                  <div className="ds-stack">
+                    <div className="ds-chips">{['contacted', 'follow_up', 'pending_documents', 'shortlisted'].map((st) => <Button key={st} size="sm" disabled={busy || e.stage === st} onClick={() => move(st)}>{STAGE[st].label}</Button>)}
+                      <Button size="sm" kind="danger" disabled={busy} onClick={() => move('rejected')}>Reject / drop</Button></div>
+                    {e.stage === 'pending_documents' && e.missing_docs && <p className="ds-hint">Missing: {e.missing_docs}</p>}
+                  </div>
+                </Section>
               )}
-              {e.stage === 'rejected' && can('update_enquiry') && <button className="btn" disabled={busy} onClick={() => move('contacted')}>Reopen enquiry</button>}
+              {e.stage === 'rejected' && can('update_enquiry') && <Button disabled={busy} onClick={() => move('contacted')}>Reopen enquiry</Button>}
 
-              {can('admit_student') && !closed && <button className="btn primary big adm-admit" disabled={busy} onClick={() => setAdmit(true)}><Icon name="userplus" size={18} /> Admit student</button>}
-              {e.stage === 'admitted' && <div className="notice ok">Admitted {fmtD(e.admitted_at)}. The student profile was created from this enquiry.</div>}
+              {can('admit_student') && !closed && <Button kind="primary" icon="userplus" disabled={busy} onClick={() => setAdmit(true)}>Admit student</Button>}
+              {e.stage === 'admitted' && <Notice tone="ok">Admitted {fmtD(e.admitted_at)}. The student profile was created from this enquiry.</Notice>}
 
-              <section className="card adm-sec">
-                <h3>Details</h3>
-                <dl className="adm-dl">
+              <Section title="Details">
+                <dl className="ds-kv">
                   <dt>Parent / guardian</dt><dd>{e.parent_name || '—'}</dd>
                   <dt>Phone</dt><dd>{e.phone || '—'}</dd>
                   {e.email && <><dt>Email</dt><dd>{e.email}</dd></>}
@@ -166,98 +170,102 @@ function EnquiryDrawer({ id, me, sid, onClose }) {
                   <dt>Assigned to</dt><dd>{e.assigned_name || '—'}</dd>
                   {e.notes && <><dt>Notes</dt><dd>{e.notes}</dd></>}
                 </dl>
-              </section>
+              </Section>
 
-              <section className="card adm-sec">
-                <h3>History</h3>
+              <Section title="History">
                 <ol className="adm-tl">{e.activity.map((a) => (
                   <li key={a.id}><i className={a.kind === 'stage' || a.kind === 'admitted' ? 'st' : ''} /><div><b>{a.kind === 'created' ? 'Enquiry added' : a.kind === 'stage' ? 'Stage changed' : a.kind === 'admitted' ? 'Admitted' : KIND[a.kind]}</b>{a.note && <p>{a.note}</p>}<small>{fmtDT(a.created_at)}{a.by_name ? ` · ${a.by_name}` : ''}</small></div></li>))}</ol>
-              </section>
-              {can('delete_enquiry') && <button className="linkbtn" style={{ alignSelf: 'flex-start', color: 'var(--bad)' }} onClick={del}>Delete enquiry</button>}
+              </Section>
+              {can('delete_enquiry') && <div><Button kind="danger" size="sm" onClick={del}>Delete enquiry</Button></div>}
             </div>
           </>
         )}
       </aside>
-      {edit && meta && <Modal title="Edit enquiry" wide onClose={() => setEdit(null)}><EditForm e={edit} meta={meta} q={q} onDone={() => { setEdit(null); refresh(); }} /></Modal>}
-      {admit && e && meta && <Modal title={`Admit ${e.student_name}`} onClose={() => (done ? (setAdmit(false), onClose()) : setAdmit(false))}><AdmitForm e={e} meta={meta} q={q} done={done} setDone={setDone} onFinish={() => { setAdmit(false); setDone(null); onClose(); }} /></Modal>}
+      {edit && meta && <EditForm e={edit} meta={meta} q={q} onClose={() => setEdit(null)} onDone={() => { setEdit(null); refresh(); }} />}
+      {admit && e && meta && <AdmitForm e={e} meta={meta} q={q} done={done} setDone={setDone} onClose={() => (done ? (setAdmit(false), onClose()) : setAdmit(false))} onFinish={() => { setAdmit(false); setDone(null); onClose(); }} />}
     </div>
   );
 }
 
-function EditForm({ e, meta, q, onDone }) {
+function EditForm({ e, meta, q, onDone, onClose }) {
   const [f, setF] = useState({ ...blank(meta), ...Object.fromEntries(Object.entries(e).filter(([, v]) => v != null)) });
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const save = async (ev) => { ev.preventDefault(); setBusy(true); setErr(''); try { await api.patch(`/admissions/${e.id}${q}`, f); toast('Saved'); onDone(); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
-  return <form className="form" onSubmit={save}><EnquiryFields f={f} setF={setF} meta={{ ...meta, today: '' }} />{err && <div className="err full">{err}</div>}<button className="btn primary full big" disabled={busy} style={{ justifyContent: 'center' }}>{busy ? 'Saving...' : 'Save changes'}</button></form>;
+  const save = async () => { setBusy(true); setErr(''); try { await api.patch(`/admissions/${e.id}${q}`, f); toast('Saved'); onDone(); } catch (x) { setErr(x.message); setBusy(false); } };
+  return <FormDialog title="Edit enquiry" wide onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel="Save changes"><EnquiryFields f={f} setF={setF} meta={{ ...meta, today: '' }} /></FormDialog>;
 }
 
-function AdmitForm({ e, meta, q, done, setDone, onFinish }) {
+function AdmitForm({ e, meta, q, done, setDone, onFinish, onClose }) {
   const [classId, setClassId] = useState(e.class_id || ''); const [parent, setParent] = useState(true);
   const [pw, setPw] = useState(''); const [ppw, setPpw] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const submit = async (ev) => {
-    ev.preventDefault(); setBusy(true); setErr('');
+  const submit = async () => {
+    setBusy(true); setErr('');
     try { setDone(await api.post(`/admissions/${e.id}/admit${q}`, { class_id: classId, create_parent: parent, password: pw, parent_password: ppw })); toast('Student admitted'); }
     catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   if (done) {
     const text = `${e.student_name}\nAdmission no: ${done.student.admission_no}\nUser ID: ${done.student.login_id}\nPassword: ${done.student.password}${done.parent ? `\n\nParent user ID: ${done.parent.login_id}\nParent password: ${done.parent.password}` : ''}`;
     return (
-      <div className="stack">
-        <div className="notice ok"><b>{e.student_name}</b> is now a student (admission no. {done.student.admission_no}, roll no. {done.student.roll_no ?? '—'}). Share these sign-in details with the family — the passwords are shown only now.</div>
-        <pre className="adm-cred">{text}</pre>
-        <div className="row"><button className="btn" onClick={() => navigator.clipboard?.writeText(text).then(() => toast('Copied'))}>Copy details</button><button className="btn primary" onClick={onFinish}>Done</button></div>
-      </div>
+      <FormDialog title={`Admitted ${e.student_name}`} onClose={onClose} hideFooter>
+        <Notice tone="ok"><b>{e.student_name}</b> is now a student (admission no. {done.student.admission_no}, roll no. {done.student.roll_no ?? '—'}). Share these sign-in details with the family. The passwords are shown only now.</Notice>
+        <pre className="ds-code ds-pre">{text}</pre>
+        <div className="ds-inline"><Button onClick={() => navigator.clipboard?.writeText(text).then(() => toast('Copied'))}>Copy details</Button><Button kind="primary" onClick={onFinish}>Done</Button></div>
+      </FormDialog>
     );
   }
   return (
-    <form className="form" onSubmit={submit}>
-      <div className="full muted">Everything already entered for this enquiry is copied into the new student profile, with no duplicate typing.</div>
-      <div className="full"><Field label="Admit into class" req><select required value={classId} onChange={(ev) => setClassId(ev.target.value)}><option value="">Choose class</option>{meta.classes.map((c) => <option key={c.id} value={c.id}>Class {c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select></Field></div>
-      <label className="full adm-check"><input type="checkbox" checked={parent} onChange={(ev) => setParent(ev.target.checked)} /> Also create a parent login linked to this student</label>
-      <Field label="Student password" hint="Leave blank to generate one"><input value={pw} onChange={(ev) => setPw(ev.target.value)} autoComplete="off" /></Field>
-      {parent && <Field label="Parent password" hint="Leave blank to generate one"><input value={ppw} onChange={(ev) => setPpw(ev.target.value)} autoComplete="off" /></Field>}
-      {err && <div className="err full">{err}</div>}
-      <button className="btn primary full big" disabled={busy || !classId} style={{ justifyContent: 'center' }}>{busy ? 'Admitting...' : 'Confirm admission'}</button>
-    </form>
+    <FormDialog title={`Admit ${e.student_name}`} onClose={onClose} onSubmit={submit} busy={busy} error={err} submitLabel="Confirm admission" submitDisabled={!classId}>
+      <FormGrid>
+        <p className="ds-hint ds-full">Everything already entered for this enquiry is copied into the new student profile, with no duplicate typing.</p>
+        <Field full label="Admit into class" req><select required value={classId} onChange={(ev) => setClassId(ev.target.value)}><option value="">Choose class</option>{meta.classes.map((c) => <option key={c.id} value={c.id}>Class {c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select></Field>
+        <label className="ds-check ds-full"><input type="checkbox" checked={parent} onChange={(ev) => setParent(ev.target.checked)} /> Also create a parent login linked to this student</label>
+        <Field label="Student password" hint="Leave blank to generate one"><input value={pw} onChange={(ev) => setPw(ev.target.value)} autoComplete="off" /></Field>
+        {parent && <Field label="Parent password" hint="Leave blank to generate one"><input value={ppw} onChange={(ev) => setPpw(ev.target.value)} autoComplete="off" /></Field>}
+      </FormGrid>
+    </FormDialog>
   );
 }
 
 /* ============================================================ OVERVIEW */
+const Avatar = ({ name }) => <span className="avatar">{initials(name)}</span>;
+const Funnel = ({ rows, bar }) => rows.map((r) => <div key={r.key} className="adm-f"><div><b>{r.label}</b><span>{r.note}</span></div><Bar value={r.value} max={r.max} tone={r.tone} /></div>);
+
 export const AdmissionsHome = scoped(function AdmissionsHome({ me, sid, go }) {
   const { data: d, error } = useApi(`/admissions/summary${qs(sq(me, sid))}`, true, { keepPrevious: true });
   const [open, setOpen] = useState(null);
-  if (error) return <div className="err">{error}</div>;
-  if (!d) return <Loading />;
-  const growth = d.created.last ? `${d.created.this >= d.created.last ? '↑' : '↓'} ${Math.abs(pct(d.created.this - d.created.last, d.created.last))}% vs last month` : `${d.created.this} this month`;
-  const agrowth = d.admitted.last ? `${d.admitted.this >= d.admitted.last ? '↑' : '↓'} ${Math.abs(pct(d.admitted.this - d.admitted.last, d.admitted.last))}% vs last month` : `${d.admitted.this} this month`;
+  if (error) return <Page><Failed error={error} /></Page>;
+  if (!d) return <Page><Loading /></Page>;
+  const trend = (a, b) => (b ? `${a >= b ? '↑' : '↓'} ${Math.abs(pct(a - b, b))}% vs last month` : `${a} this month`);
   const f = d.funnel;
   return (
-    <div className="stack adm">
-      <div className="adm-kpis">
-        <div className="card adm-k"><span>Total enquiries</span><b>{d.total}</b><small className="up">{growth}</small></div>
-        <div className="card adm-k"><span>Follow-ups due today</span><b>{d.due_count}</b><small className={d.overdue_count ? 'warn' : 'up'}>{d.overdue_count ? `${d.overdue_count} overdue` : 'Nothing overdue'}</small></div>
-        <div className="card adm-k"><span>Applications in progress</span><b>{d.in_progress}</b><small>{d.awaiting_docs} awaiting documents</small></div>
-        <div className="card adm-k"><span>Confirmed admissions</span><b>{d.by_stage.admitted}</b><small className="up">{agrowth}</small></div>
-      </div>
+    <Page>
+      <PageBar title="Admissions" sub="Overview of enquiries and follow-ups">{me.features.includes('view_enquiries') && <Button onClick={() => go('list')}>All enquiries</Button>}</PageBar>
+      <KpiGrid>
+        <Kpi label="Total enquiries" value={d.total} sub={trend(d.created.this, d.created.last)} />
+        <Kpi label="Follow-ups due today" value={d.due_count} tone={d.overdue_count ? 'warn' : undefined} sub={d.overdue_count ? `${d.overdue_count} overdue` : 'Nothing overdue'} />
+        <Kpi label="Applications in progress" value={d.in_progress} sub={`${d.awaiting_docs} awaiting documents`} />
+        <Kpi label="Confirmed admissions" value={d.by_stage.admitted} tone="ok" sub={trend(d.admitted.this, d.admitted.last)} />
+      </KpiGrid>
       <div className="adm-grid">
-        <section className="card" style={{ padding: 0 }}>
-          <div className="adm-ch"><h3>Follow-ups to do</h3>{me.features.includes('view_enquiries') && <button className="linkbtn" onClick={() => go('list')}>All enquiries</button>}</div>
-          {d.due.length === 0 ? <div style={{ padding: '4px 18px 18px' }}><Empty>You are all caught up. No follow-ups are due.</Empty></div> : d.due.map((e) => (
-            <button key={e.id} className="drow" onClick={() => setOpen(e.id)}>
-              <div className="avatar">{initials(e.student_name)}</div>
-              <div style={{ flex: 1, minWidth: 0 }}><b>{e.student_name}</b><small>{e.class_name ? `Class ${e.class_name}` : 'Class not set'}{e.assigned_name ? ` · ${e.assigned_name}` : ''}{e.note ? ` · ${e.note.slice(0, 60)}` : ''}</small></div>
-              <DueChip e={e} today={d.today} />
-            </button>))}
-        </section>
-        <section className="card">
-          <h3 className="adm-h">Conversion funnel</h3>
-          {f.map((s, i) => <div key={s.key} className="adm-f"><div><b>{s.label}</b><span>{s.n}{i > 0 && ` · ${pct(s.n, f[i - 1].n)}%`}</span></div><Bar value={s.n} max={f[0].n || 1} tone={s.key === 'admitted' ? 'ok' : ''} /></div>)}
-          <h3 className="adm-h" style={{ marginTop: 22 }}>Source performance</h3>
-          {d.sources.length === 0 ? <Empty>No data yet.</Empty> : d.sources.slice(0, 5).map((s) => <div key={s.source} className="adm-f"><div><b>{SRC[s.source]}</b><span>{s.total} · {pct(s.admitted, s.total)}% admitted</span></div><Bar value={s.admitted} max={s.total} /></div>)}
-        </section>
+        <Section title="Follow-ups to do" flush>
+          {d.due.length === 0 ? <EmptyState icon="check" title="All caught up">No follow-ups are due.</EmptyState> : (
+            <List>{d.due.map((e) => (
+              <ListRow key={e.id} onClick={() => setOpen(e.id)} lead={<Avatar name={e.student_name} />} title={e.student_name}
+                sub={`${e.class_name ? `Class ${e.class_name}` : 'Class not set'}${e.assigned_name ? ` · ${e.assigned_name}` : ''}${e.note ? ` · ${e.note.slice(0, 60)}` : ''}`}
+                meta={<DueChip e={e} today={d.today} />} />
+            ))}</List>
+          )}
+        </Section>
+        <div className="ds-stack">
+          <Section title="Conversion funnel">
+            <Funnel rows={f.map((x, i) => ({ key: x.key, label: x.label, note: `${x.n}${i > 0 ? ` · ${pct(x.n, f[i - 1].n)}%` : ''}`, value: x.n, max: f[0].n || 1, tone: x.key === 'admitted' ? 'ok' : '' }))} />
+          </Section>
+          <Section title="Source performance">
+            {d.sources.length === 0 ? <EmptyState icon="sparkle" title="No data yet" /> : <Funnel rows={d.sources.slice(0, 5).map((x) => ({ key: x.source, label: SRC[x.source], note: `${x.total} · ${pct(x.admitted, x.total)}% admitted`, value: x.admitted, max: x.total }))} />}
+          </Section>
+        </div>
       </div>
       {open && <EnquiryDrawer id={open} me={me} sid={sid} onClose={() => setOpen(null)} />}
-    </div>
+    </Page>
   );
 });
 
@@ -275,29 +283,31 @@ export const EnquiryList = scoped(function EnquiryList({ me, sid }) {
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'admission-enquiries.csv'; a.click();
   };
+  const filtered = dq || source || cls || view !== 'all';
   return (
-    <div className="stack adm">
-      <div className="ds-toolbar">
-        <SearchInput value={q} onChange={setQ} placeholder="Search student, parent or phone" />
-        <select aria-label="Class" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">All classes</option>{(meta?.classes || []).map((c) => <option key={c.id} value={c.id}>Class {c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
-        <select aria-label="Source" value={source} onChange={(e) => setSource(e.target.value)}><option value="">All sources</option>{Object.entries(SRC).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-        {d?.rows.length > 0 && <button className="btn" onClick={exportCsv}><Icon name="download" size={17} /> Export</button>}
-      </div>
-      <div className="pills adm-views">{VIEWS.map(([k, l]) => <button key={k} className={`pill ${view === k ? 'on' : ''}`} onClick={() => setView(k)}>{l}</button>)}</div>
-      {error ? <div className="err">{error}</div> : !d ? <Loading /> : d.rows.length === 0 ? <Empty>{dq || source || cls || view !== 'all' ? 'No enquiries match these filters.' : 'No enquiries yet. Add the first one to start tracking admissions.'}</Empty> : (
-        <div className="card" style={{ padding: 0 }}>
-          <div className="adm-count">{d.total} enquir{d.total === 1 ? 'y' : 'ies'}{d.total > d.rows.length ? ` (showing latest ${d.rows.length})` : ''}</div>
-          {d.rows.map((e) => (
-            <button key={e.id} className="drow adm-row" onClick={() => setOpen(e.id)}>
-              <div className="avatar">{initials(e.student_name)}</div>
-              <div className="adm-main"><b>{e.student_name}</b><small>{classText(e)} · {SRC[e.source]}</small></div>
-              <div className="adm-par hide-sm"><span>{e.parent_name || '—'}</span><small>{e.phone}</small></div>
-              <div className="adm-st"><StageBadge stage={e.stage} /><DueChip e={e} today={d.today} /></div>
-              <Icon name="chevron" size={18} />
-            </button>))}
-        </div>)}
+    <Page>
+      <PageBar title="Enquiries" sub={d ? `${d.total} enquir${d.total === 1 ? 'y' : 'ies'}${d.total > d.rows.length ? `, showing latest ${d.rows.length}` : ''}` : undefined}>
+        {d?.rows.length > 0 && <Button icon="download" onClick={exportCsv}>Export</Button>}
+      </PageBar>
+      <FilterBar q={q} onQ={setQ} placeholder="Search student, parent or phone" count={d?.rows.length}
+        filters={[
+          { key: 'view', label: 'Show', value: view === 'all' ? '' : view, onChange: (v) => setView(v || 'all'), options: VIEWS.filter((v) => v[0] !== 'all').map(([k, l]) => ({ value: k, label: l })), all: 'All enquiries', chip: (v) => VIEWS.find((x) => x[0] === v)?.[1] },
+          { key: 'cls', label: 'Class', value: cls, onChange: setCls, options: (meta?.classes || []).map((c) => ({ value: c.id, label: `Class ${c.name}${c.section ? ` ${c.section}` : ''}` })), all: 'All classes' },
+          { key: 'source', label: 'Source', value: source, onChange: setSource, options: Object.entries(SRC).map(([k, v]) => ({ value: k, label: v })), all: 'All sources' },
+        ]} />
+      {error ? <Failed error={error} /> : !d ? <Loading /> : d.rows.length === 0 ? (
+        <EmptyState icon="userplus" title={filtered ? 'No enquiries match these filters' : 'No enquiries yet'}>{filtered ? '' : 'Add the first one to start tracking admissions.'}</EmptyState>
+      ) : (
+        <Section flush>
+          <List>{d.rows.map((e) => (
+            <ListRow key={e.id} onClick={() => setOpen(e.id)} lead={<Avatar name={e.student_name} />} title={e.student_name}
+              sub={`${classText(e)} · ${SRC[e.source]}${e.parent_name ? ` · ${e.parent_name}` : ''}${e.phone ? ` · ${e.phone}` : ''}`}
+              meta={<><StageBadge stage={e.stage} /><DueChip e={e} today={d.today} /></>} />
+          ))}</List>
+        </Section>
+      )}
       {open && <EnquiryDrawer id={open} me={me} sid={sid} onClose={() => setOpen(null)} />}
-    </div>
+    </Page>
   );
 });
 
@@ -308,13 +318,12 @@ export const Pipeline = scoped(function Pipeline({ me, sid }) {
   const [q, setQ] = useState(''); const [cls, setCls] = useState(''); const [open, setOpen] = useState(null);
   const { data: d, error } = useApi(`/admissions${qs({ ...sq(me, sid), class_id: cls })}`, true, { keepPrevious: true });
   const rows = useMemo(() => (d?.rows || []).filter((e) => !q || `${e.student_name} ${e.parent_name || ''} ${e.phone || ''}`.toLowerCase().includes(q.toLowerCase())), [d, q]);
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Page><Failed error={error} /></Page>;
   return (
-    <div className="stack adm">
-      <div className="ds-toolbar">
-        <div className="adm-search"><Icon name="search" size={18} /><input placeholder="Search in pipeline" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <select aria-label="Class" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">All classes</option>{(meta?.classes || []).map((c) => <option key={c.id} value={c.id}>Class {c.name}{c.section ? ` ${c.section}` : ''}</option>)}</select>
-      </div>
+    <Page>
+      <PageBar title="Pipeline" sub="Enquiries by stage" />
+      <FilterBar q={q} onQ={setQ} placeholder="Search in pipeline"
+        filters={[{ key: 'cls', label: 'Class', value: cls, onChange: setCls, options: (meta?.classes || []).map((c) => ({ value: c.id, label: `Class ${c.name}${c.section ? ` ${c.section}` : ''}` })), all: 'All classes' }]} />
       {!d ? <Loading /> : (
         <div className="adm-board">
           {COLS.map(([key, label, stages]) => {
@@ -334,39 +343,35 @@ export const Pipeline = scoped(function Pipeline({ me, sid }) {
           })}
         </div>)}
       {open && <EnquiryDrawer id={open} me={me} sid={sid} onClose={() => setOpen(null)} />}
-    </div>
+    </Page>
   );
 });
 
 /* ============================================================ REPORTS */
 export const AdmissionReports = scoped(function AdmissionReports({ me, sid }) {
   const { data: d, error } = useApi(`/admissions/summary${qs(sq(me, sid))}`, true, { keepPrevious: true });
-  if (error) return <div className="err">{error}</div>;
-  if (!d) return <Loading />;
+  if (error) return <Page><Failed error={error} /></Page>;
+  if (!d) return <Page><Loading /></Page>;
   const f = d.funnel;
   return (
-    <div className="stack adm">
+    <Page>
+      <PageBar title="Admission reports" sub="Where enquiries come from and where they drop off" />
       <div className="adm-grid">
-        <section className="card">
-          <h3 className="adm-h">Enquiry to admission</h3>
-          {f.map((s, i) => <div key={s.key} className="adm-f"><div><b>{s.label}</b><span>{s.n}{i > 0 ? ` · ${pct(s.n, f[i - 1].n)}% of previous` : ''}</span></div><Bar value={s.n} max={f[0].n || 1} tone={s.key === 'admitted' ? 'ok' : ''} /></div>)}
-          <p className="muted" style={{ marginTop: 14 }}>Overall conversion: <b>{pct(f[3].n, f[0].n)}%</b> of enquiries become admissions.</p>
-        </section>
-        <section className="card">
-          <h3 className="adm-h">Drop-off reasons</h3>
-          {d.drop_reasons.length === 0 ? <Empty>No rejected enquiries yet.</Empty> : d.drop_reasons.map((r) => <div key={r.reason} className="adm-f"><div><b>{r.reason}</b><span>{r.n}</span></div><Bar value={r.n} max={d.drop_reasons[0].n} tone="bad" /></div>)}
-        </section>
+        <Section title="Enquiry to admission" sub={`Overall conversion: ${pct(f[3].n, f[0].n)}% of enquiries become admissions.`}>
+          <Funnel rows={f.map((x, i) => ({ key: x.key, label: x.label, note: `${x.n}${i > 0 ? ` · ${pct(x.n, f[i - 1].n)}% of previous` : ''}`, value: x.n, max: f[0].n || 1, tone: x.key === 'admitted' ? 'ok' : '' }))} />
+        </Section>
+        <Section title="Drop-off reasons">
+          {d.drop_reasons.length === 0 ? <EmptyState icon="check" title="No rejected enquiries yet" /> : <Funnel rows={d.drop_reasons.map((r) => ({ key: r.reason, label: r.reason, note: r.n, value: r.n, max: d.drop_reasons[0].n, tone: 'bad' }))} />}
+        </Section>
       </div>
       <div className="adm-grid">
-        <section className="card">
-          <h3 className="adm-h">Source performance</h3>
-          {d.sources.length === 0 ? <Empty>No data yet.</Empty> : d.sources.map((s) => <div key={s.source} className="adm-f"><div><b>{SRC[s.source]}</b><span>{s.admitted} of {s.total} · {pct(s.admitted, s.total)}%</span></div><Bar value={s.admitted} max={s.total} /></div>)}
-        </section>
-        <section className="card">
-          <h3 className="adm-h">Locality analysis</h3>
-          {d.localities.length === 0 ? <Empty>Add a locality on enquiries to see where families come from.</Empty> : d.localities.map((l) => <div key={l.locality} className="adm-f"><div><b>{l.locality}</b><span>{l.total} enquiries · {l.admitted} admitted</span></div><Bar value={l.total} max={d.localities[0].total} /></div>)}
-        </section>
+        <Section title="Source performance">
+          {d.sources.length === 0 ? <EmptyState icon="sparkle" title="No data yet" /> : <Funnel rows={d.sources.map((x) => ({ key: x.source, label: SRC[x.source], note: `${x.admitted} of ${x.total} · ${pct(x.admitted, x.total)}%`, value: x.admitted, max: x.total }))} />}
+        </Section>
+        <Section title="Locality analysis">
+          {d.localities.length === 0 ? <EmptyState icon="pin" title="No localities yet">Add a locality on enquiries to see where families come from.</EmptyState> : <Funnel rows={d.localities.map((l) => ({ key: l.locality, label: l.locality, note: `${l.total} enquiries · ${l.admitted} admitted`, value: l.total, max: d.localities[0].total }))} />}
+        </Section>
       </div>
-    </div>
+    </Page>
   );
 });

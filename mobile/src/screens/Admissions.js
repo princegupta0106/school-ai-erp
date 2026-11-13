@@ -5,6 +5,7 @@ import { api } from '../api';
 import { C, SH, fmt, initials } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Field, Input, Choice, Check, Sheet, DateField, toast, confirmAsk } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
 import { scoped, qs, Pad, Notice } from './Attendance';
 
@@ -263,11 +264,11 @@ export const EnquiryList = scoped(function EnquiryList({ me, sc }) {
   const { data: d, error, loading, reload } = useApi(`/admissions${qs({ ...sc, ...VIEWS.find((v) => v[0] === view)[2], q: dq, class_id: cls })}`);
   return (
     <Pad reload={reload} loading={loading} hasData>
-      <Input placeholder="Search student, parent or phone" value={q} onChangeText={setQ} />
-      <View style={{ height: 10 }} />
-      <Choice value={view} onChange={setView} options={VIEWS.map(([value, label]) => ({ value, label }))} />
-      {!!meta && meta.classes.length > 1 && <><View style={{ height: 8 }} /><Choice value={cls} onChange={setCls} options={[{ value: '', label: 'All classes' }, ...meta.classes.map((c) => ({ value: c.id, label: `Class ${c.name}${c.section ? ` ${c.section}` : ''}` }))]} /></>}
-      <View style={{ height: 12 }} />
+      <FilterBar inline q={q} onQ={setQ} placeholder="Search student, parent or phone" count={d?.rows.length}
+        filters={[
+          { key: 'view', label: 'Show', value: view === 'all' ? '' : view, onChange: (v) => setView(v || 'all'), all: 'All enquiries', options: VIEWS.filter((v) => v[0] !== 'all').map(([value, label]) => ({ value, label })), chip: (v) => VIEWS.find((x) => x[0] === v)?.[1] },
+          !!meta && meta.classes.length > 1 && { key: 'cls', label: 'Class', value: cls, onChange: setCls, all: 'All classes', options: meta.classes.map((c) => ({ value: c.id, label: `Class ${c.name}${c.section ? ` ${c.section}` : ''}` })) },
+        ].filter(Boolean)} />
       {error && !d ? <ErrorBox>{error}</ErrorBox> : !d ? <Loading /> : d.rows.length === 0 ? <Empty>{dq || cls || view !== 'all' ? 'No enquiries match these filters.' : 'No enquiries yet. Add the first one to start tracking admissions.'}</Empty> : (
         <>
           <Dim style={{ marginBottom: 8 }}>{d.total} enquir{d.total === 1 ? 'y' : 'ies'}</Dim>

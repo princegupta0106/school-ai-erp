@@ -1,21 +1,20 @@
 // Homework module for mobile. Mirrors client/src/modules/HomeworkModule.jsx (same endpoints and rules).
 import React, { useState } from 'react';
-import { View, Text, Pressable, Linking, Modal as RNModal, ScrollView } from 'react-native';
+import { View, Text, Pressable, Linking } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../api';
-import { C, fmt, ymd, dateTime, live } from '../theme';
+import { C, T, fmt, ymd, dateTime } from '../theme';
 import { Icon } from '../icons';
-import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Field, DateField, toast, confirmAsk, Notifier } from '../ui';
+import { Dim, Loading, Btn, Choice, Input, Field, DateField, toast, confirmAsk } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
-import { scoped, qs, Pad, List } from './Attendance';
+import { scoped, qs, Pad, Notice, List, Row, PageHeader, Section, StatusChip, EmptyState, FormSheet } from '../kit';
 
 const base = '/homework';
 const clsName = (c) => (c ? `${c.name}${c.section ? ` ${c.section}` : ''}` : '');
 const size = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const TONE = live(() => ({ ok: [C.ok, C.okBg], warn: [C.warn, C.warnBg], info: [C.info, C.infoBg], off: [C.mute, C.muteBg], bad: [C.bad, C.badBg], brand: [C.brand, C.soft] }));
-const Chip = ({ children, tone = 'off' }) => <Text style={{ fontSize: 11, fontWeight: '700', color: TONE[tone][0], backgroundColor: TONE[tone][1], paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>{children}</Text>;
-const Chips = ({ children }) => <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>{children}</View>;
+// a tone word -> shared StatusChip (the old 'off' grey is now 'mute')
+const Chip = ({ children, tone = 'mute' }) => <StatusChip tone={tone === 'off' ? 'mute' : tone === 'brand' ? 'info' : tone}>{children}</StatusChip>;
 
 // file types the server accepts
 const MIME = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', txt: 'text/plain', doc: 'application/msword', xls: 'application/vnd.ms-excel', ppt: 'application/vnd.ms-powerpoint',
@@ -25,10 +24,10 @@ const mimeOf = (a) => (a.mimeType && a.mimeType !== 'application/octet-stream' ?
 
 // links to files (open in the phone's browser / viewer)
 const Files = ({ list }) => (!list?.length ? null : (
-  <View style={{ gap: 6, marginBottom: 10 }}>
+  <View style={{ gap: T.sp[2], marginBottom: T.sp[3] }}>
     {list.map((f) => (
-      <Pressable key={f.id} onPress={() => Linking.openURL(f.url).catch(() => toast('Could not open this file', true))} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: C.soft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, maxWidth: '100%' }}>
-        <Icon name="download" size={15} color={C.brand} /><Text style={{ color: C.brand, fontWeight: '600', flexShrink: 1 }} numberOfLines={1}>{f.name}</Text><Text style={{ color: C.mute, fontSize: 12 }}>({size(f.size)})</Text>
+      <Pressable key={f.id} onPress={() => Linking.openURL(f.url).catch(() => toast('Could not open this file', true))} style={{ flexDirection: 'row', alignItems: 'center', gap: T.sp[2], alignSelf: 'flex-start', minHeight: T.ctl, backgroundColor: C.soft, borderRadius: T.rad.sm, paddingHorizontal: T.sp[3], maxWidth: '100%' }}>
+        <Icon name="download" size={15} color={C.brand} /><Text style={{ color: C.brand, fontSize: T.fs.sm, fontWeight: T.fw.semi, flexShrink: 1 }} numberOfLines={1}>{f.name}</Text><Text style={{ color: C.mute, fontSize: T.fs.xs }}>({size(f.size)})</Text>
       </Pressable>))}
   </View>
 ));
@@ -45,11 +44,11 @@ function FilePick({ files, setFiles }) {
     } catch (x) { toast(x.message, true); }
   };
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: T.sp[2] }}>
       {files.map((f, i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
-          <Icon name="file" size={16} color={C.mute} /><Text style={{ flex: 1, color: C.ink }} numberOfLines={1}>{f.name} <Text style={{ color: C.mute, fontSize: 12 }}>({size(f.size)})</Text></Text>
-          <Pressable hitSlop={8} onPress={() => setFiles(files.filter((_, j) => j !== i))}><Icon name="x" size={16} color={C.bad} /></Pressable>
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: T.sp[2], backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: T.rad.sm, paddingLeft: T.sp[3] }}>
+          <Icon name="file" size={16} color={C.mute} /><Text style={{ flex: 1, color: C.ink, fontSize: T.fs.sm }} numberOfLines={1}>{f.name} <Text style={{ color: C.mute, fontSize: T.fs.xs }}>({size(f.size)})</Text></Text>
+          <Pressable hitSlop={8} accessibilityLabel={`Remove ${f.name}`} onPress={() => setFiles(files.filter((_, j) => j !== i))} style={{ width: T.ctl, height: T.ctl, alignItems: 'center', justifyContent: 'center' }}><Icon name="x" size={16} color={C.bad} /></Pressable>
         </View>))}
       <View style={{ alignSelf: 'flex-start' }}><Btn small kind="ghost" title={files.length ? 'Add another file' : 'Choose files'} onPress={add} disabled={files.length >= 5} /></View>
       <Dim>Up to 5 files, 10 MB each (PDF, photo, Word, Excel, PowerPoint, text)</Dim>
@@ -72,25 +71,23 @@ function NewAssignment({ sc, onClose, onSaved }) {
   const save = async () => {
     setBusy(true); setErr('');
     try { await api.post(`${base}/assignments`, toForm({ ...f, ...sc }, files)); toast('Posted'); onSaved(); onClose(); }
-    catch (x) { setErr(x.message); } finally { setBusy(false); }
+    catch (x) { setErr(x.message); setBusy(false); }
   };
   return (
-    <Sheet title="New homework / file" onClose={onClose}>
-      <Choice value={f.needs_submission ? 'a' : 's'} onChange={(v) => set('needs_submission')(v === 'a')} options={[{ value: 'a', label: 'Assignment (students submit)' }, { value: 's', label: 'Study file (read only)' }]} /><Gap />
+    <FormSheet title="New homework / file" onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel="Post" submitDisabled={!f.class_id || !f.title.trim()}>
+      <Field label="Type"><Choice value={f.needs_submission ? 'a' : 's'} onChange={(v) => set('needs_submission')(v === 'a')} options={[{ value: 'a', label: 'Assignment (students submit)' }, { value: 's', label: 'Study file (read only)' }]} /></Field>
       <Field req label="Class">{!classes ? <Dim>Loading classes...</Dim> : classes.length === 0 ? <Dim>No classes are assigned to you.</Dim> : <Choice value={f.class_id} onChange={set('class_id')} options={classes.map((c) => ({ value: c.id, label: clsName(c) }))} />}</Field>
       <Field req label="Title"><Input maxLength={150} value={f.title} onChangeText={set('title')} placeholder="e.g. Chapter 4 exercise" /></Field>
       <Field label="Subject (optional)"><Input maxLength={60} value={f.subject} onChangeText={set('subject')} placeholder="e.g. Maths" /></Field>
       <Field label="Instructions"><Input multiline style={{ minHeight: 100 }} maxLength={5000} value={f.description} onChangeText={set('description')} placeholder="What should students do?" /></Field>
       {f.needs_submission && <Field label="Last date to submit (optional)">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: T.sp[3] }}>
           <View style={{ flex: 1 }}>{f.due_date ? <DateField value={f.due_date} min={ymd(new Date())} onChange={set('due_date')} /> : <Btn small kind="ghost" title="Set last date" onPress={() => set('due_date')(ymd(new Date()))} />}</View>
           {f.due_date ? <Btn small kind="ghost" title="Clear" onPress={() => set('due_date')('')} /> : null}
         </View>
       </Field>}
       <Field label="Attach files (optional)"><FilePick files={files} setFiles={setFiles} /></Field>
-      <ErrorBox>{err}</ErrorBox>
-      <Btn title={busy ? 'Uploading...' : 'Post'} onPress={save} disabled={busy || !f.class_id || !f.title.trim()} />
-    </Sheet>
+    </FormSheet>
   );
 }
 
@@ -105,16 +102,16 @@ function CheckRow({ sc, s, last, onSaved }) {
   };
   return (
     <View style={{ borderBottomWidth: last ? 0 : 1, borderColor: C.line }}>
-      <Pressable disabled={!sub} onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 }}>
+      <Row last onPress={sub ? () => setOpen(!open) : undefined}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '600', color: C.ink }}>{s.roll_no ? `${s.roll_no}. ` : ''}{s.name}</Text>
+          <Text style={{ fontSize: T.fs.md, fontWeight: T.fw.semi, color: C.ink }}>{s.roll_no ? `${s.roll_no}. ` : ''}{s.name}</Text>
           {sub ? <Dim>Submitted {dateTime(sub.submitted_at)}{sub.is_late ? ' (late)' : ''}{sub.marks ? ` · ${sub.marks}` : ''}</Dim> : null}
         </View>
-        {!sub ? <Chip>Not submitted</Chip> : sub.status === 'checked' ? <Chip tone="ok">Checked</Chip> : <Chip tone="warn">To check</Chip>}
-      </Pressable>
+        {!sub ? <Chip tone="bad">Not submitted</Chip> : sub.status === 'checked' ? <Chip tone="ok">Checked</Chip> : <Chip tone="warn">To check</Chip>}
+      </Row>
       {open && sub && (
-        <View style={{ paddingHorizontal: 12, paddingBottom: 14 }}>
-          {sub.note ? <Text style={{ color: C.ink, marginBottom: 10 }}>{sub.note}</Text> : null}
+        <View style={{ paddingHorizontal: T.sp[3], paddingBottom: T.sp[4] }}>
+          {sub.note ? <Text style={{ color: C.ink, fontSize: T.fs.md, marginBottom: T.sp[3] }}>{sub.note}</Text> : null}
           <Files list={sub.files} />
           <Field label="Marks / grade"><Input maxLength={30} value={marks} onChangeText={setMarks} placeholder="e.g. 8/10" /></Field>
           <Field label="Remark for the student"><Input multiline maxLength={2000} value={feedback} onChangeText={setFeedback} placeholder="Well done / please redo question 3..." /></Field>
@@ -128,95 +125,61 @@ function Submissions({ sc, a, onClose, onDelete }) {
   const { data: d, error, reload } = useApi(`${base}/assignments/${a.id}/submissions${qs(sc)}`);
   const list = d?.students || [];
   return (
-    <Sheet title={a.title} onClose={onClose}>
-      <ErrorBox>{error}</ErrorBox>
-      {!d ? (error ? null : <Loading />) : (<>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          <Chip tone="brand">{clsName(d.assignment.classes)}</Chip>
+    <FormSheet title={a.title} onClose={onClose} hideFooter>
+      {!!error && <Notice tone="bad">{error}</Notice>}
+      {!d ? (error ? <Btn small kind="ghost" title="Retry" onPress={reload} /> : <Loading />) : (<>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: T.sp[2], marginBottom: T.sp[3] }}>
+          <Chip tone="info">{clsName(d.assignment.classes)}</Chip>
           {d.assignment.subject ? <Chip>{d.assignment.subject}</Chip> : null}
-          {d.assignment.due_date ? <Chip>Due {fmt(d.assignment.due_date)}</Chip> : null}
+          {d.assignment.due_date ? <Chip>{`Due ${fmt(d.assignment.due_date)}`}</Chip> : null}
         </View>
-        {d.assignment.description ? <Text style={{ color: C.ink, marginBottom: 12 }}>{d.assignment.description}</Text> : null}
+        {d.assignment.description ? <Text style={{ color: C.ink, fontSize: T.fs.md, marginBottom: T.sp[3] }}>{d.assignment.description}</Text> : null}
         <Files list={d.assignment.attachments} />
         {d.assignment.needs_submission ? (
-          list.length === 0 ? <Empty>No students in this class.</Empty> : <List>{list.map((s, i) => <CheckRow key={s.student_id} sc={sc} s={s} last={i === list.length - 1} onSaved={reload} />)}</List>
+          <Section title="Submissions" flush>{list.length === 0 ? <EmptyState icon="users" title="No students in this class" /> : list.map((s, i) => <CheckRow key={s.student_id} sc={sc} s={s} last={i === list.length - 1} onSaved={reload} />)}</Section>
         ) : <Dim>This is a study file - students can read it, nothing to submit.</Dim>}
-        <Gap h={18} /><Btn kind="ghost" title="Delete this homework" onPress={onDelete} />
+        <View style={{ marginTop: T.sp[4] }}><Btn kind="danger" title="Delete this homework" onPress={onDelete} /></View>
       </>)}
-    </Sheet>
+    </FormSheet>
   );
 }
-
-
-// small bottom list used by the filters
-function PickList({ title, all, options, value, onPick, onClose }) {
-  return (
-    <RNModal transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' }} onPress={onClose}>
-        <Pressable onPress={() => {}} style={{ backgroundColor: C.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 10, paddingBottom: 26, maxHeight: '65%' }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: C.line, marginBottom: 10 }} />
-          <Text style={{ fontWeight: '800', fontSize: 16, color: C.ink, paddingHorizontal: 18, marginBottom: 6 }}>{title}</Text>
-          <ScrollView>
-            {[['', all], ...options.map((o) => [o, o])].map(([v, l]) => (
-              <Pressable key={v || 'all'} onPress={() => { onPick(v); onClose(); }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: pressed ? C.muteBg : 'transparent' })}>
-                <Text style={{ flex: 1, color: C.ink, fontSize: 15.5, fontWeight: value === v ? '800' : '500' }}>{l}</Text>
-                {value === v ? <Text style={{ color: C.brand, fontWeight: '800', fontSize: 16 }}>✓</Text> : null}
-              </Pressable>))}
-          </ScrollView>
-        </Pressable>
-        <Notifier />
-      </Pressable>
-    </RNModal>
-  );
-}
-const FilterChip = ({ label, on, onPress }) => (
-  <Pressable onPress={onPress} style={{ flex: 1, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: on ? C.brand : C.line, backgroundColor: on ? C.soft : C.card, alignItems: 'center' }}>
-    <Text style={{ color: on ? C.brand : C.ink, fontWeight: on ? '800' : '600', fontSize: 13.5 }} numberOfLines={1}>{label}</Text>
-  </Pressable>
-);
 
 export const Homework = scoped(function Homework({ sc }) {
   const { data: list, error, loading, reload } = useApi(`${base}/assignments${qs(sc)}`);
-  const [form, setForm] = useState(false); const [open, setOpen] = useState(null); const [fc, setFc] = useState(''); const [fs, setFs] = useState(''); const [chk, setChk] = useState(''); const [pick, setPick] = useState(null);
+  const [form, setForm] = useState(false); const [open, setOpen] = useState(null); const [fc, setFc] = useState(''); const [fs, setFs] = useState(''); const [chk, setChk] = useState(''); const [hq, setHq] = useState(''); const [hsort, setHsort] = useState('new');
   const del = (a) => confirmAsk(`Delete "${a.title}"? Student submissions will be deleted too.`, async () => {
     try { await api.del(`${base}/assignments/${a.id}${qs(sc)}`); toast('Deleted'); reload(); } catch (x) { toast(x.message, true); }
   });
-  if (error && !list) return <Pad><ErrorBox>{error}</ErrorBox></Pad>;
+  if (error && !list) return <Pad><Notice tone="bad">{error}</Notice><Btn small kind="ghost" title="Retry" onPress={reload} /></Pad>;
   if (!list) return <Pad><Loading /></Pad>;
   const classes = [...new Set(list.map((x) => clsName(x.classes)).filter(Boolean))]; const subjects = [...new Set(list.map((x) => x.subject).filter(Boolean))];
-  const shown = list.filter((x) => (!fc || clsName(x.classes) === fc) && (!fs || x.subject === fs) && (!chk || x.to_check > 0));
+  const shown = list.filter((x) => (!fc || clsName(x.classes) === fc) && (!fs || x.subject === fs) && (!chk || x.to_check > 0) && (!hq.trim() || String(x.title || '').toLowerCase().includes(hq.trim().toLowerCase())))
+    .sort((a, b) => hsort === 'old' ? String(a.created_at).localeCompare(String(b.created_at)) : hsort === 'title' ? String(a.title).localeCompare(String(b.title)) : String(b.created_at).localeCompare(String(a.created_at)));
   return (
     <Pad reload={reload} loading={loading} hasData>
-      <Btn title="+ New homework / file" onPress={() => setForm(true)} /><Gap />
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <FilterChip label={fc || 'All classes'} on={!!fc} onPress={() => setPick('class')} />
-        <FilterChip label={fs || 'All subjects'} on={!!fs} onPress={() => setPick('subject')} />
-        <FilterChip label={chk || 'All status'} on={!!chk} onPress={() => setPick('status')} />
-      </View><Gap />
-      {shown.length === 0 ? <Empty>{list.length ? 'No homework matches these filters.' : 'Nothing posted yet.'}</Empty> : (
-        <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, overflow: 'hidden' }}>
-          {shown.map((a, i) => {
-            const pct = a.total_students ? Math.round((a.submitted / a.total_students) * 100) : 0;
-            return (
-              <Pressable key={a.id} onPress={() => setOpen(a)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderTopWidth: i ? 1 : 0, borderColor: C.line, backgroundColor: pressed ? C.muteBg : 'transparent' })}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15.5, fontWeight: '700', color: C.ink }} numberOfLines={1}>{a.title}</Text>
-                  <Text style={{ color: C.mute, fontSize: 12.5, marginTop: 2 }} numberOfLines={1}>Posted {dateTime(a.created_at)}</Text>
-                </View>
-                {a.needs_submission ? (
-                  <View style={{ alignItems: 'flex-end', width: 84, gap: 5 }}>
-                    <Text style={{ fontWeight: '800', color: C.ink }}>{a.submitted}<Text style={{ color: C.mute, fontWeight: '600' }}>/{a.total_students}</Text></Text>
-                    <View style={{ height: 5, alignSelf: 'stretch', borderRadius: 3, backgroundColor: C.line, overflow: 'hidden' }}><View style={{ width: `${pct}%`, height: '100%', backgroundColor: C.brand }} /></View>
-                    {a.to_check > 0 ? <Text style={{ fontSize: 11.5, fontWeight: '700', color: C.warn }}>{a.to_check} to check</Text> : null}
-                  </View>
-                ) : <Chip tone="info">Study file</Chip>}
-                <Text style={{ color: C.hint, fontSize: 20, marginTop: -2 }}>›</Text>
-              </Pressable>);
-          })}
-        </View>)}
-      {pick === 'class' && <PickList title="Class" all="All classes" options={classes} value={fc} onPick={setFc} onClose={() => setPick(null)} />}
-      {pick === 'subject' && <PickList title="Subject" all="All subjects" options={subjects} value={fs} onPick={setFs} onClose={() => setPick(null)} />}
-      {pick === 'status' && <PickList title="Status" all="All status" options={['To check']} value={chk} onPick={setChk} onClose={() => setPick(null)} />}
+      <PageHeader title="Homework" sub={`${list.length} posted`} right={<Btn small title="New homework / file" onPress={() => setForm(true)} />} />
+      <FilterBar inline q={hq} onQ={setHq} placeholder="Search homework" count={shown.length}
+        filters={[
+          { key: 'c', label: 'Class', value: fc, onChange: setFc, all: 'All classes', options: classes },
+          { key: 's', label: 'Subject', value: fs, onChange: setFs, all: 'All subjects', options: subjects },
+          { key: 'k', label: 'Status', value: chk, onChange: setChk, all: 'All status', options: ['To check'] },
+        ]}
+        sort={{ value: hsort, onChange: setHsort, def: 'new', options: [{ value: 'new', label: 'Newest first' }, { value: 'old', label: 'Oldest first' }, { value: 'title', label: 'Title A-Z' }] }} />
+      <List>
+        {shown.length === 0 ? <EmptyState icon="doc" title={list.length ? 'No homework matches' : 'Nothing posted yet'}>{list.length ? 'Try different filters.' : 'Post the first one with the button above.'}</EmptyState> : shown.map((a, i) => (
+          <Row key={a.id} last={i === shown.length - 1} onPress={() => setOpen(a)}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: T.fs.md, fontWeight: T.fw.semi, color: C.ink }} numberOfLines={1}>{a.title}</Text>
+              <Dim>{[clsName(a.classes), a.subject].filter(Boolean).join(' · ')}{a.classes || a.subject ? ' · ' : ''}Posted {dateTime(a.created_at)}</Dim>
+            </View>
+            {a.needs_submission ? (
+              <View style={{ alignItems: 'flex-end', gap: T.sp[1] }}>
+                <Chip tone={a.total_students && a.submitted >= a.total_students ? 'ok' : 'mute'}>{`${a.submitted}/${a.total_students} submitted`}</Chip>
+                {a.to_check > 0 ? <Chip tone="warn">{`${a.to_check} to check`}</Chip> : null}
+              </View>
+            ) : <Chip tone="info">Study file</Chip>}
+          </Row>))}
+      </List>
       {form && <NewAssignment sc={sc} onClose={() => setForm(false)} onSaved={reload} />}
       {open && <Submissions sc={sc} a={open} onClose={() => { setOpen(null); reload(); }} onDelete={() => { const x = open; setOpen(null); del(x); }} />}
     </Pad>
@@ -241,59 +204,52 @@ function AssignmentView({ id, onClose, onSaved }) {
     catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   const my = a?.my; const locked = my?.status === 'checked';
+  const canSubmit = !!a?.needs_submission && !locked;
   return (
-    <Sheet title={a?.title || 'Homework'} onClose={onClose}>
-      <ErrorBox>{error}</ErrorBox>
-      {!a ? (error ? null : <Loading />) : (<>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          {a.subject ? <Chip>{a.subject}</Chip> : null}{a.due_date ? <Chip>Due {fmt(a.due_date)}</Chip> : null}{a.teacher ? <Chip>{a.teacher}</Chip> : null}
+    <FormSheet title={a?.title || 'Homework'} onClose={onClose} onSubmit={send} busy={busy} error={err} hideFooter={!canSubmit} cancelLabel="Close" submitLabel={my ? 'Replace submission' : 'Submit'} submitDisabled={!files.length && !note.trim()}>
+      {!!error && <Notice tone="bad">{error}</Notice>}
+      {!a ? (error ? <Btn small kind="ghost" title="Retry" onPress={reload} /> : <Loading />) : (<>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: T.sp[2], marginBottom: T.sp[3] }}>
+          {a.subject ? <Chip>{a.subject}</Chip> : null}{a.due_date ? <Chip tone="info">{`Due ${fmt(a.due_date)}`}</Chip> : null}{a.teacher ? <Chip>{a.teacher}</Chip> : null}
         </View>
-        {a.description ? <Text style={{ color: C.ink, marginBottom: 12 }}>{a.description}</Text> : null}
-        {a.attachments.length > 0 && <><Text style={{ fontWeight: '700', color: C.ink, marginBottom: 6 }}>Files from your teacher</Text><Files list={a.attachments} /></>}
+        {a.description ? <Text style={{ color: C.ink, fontSize: T.fs.md, marginBottom: T.sp[3] }}>{a.description}</Text> : null}
+        {a.attachments.length > 0 && <><Text style={{ fontSize: T.fs.sm, fontWeight: T.fw.semi, color: C.mute, marginBottom: T.sp[2] }}>FILES FROM YOUR TEACHER</Text><Files list={a.attachments} /></>}
         {a.needs_submission && (
-          <Card>
-            <Text style={{ fontWeight: '700', color: C.ink, marginBottom: 8 }}>Your submission</Text>
+          <Section title="Your submission">
             {my && <>
-              <Dim style={{ marginBottom: 8 }}>Submitted {dateTime(my.submitted_at)}{my.is_late ? ' (late)' : ''}</Dim>
-              {my.note ? <Text style={{ color: C.ink, marginBottom: 8 }}>{my.note}</Text> : null}
+              <Dim style={{ marginBottom: T.sp[2] }}>Submitted {dateTime(my.submitted_at)}{my.is_late ? ' (late)' : ''}</Dim>
+              {my.note ? <Text style={{ color: C.ink, fontSize: T.fs.md, marginBottom: T.sp[2] }}>{my.note}</Text> : null}
               <Files list={my.files} />
             </>}
-            {locked && (
-              <View style={{ backgroundColor: C.okBg, borderRadius: 10, padding: 10 }}>
-                <Text style={{ fontWeight: '700', color: C.ok }}>Checked{my.marks ? ` - ${my.marks}` : ''}</Text>
-                {my.feedback ? <Text style={{ color: C.ok, marginTop: 4 }}>{my.feedback}</Text> : null}
-              </View>)}
+            {locked && <Notice tone="ok">{`Checked${my.marks ? ` - ${my.marks}` : ''}${my.feedback ? ` - ${my.feedback}` : ''}`}</Notice>}
             {!locked && (<>
               <Field label={my ? 'Submit again (replaces your earlier submission)' : 'Upload your work'}><FilePick files={files} setFiles={setFiles} /></Field>
               <Field label="Note for the teacher (optional)"><Input multiline maxLength={2000} value={note} onChangeText={setNote} /></Field>
-              <ErrorBox>{err}</ErrorBox>
-              <Btn title={busy ? 'Uploading...' : my ? 'Replace submission' : 'Submit'} onPress={send} disabled={busy || (!files.length && !note.trim())} />
             </>)}
-          </Card>)}
+          </Section>)}
       </>)}
-    </Sheet>
+    </FormSheet>
   );
 }
 
 export function MyHomework() {
   const { data: list, error, loading, reload } = useApi(`${base}/my`);
   const [open, setOpen] = useState(null);
-  if (error && !list) return <Pad><ErrorBox>{error}</ErrorBox></Pad>;
+  if (error && !list) return <Pad><Notice tone="bad">{error}</Notice><Btn small kind="ghost" title="Retry" onPress={reload} /></Pad>;
   if (!list) return <Pad><Loading /></Pad>;
   return (
     <Pad reload={reload} loading={loading} hasData>
-      {list.length === 0 ? <Empty>No homework yet.</Empty> : (
-        <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, overflow: 'hidden' }}>
-          {list.map((a, i) => { const st = statusOf(a); return (
-            <Pressable key={a.id} onPress={() => setOpen(a.id)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderTopWidth: i ? 1 : 0, borderColor: C.line, backgroundColor: pressed ? C.muteBg : 'transparent' })}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15.5, fontWeight: '700', color: C.ink }} numberOfLines={1}>{a.title}</Text>
-                <Text style={{ color: C.mute, fontSize: 12.5, marginTop: 2 }} numberOfLines={1}>{a.subject || 'Homework'}{a.due_date && a.needs_submission ? ` · Due ${fmt(a.due_date)}` : ''}{a.my?.marks ? ` · ${a.my.marks}` : ''}</Text>
-              </View>
-              <Chip tone={st.tone}>{st.label}</Chip>
-              <Text style={{ color: C.hint, fontSize: 20, marginTop: -2 }}>›</Text>
-            </Pressable>); })}
-        </View>)}
+      <PageHeader title="My homework" sub={`${list.length} item${list.length === 1 ? '' : 's'}`} />
+      <List>
+        {list.length === 0 ? <EmptyState icon="doc" title="No homework yet">New homework from your teachers will show up here.</EmptyState> : list.map((a, i) => { const st = statusOf(a); return (
+          <Row key={a.id} last={i === list.length - 1} onPress={() => setOpen(a.id)}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: T.fs.md, fontWeight: T.fw.semi, color: C.ink }} numberOfLines={1}>{a.title}</Text>
+              <Dim>{a.subject || 'Homework'}{a.due_date && a.needs_submission ? ` · Due ${fmt(a.due_date)}` : ''}{a.my?.marks ? ` · ${a.my.marks}` : ''}</Dim>
+            </View>
+            <Chip tone={st.tone}>{st.label}</Chip>
+          </Row>); })}
+      </List>
       {open && <AssignmentView id={open} onClose={() => setOpen(null)} onSaved={reload} />}
     </Pad>
   );

@@ -6,6 +6,7 @@ import { api } from '../api';
 import { C, fmt, live } from '../theme';
 import { Icon } from '../icons';
 import { Card, Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Field, DateField, toast, confirmAsk, KeyboardSafe } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
 import { scoped, qs, Pad, Tile, Tiles, Row, List, Bar, Roll, shareCsv } from './Attendance';
 
@@ -138,7 +139,7 @@ export function MyMarks({ me }) {
 /* ================================================================== TESTS & MARKS (teacher) */
 export const TestsAndMarks = scoped(function TestsAndMarks({ me, sc, active }) {
   const { data: meta, error, reload: reloadMeta } = useMeta(sc);
-  const [f, setF] = useState({ class_id: '', subject_id: '', kind: '', session_id: '' });
+  const [f, setF] = useState({ class_id: '', subject_id: '', kind: '', session_id: '' }); const [tq, setTq] = useState('');
   const [open, setOpen] = useState(null); const [creating, setCreating] = useState(false);
   const canMake = me.features.includes('manage_assessments');
   const { data: list, error: err, loading, reload } = useApi(meta ? apath('/assessments', f, sc) : null);
@@ -148,19 +149,21 @@ export const TestsAndMarks = scoped(function TestsAndMarks({ me, sc, active }) {
   if (open) return <MarksSheet me={me} sc={sc} meta={meta} id={open} active={active} onBack={() => { setOpen(null); reload(); }} />;
   if (!meta.classes.length) return <Pad><Empty>{me.features.includes('academics_all_classes') ? 'This school has no classes yet. Add them under Users > Classes on the web app.' : 'No class is assigned to you yet. Ask your school admin to assign you under Attendance > Class teachers.'}</Empty></Pad>;
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  const shown = list && (tq.trim() ? list.filter((a) => `${a.title} ${a.subject_name} ${a.class_label}`.toLowerCase().includes(tq.trim().toLowerCase())) : list);
   return (
     <Pad reload={reload} loading={loading} hasData={!!list}>
       {canMake && <><Btn title="+ New test / exam paper" onPress={() => setCreating(true)} /><Gap /></>}
-      <View style={{ gap: 8, marginBottom: 12 }}>
-        <Choice value={f.class_id} onChange={set('class_id')} options={[{ value: '', label: 'All my classes' }, ...meta.classes.map((c) => ({ value: c.id, label: c.label }))]} />
-        <Choice value={f.subject_id} onChange={set('subject_id')} options={[{ value: '', label: 'All subjects' }, ...meta.subjects.map((s) => ({ value: s.id, label: s.name }))]} />
-        <Choice value={f.kind} onChange={set('kind')} options={[{ value: '', label: 'Tests & exams' }, { value: 'test', label: 'Tests only' }, { value: 'exam', label: 'Exams only' }]} />
-        <SessionPick sessions={meta.sessions} value={f.session_id} onChange={set('session_id')} />
-      </View>
+      <FilterBar inline q={tq} onQ={setTq} placeholder="Search tests and exams" count={shown?.length}
+        filters={[
+          { key: 'class_id', label: 'Class', value: f.class_id, onChange: set('class_id'), all: 'All my classes', options: meta.classes.map((c) => ({ value: c.id, label: c.label })) },
+          { key: 'subject_id', label: 'Subject', value: f.subject_id, onChange: set('subject_id'), all: 'All subjects', options: meta.subjects.map((x) => ({ value: x.id, label: x.name })) },
+          { key: 'kind', label: 'Type', value: f.kind, onChange: set('kind'), all: 'Tests & exams', options: [{ value: 'test', label: 'Tests only' }, { value: 'exam', label: 'Exams only' }] },
+          { key: 'session_id', label: 'Session', value: f.session_id, onChange: set('session_id'), all: meta.sessions.find((x) => x.is_current) ? `${meta.sessions.find((x) => x.is_current).name} (current)` : 'Current session', options: [...meta.sessions.filter((x) => !x.is_current).map((x) => ({ value: x.id, label: x.name })), { value: 'all', label: 'All sessions' }] },
+        ]} />
       <ErrorBox>{err}</ErrorBox>
-      {!list ? (err ? null : <Loading />) : list.length === 0 ? <Empty>Nothing here yet.{canMake && meta.subjects.length === 0 ? ' Ask your admin to add subjects first (Academics > Subjects).' : ''}</Empty> : (
-        <List>{list.map((a, i) => (
-          <Row key={a.id} last={i === list.length - 1} onPress={() => setOpen(a.id)}>
+      {!list ? (err ? null : <Loading />) : shown.length === 0 ? <Empty>Nothing here yet.{canMake && meta.subjects.length === 0 ? ' Ask your admin to add subjects first (Academics > Subjects).' : ''}</Empty> : (
+        <List>{shown.map((a, i) => (
+          <Row key={a.id} last={i === shown.length - 1} onPress={() => setOpen(a.id)}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: '700', color: C.ink }} numberOfLines={1}>{a.title}</Text>
               <Dim>{a.subject_name} · Class {a.class_label} · {fmt(a.date)}</Dim>

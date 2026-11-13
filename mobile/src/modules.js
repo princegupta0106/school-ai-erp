@@ -17,11 +17,18 @@ import { MyHomework, Homework } from './screens/Homework';
 import { VisitorList, AddVisitor } from './screens/Visitors';
 import { QueryList, NewQuery, QuerySettings } from './screens/Queries';
 import { AdmissionsHome, EnquiryList as AdmEnquiries, AddEnquiry, AdmissionReports } from './screens/Admissions';
+import { MyStudentProfile, StudentProfile } from './screens/StudentProfile';
+import { MyTransport, TransportOverview, Vehicles, Routes, TransportStudents } from './screens/Transport';
+import { InventoryOverview, Items, Orders, IssueItems, InventorySetup, InventoryReports } from './screens/Inventory';
+import { MyTimetable, TimetableHome, ClassPlan, ClassTimetable, AutoTimetable, TeacherTimetable, SchoolTimetable, Substitutions, TimetableSetup } from './screens/Timetable';
 import { AuditLogs } from './screens/Audit';
 import { Backup } from './screens/Backup';
 import { SchoolList, SchoolNew, Calendar, Promotion } from './screens/School';
 import { prevMonth } from './theme';
 
+const INVENTORY_ANY = ['view_inventory', 'manage_inventory', 'manage_purchase_orders', 'issue_inventory'];
+const TT_SEE = ['view_timetable', 'manage_timetable', 'manage_timetable_setup', 'manage_substitutions'];
+const TRANSPORT_STAFF = ['view_transport', 'manage_transport', 'assign_transport'];
 const soon = (v) => ({ ...v, component: ComingSoon });
 
 export const MODULE_UI = {
@@ -80,6 +87,32 @@ export const MODULE_UI = {
   homework: { label: 'Homework', color: '#c026d3', icon: 'file', views: [
     { key: 'my', label: 'My homework', need: ['view_my_homework'], roles: ['student'], component: MyHomework },
     { key: 'manage', label: 'Homework', need: ['manage_homework'], component: Homework }] },
+  student_profile: { label: 'Student profile', color: '#ec4899', icon: 'profile', views: [
+    { key: 'my', label: 'Student profile', need: ['view_my_student_profile'], roles: ['student', 'parent'], component: MyStudentProfile },
+    { key: 'students', label: 'Student profiles', need: ['view_student_profile'], component: StudentProfile }] },
+  transport: { label: 'Transport', color: '#f97316', icon: 'bus', views: [
+    { key: 'my', label: 'My transport', need: ['view_my_transport'], roles: ['student', 'parent'], component: MyTransport },
+    { key: 'home', label: 'Overview', need: TRANSPORT_STAFF, component: TransportOverview },
+    { key: 'vehicles', label: 'Buses', need: TRANSPORT_STAFF, component: Vehicles },
+    { key: 'routes', label: 'Routes & stops', need: TRANSPORT_STAFF, component: Routes },
+    { key: 'students', label: 'Students', need: TRANSPORT_STAFF, component: TransportStudents }] },
+  timetable: { label: 'Timetable', color: '#f59e0b', icon: 'calendar', views: [
+    { key: 'my', label: 'My timetable', need: ['view_my_timetable'], component: MyTimetable },
+    { key: 'home', label: 'Overview & workload', need: TT_SEE, component: TimetableHome },
+    { key: 'plan', label: 'Class subjects', need: ['manage_timetable_setup', 'manage_timetable', 'view_timetable'], component: ClassPlan },
+    { key: 'class', label: 'Class timetable', need: ['manage_timetable', 'view_timetable'], component: ClassTimetable },
+    { key: 'auto', label: 'Auto generate', need: ['manage_timetable'], component: AutoTimetable },
+    { key: 'teacher', label: 'Teacher timetable', need: ['manage_timetable', 'view_timetable'], component: TeacherTimetable },
+    { key: 'school', label: 'Whole school', need: ['manage_timetable', 'view_timetable'], component: SchoolTimetable },
+    { key: 'subs', label: 'Substitutions', need: ['manage_substitutions', 'view_timetable'], component: Substitutions },
+    { key: 'setup', label: 'Structure', need: ['manage_timetable_setup'], component: TimetableSetup }] },
+  inventory: { label: 'Inventory', color: '#16a34a', icon: 'box', views: [
+    { key: 'home', label: 'Overview', need: INVENTORY_ANY, component: InventoryOverview },
+    { key: 'items', label: 'Items & stock', need: ['view_inventory', 'manage_inventory'], component: Items },
+    { key: 'orders', label: 'Purchase orders', need: ['manage_purchase_orders', 'view_inventory'], component: Orders },
+    { key: 'issue', label: 'Issue items', need: ['issue_inventory', 'view_inventory'], component: IssueItems },
+    { key: 'setup', label: 'Stores & vendors', need: ['manage_inventory'], component: InventorySetup },
+    { key: 'reports', label: 'Reports', need: ['view_inventory', 'issue_inventory'], component: InventoryReports }] },
   audit: { label: 'Audit logs', color: '#475569', icon: 'shield', views: [
     { key: 'log', label: 'Activity log', need: ['view_audit_logs'], component: AuditLogs }] },
   backup: { label: 'Backup', color: '#0369a1', icon: 'download', views: [
@@ -141,6 +174,10 @@ export function prefetchUrls(me, mKey, vKey) {
   if (mKey === 'school') return vKey === 'list' ? ['/schools'] : vKey === 'calendar' ? [`/calendar/sessions?school_id=${me.school_id}`, `/calendar/holidays?school_id=${me.school_id}`] : [];
   if (mKey === 'users') { const ok = me.features.some((f) => ['get_all_users_school', 'get_user', 'create_user', 'edit_user'].includes(f)); return vKey === 'list' ? [...(me.features.includes('get_all_users_school') ? ['/users'] : []), ...(ok ? ['/classes'] : [])] : ok ? ['/classes'] : []; }
   if (mKey === 'documents') return vKey === 'my' ? ['/documents/my'] : vKey === 'issued' ? ['/documents/issued?page=0'] : vKey === 'issue' ? ['/documents/meta'] : [];
+  if (mKey === 'student_profile') return vKey === 'my' ? ['/student-profile/my'] : vKey === 'students' ? ['/student-profile/search?q='] : [];
+  if (mKey === 'transport') return vKey === 'my' ? ['/transport/my'] : vKey === 'home' ? ['/transport/overview'] : vKey === 'vehicles' ? ['/transport/vehicles'] : vKey === 'routes' ? ['/transport/routes', '/transport/vehicles'] : vKey === 'students' ? ['/transport/routes', '/transport/students'] : [];
+  if (mKey === 'timetable') return vKey === 'my' ? ['/timetable/my'] : vKey === 'home' ? ['/timetable/meta', '/timetable/workload'] : vKey === 'teacher' ? ['/timetable/meta', '/timetable/workload'] : vKey === 'school' ? ['/timetable/meta', '/timetable/slots'] : ['/timetable/meta'];
+  if (mKey === 'inventory') return vKey === 'home' ? ['/inventory/overview'] : vKey === 'items' || vKey === 'setup' ? ['/inventory/meta'] : vKey === 'orders' ? ['/inventory/orders', '/inventory/meta'] : vKey === 'issue' ? ['/inventory/meta', '/inventory/issues'] : vKey === 'reports' ? ['/inventory/meta', ...(me.features.some((f) => ['view_inventory', 'manage_inventory'].includes(f)) ? ['/inventory/reports/stock'] : ['/inventory/reports/issues'])] : [];
   if (mKey === 'audit') return ['/audit'];
   if (mKey === 'visitors') return vKey === 'list' ? ['/visitors'] : [];
   if (mKey === 'admissions') return vKey === 'home' ? ['/admissions/summary'] : vKey === 'list' ? ['/admissions', '/admissions/meta'] : vKey === 'add' ? ['/admissions/meta'] : [];

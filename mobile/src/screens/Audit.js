@@ -1,12 +1,13 @@
 // Audit logs for mobile (read-only). Mirrors client/src/modules/AuditModule.jsx (same endpoints and filters).
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text } from 'react-native';
 import { api } from '../api';
-import { C, dateTime, SH } from '../theme';
-import { Dim, Empty, Loading, ErrorBox, Btn, Sheet, Choice, Input, Field, DateField, toast } from '../ui';
+import { C, T, dateTime } from '../theme';
+import { Dim, Loading, Btn, toast } from '../ui';
+import { FilterBar } from '../FilterBar';
 import { useApi } from '../useApi';
 import { downloadAndShare } from '../download';
-import { qs, Pad, List } from './Attendance';
+import { qs, Pad, List, Row, Notice, PageHeader, StatusChip, EmptyState, FormSheet } from '../kit';
 
 const MODULES = {
   auth: 'Sign-in & account', school: 'School', users: 'Users', attendance: 'Attendance', visitors: 'Visitors', queries: 'Queries', fees: 'Fees',
@@ -15,9 +16,6 @@ const MODULES = {
 const KIND = { change: 'Change', view: 'Viewed', auth: 'Sign-in' };
 const ROLE = { super_admin: 'Super admin', school_admin: 'School admin', parent: 'Parent', staff: 'Staff', student: 'Student', other: 'Other' };
 const EMPTY = { q: '', module: '', kind: '', result: '', from: '', to: '', school_id: '' };
-const Gap = ({ h = 12 }) => <View style={{ height: h }} />;
-const Chip = ({ ok }) => <Text style={{ fontSize: 11, fontWeight: '700', color: ok ? C.ok : C.bad, backgroundColor: ok ? C.okBg : C.badBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>{ok ? 'OK' : 'Failed'}</Text>;
-
 function Detail({ log, sup, onClose }) {
   const rows = [
     ['When', dateTime(log.created_at)],
@@ -35,27 +33,18 @@ function Detail({ log, sup, onClose }) {
   ].filter(Boolean);
   const { error: _e, ...rest } = log.detail || {};
   return (
-    <Sheet title="Log entry" onClose={onClose}>
-      {rows.map(([k, v]) => (
-        <View key={k} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: C.line }}>
-          <Text style={{ color: C.mute, fontSize: 12, fontWeight: '600' }}>{k}</Text>
-          <Text style={{ color: C.ink, marginTop: 2 }} selectable>{v || '-'}</Text>
+    <FormSheet title="Log entry" onClose={onClose} hideFooter>
+      {rows.map(([k, v], i) => (
+        <View key={k} style={{ paddingVertical: T.sp[2], borderBottomWidth: i === rows.length - 1 ? 0 : 1, borderColor: C.line }}>
+          <Text style={{ color: C.mute, fontSize: T.fs.xs, fontWeight: T.fw.semi }}>{k}</Text>
+          <Text style={{ color: C.ink, fontSize: T.fs.md, marginTop: 2 }} selectable>{v || '-'}</Text>
         </View>))}
       {Object.keys(rest).length > 0 && <>
-        <Text style={{ color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 16, marginBottom: 6 }}>Details recorded</Text>
-        <Text selectable style={{ fontFamily: 'monospace', fontSize: 12, color: C.ink, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 10 }}>{JSON.stringify(rest, null, 2)}</Text>
+        <Text style={{ color: C.mute, fontSize: T.fs.xs, fontWeight: T.fw.semi, marginTop: T.sp[4], marginBottom: T.sp[2] }}>DETAILS RECORDED</Text>
+        <Text selectable style={{ fontFamily: 'monospace', fontSize: T.fs.xs, color: C.ink, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: T.rad.md, padding: T.sp[3] }}>{JSON.stringify(rest, null, 2)}</Text>
       </>}
-      <Dim style={{ marginTop: 12 }}>Passwords, salary figures and message text are never stored in the log.</Dim>
-    </Sheet>
-  );
-}
-
-function OptDate({ value, onChange }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <View style={{ flex: 1 }}>{value ? <DateField value={value} onChange={onChange} /> : <Btn small kind="ghost" title="Set date" onPress={() => onChange(new Date().toISOString().slice(0, 10))} />}</View>
-      {value ? <Btn small kind="ghost" title="Clear" onPress={() => onChange('')} /> : null}
-    </View>
+      <Dim style={{ marginTop: T.sp[3] }}>Passwords, salary figures and message text are never stored in the log.</Dim>
+    </FormSheet>
   );
 }
 
@@ -79,42 +68,34 @@ export function AuditLogs({ me }) {
   };
   const exportCsv = () => downloadAndShare(`/audit/export${qs(applied)}`, 'audit-log.csv', 'text/csv').catch((e) => toast(e.message, true));
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
-  const dirty = JSON.stringify(f) !== JSON.stringify(EMPTY);
-  const active = Object.entries(applied).filter(([k, v]) => v && k !== 'q').length;
   const rows = data ? [...data.logs, ...older] : null;
 
   return (
     <Pad reload={reload} loading={loading} hasData={!!data}>
-      <Dim style={{ marginBottom: 10 }}>{sup ? 'Everything that happens on the platform, for every school.' : 'Everything that happens in your school.'} Entries cannot be edited or deleted.</Dim>
-      <Input placeholder="Search who, what, or who it was done to..." value={f.q} onChangeText={set('q')} />
-      <View style={{ flexDirection: 'row', gap: 8, marginVertical: 10 }}>
-        <Btn small kind="ghost" title={`${showF ? 'Hide' : 'Show'} filters${active ? ` (${active})` : ''}`} onPress={() => setShowF(!showF)} />
-        <Btn small kind="ghost" title="Export CSV" onPress={exportCsv} />
-        {dirty && <Btn small kind="ghost" title="Clear" onPress={() => { setF(EMPTY); setApplied(EMPTY); }} />}
-      </View>
-      {showF && (
-        <View style={{ backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.line, ...SH, padding: 12, marginBottom: 12 }}>
-          {sup && <Field label="School"><Choice value={f.school_id} onChange={set('school_id')} options={[{ value: '', label: 'All schools' }, { value: 'platform', label: 'Platform only' }, ...(schools || []).map((s) => ({ value: s.id, label: s.name }))]} /></Field>}
-          <Field label="Module"><Choice value={f.module} onChange={set('module')} options={[{ value: '', label: 'All modules' }, ...Object.entries(MODULES).map(([value, label]) => ({ value, label }))]} /></Field>
-          <Field label="Type"><Choice value={f.kind} onChange={set('kind')} options={[{ value: '', label: 'All' }, { value: 'change', label: 'Changes' }, { value: 'view', label: 'Views' }, { value: 'auth', label: 'Sign-ins' }]} /></Field>
-          <Field label="Result"><Choice value={f.result} onChange={set('result')} options={[{ value: '', label: 'Any result' }, { value: 'ok', label: 'Successful' }, { value: 'failed', label: 'Failed / refused' }]} /></Field>
-          <Field label="From"><OptDate value={f.from} onChange={set('from')} /></Field>
-          <Field label="To"><OptDate value={f.to} onChange={set('to')} /></Field>
-        </View>)}
-
-      <ErrorBox>{error}</ErrorBox>
-      {!rows ? (error ? null : <Loading />) : rows.length === 0 && !error ? <Empty>No log entries match.</Empty> : (
-        <List>{rows.map((l, i) => (
-          <Pressable key={l.id} onPress={() => setOpen(l)} style={({ pressed }) => [{ padding: 12, borderBottomWidth: i === rows.length - 1 ? 0 : 1, borderColor: C.line }, pressed && { backgroundColor: C.soft }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-              <Text style={{ color: C.mute, fontSize: 12, flex: 1 }}>{dateTime(l.created_at)}</Text>
-              <Chip ok={l.success} />
+      <PageHeader title="Audit log" sub={`${sup ? 'Everything that happens on the platform, for every school.' : 'Everything that happens in your school.'} Entries cannot be edited or deleted.`}
+        right={<Btn small kind="ghost" title="Export CSV" onPress={exportCsv} />} />
+      <FilterBar inline q={f.q} onQ={set('q')} placeholder="Search who, what, or who it was done to..." count={rows?.length}
+        filters={[
+          sup && { key: 'school_id', label: 'School', value: f.school_id, onChange: set('school_id'), all: 'All schools', options: [{ value: 'platform', label: 'Platform only' }, ...(schools || []).map((x) => ({ value: x.id, label: x.name }))] },
+          { key: 'module', label: 'Module', value: f.module, onChange: set('module'), all: 'All modules', options: Object.entries(MODULES).map(([value, label]) => ({ value, label })) },
+          { key: 'kind', label: 'Type', value: f.kind, onChange: set('kind'), all: 'All', options: [{ value: 'change', label: 'Changes' }, { value: 'view', label: 'Views' }, { value: 'auth', label: 'Sign-ins' }] },
+          { key: 'result', label: 'Result', value: f.result, onChange: set('result'), all: 'Any result', options: [{ value: 'ok', label: 'Successful' }, { value: 'failed', label: 'Failed / refused' }] },
+          { key: 'from', label: 'From date', type: 'date', value: f.from, onChange: set('from') },
+          { key: 'to', label: 'To date', type: 'date', value: f.to, onChange: set('to') },
+        ].filter(Boolean)} />
+      {!!error && <Notice tone="bad">{error}</Notice>}
+      {!rows ? (error ? <Btn small kind="ghost" title="Retry" onPress={reload} /> : <Loading />) : (
+        <List>{rows.length === 0 ? <EmptyState icon="shield" title="No log entries match">Try a wider date range or fewer filters.</EmptyState> : rows.map((l, i) => (
+          <Row key={l.id} last={i === rows.length - 1} onPress={() => setOpen(l)}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: C.mute, fontSize: T.fs.xs }}>{dateTime(l.created_at)}</Text>
+              <Text style={{ color: C.ink, fontSize: T.fs.md, fontWeight: T.fw.semi, marginTop: 2 }}>{l.summary}</Text>
+              <Text style={{ color: C.mute, fontSize: T.fs.xs, marginTop: 2 }}>
+                {l.actor_name || l.actor_login || 'Unknown'}{l.actor_role ? ` (${ROLE[l.actor_role] || l.actor_role})` : ''} · {MODULES[l.module] || l.module} · {KIND[l.kind] || l.kind}{sup ? ` · ${l.school_name || (l.school_id ? 'Removed school' : 'Platform')}` : ''}
+              </Text>
             </View>
-            <Text style={{ color: C.ink, marginTop: 4 }}>{l.summary}</Text>
-            <Text style={{ color: C.mute, fontSize: 12, marginTop: 3 }}>
-              {l.actor_name || l.actor_login || 'Unknown'}{l.actor_role ? ` (${ROLE[l.actor_role] || l.actor_role})` : ''} · {MODULES[l.module] || l.module} · {KIND[l.kind] || l.kind}{sup ? ` · ${l.school_name || (l.school_id ? 'Removed school' : 'Platform')}` : ''}
-            </Text>
-          </Pressable>))}</List>)}
+            <StatusChip tone={l.success ? 'ok' : 'bad'}>{l.success ? 'OK' : 'Failed'}</StatusChip>
+          </Row>))}</List>)}
       {next && <View style={{ alignSelf: 'center' }}><Btn kind="ghost" title={more ? 'Loading...' : 'Load older entries'} onPress={loadMore} disabled={more} /></View>}
       {open && <Detail log={open} sup={sup} onClose={() => setOpen(null)} />}
     </Pad>

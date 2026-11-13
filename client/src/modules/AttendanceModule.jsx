@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useData, useApi } from '../cache.js';
-import { Icon, Modal, Empty, toast, Loading, ask, PageBar, Toolbar, SearchInput, SaveBar } from '../ui.jsx';
+import { Icon, toast, Loading, ask, Page, PageBar, Tabs, KpiGrid, Kpi, Section, DataTable, List, ListRow, StatusBadge, EmptyState, FormDialog, Notice, Button, SaveBar } from '../ui.jsx';
+import { FilterBar } from '../FilterBar.jsx';
 import { fetchers } from '../fetchers.js';
 
 const ST = {
@@ -47,9 +48,9 @@ export function scoped(Inner) {
     useEffect(() => { if (isSup && !sid && schools?.length === 1) { chosenSchool = schools[0].id; setSid(schools[0].id); } }, [schools]); // eslint-disable-line
     return (
       <div className="stack">
-        {isSup && <select style={{ width: 'auto', alignSelf: 'flex-start' }} value={sid} onChange={(e) => { chosenSchool = e.target.value; setSid(e.target.value); }}>
+        {isSup && <select className="ds-ctx-select" aria-label="School" value={sid} onChange={(e) => { chosenSchool = e.target.value; setSid(e.target.value); }}>
           <option value="">Choose a school</option>{(schools || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
-        {sid ? <Inner key={sid} {...props} sid={sid} /> : <Empty>Choose a school to continue.</Empty>}
+        {sid ? <Inner key={sid} {...props} sid={sid} /> : <EmptyState icon="attendance">Choose a school to continue.</EmptyState>}
       </div>
     );
   };
@@ -59,7 +60,6 @@ const Pct = ({ v }) => (v === null || v === undefined ? <span className="pct non
 const Tile = ({ n, label, tone, on, onClick }) => (
   <button type="button" className={`tile ${tone || ''} ${on ? 'on' : ''}`} onClick={onClick} disabled={!onClick}><b>{n}</b><span>{label}</span></button>
 );
-const Notice = ({ tone = 'info', children }) => <div className={`notice ${tone}`}>{children}</div>;
 
 function csv(name, rows) {
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -80,7 +80,7 @@ function ClassCard({ c, onOpen }) {
   const s = statusLine(c);
   return (
     <button className={`ccard ${s.tone}`} onClick={() => onOpen(c.id)}>
-      <div className="ccard-top"><b className="cname">{clsLabel(c)}</b>{c.is_class_teacher && <span className="chip head">Class teacher</span>}</div>
+      <div className="ccard-top"><b className="cname">{clsLabel(c)}</b>{c.is_class_teacher && <StatusBadge tone="info" dot={false}>Class teacher</StatusBadge>}</div>
       <div className={`cstate ${s.tone}`}><Icon name={s.tone === 'done' ? 'check' : 'attendance'} size={15} />{s.text}</div>
       {c.marked > 0 ? (
         <div className="mini"><span className="p">{c.present} present</span><span className="a">{c.absent} absent</span>{c.late > 0 && <span className="l">{c.late} late</span>}{c.leave > 0 && <span className="v">{c.leave} leave</span>}</div>
@@ -101,26 +101,20 @@ export const TakeAttendance = scoped(function Take({ me, sid, go }) {
       onBack={() => { setOpen(null); refresh(); }} onSaved={refresh}
       goRolls={me.features.includes('manage_roll_numbers') ? () => go('rolls') : null} />;
   }
-  if (error) return <div className="err">{error}</div>;
-  if (!data) return <Loading />;
+  if (error) return <Page><Notice tone="bad">{error}</Notice></Page>;
+  if (!data) return <Page><Loading /></Page>;
   const marked = data.classes.filter((c) => c.state === 'marked').length;
   const isToday = data.date === data.today;
   return (
-    <>
-      <div className="toolbar">
-        <div className="toolbar-t">
-          <b>{isToday ? 'Today' : fmtDate(data.date)}</b>
-          <span>{isToday ? `${fmtDate(data.today)} · ` : ''}{data.classes.length === 0 ? 'No classes' : `${marked} of ${data.classes.length} class${data.classes.length === 1 ? '' : 'es'} marked`}</span>
-        </div>
-        <div className="toolbar-a">
-          {!isToday && <button className="btn sm" onClick={() => setDate('')}>Back to today</button>}
-          <input type="date" aria-label="Attendance date" max={data.today} value={data.date} onChange={(e) => e.target.value && setDate(e.target.value === data.today ? '' : e.target.value)} />
-        </div>
-      </div>
+    <Page>
+      <PageBar title={isToday ? 'Today' : fmtDate(data.date)} sub={`${isToday ? `${fmtDate(data.today)} · ` : ''}${data.classes.length === 0 ? 'No classes' : `${marked} of ${data.classes.length} class${data.classes.length === 1 ? '' : 'es'} marked`}`}>
+        {!isToday && <Button size="sm" onClick={() => setDate('')}>Back to today</Button>}
+        <input type="date" aria-label="Attendance date" max={data.today} value={data.date} onChange={(e) => e.target.value && setDate(e.target.value === data.today ? '' : e.target.value)} />
+      </PageBar>
       {data.classes.length === 0
-        ? <Empty>{me.features.includes('attendance_all_classes') ? 'This school has no classes yet. Add them under Users > Classes.' : 'No class is assigned to you yet. Ask your school admin to assign you under Attendance > Class teachers.'}</Empty>
+        ? <EmptyState icon="attendance">{me.features.includes('attendance_all_classes') ? 'This school has no classes yet. Add them under Users > Classes.' : 'No class is assigned to you yet. Ask your school admin to assign you under Attendance > Class teachers.'}</EmptyState>
         : <div className="cgrid">{data.classes.map((c) => <ClassCard key={c.id} c={c} onOpen={setOpen} />)}</div>}
-    </>
+    </Page>
   );
 });
 
@@ -172,18 +166,18 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
     } catch (x) { setErr(x.message); toast(x.message, true); } finally { setBusy(false); }
   };
 
-  if (err && !sh) return <><button className="btn" onClick={onBack}><Icon name="back" size={16} />Back</button><div className="err">{err}</div></>;
-  if (!sh) return <Loading />;
+  if (err && !sh) return <Page><PageBar title="Attendance" lead={<Button size="sm" icon="back" onClick={onBack}>Back</Button>} /><Notice tone="bad">{err}</Notice></Page>;
+  if (!sh) return <Page><Loading /></Page>;
 
   const st = sh.status; const noRoll = students.filter((s) => !s.roll_no).length;
   const isToday = sh.date === today;
   return (
-    <div className="sheetwrap">
-      <PageBar sticky lead={<button className="btn sm" onClick={back}><Icon name="back" size={15} />Classes</button>} title={clsLabel(sh.class)}
+    <Page>
+      <PageBar sticky lead={<Button size="sm" icon="back" onClick={back}>Classes</Button>} title={clsLabel(sh.class)}
         sub={err ? <span className="ds-savebar-e">{err}</span> : `${isToday ? 'Today · ' : ''}${fmtDate(sh.date)}${sh.teachers.length ? ` - ${sh.teachers.map((t) => t.name).join(', ')}` : ''}`}>
         {can && <>
           <span className="ds-bar-note"><b>{counts.present + counts.late + counts.leave}</b>/{students.length} here{dirty && <i className="ds-savebar-d" title="Unsaved changes" />}</span>
-          <button className="btn primary" onClick={save} disabled={busy || (!dirty && st.state === 'marked')}>{busy ? 'Saving...' : st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'}</button>
+          <Button kind="primary" onClick={save} loading={busy} disabled={!dirty && st.state === 'marked'}>{st.state === 'marked' && !dirty ? 'Saved' : st.state === 'marked' ? 'Save changes' : 'Save attendance'}</Button>
         </>}
       </PageBar>
 
@@ -192,21 +186,20 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
       {st.state === 'marked' && <Notice tone="ok"><b>Already marked{st.marked_by.length ? ` by ${st.marked_by.join(', ')}` : ''}</b>{st.last_updated ? ` at ${fmtTime(st.last_updated)}` : ''}. {can ? 'No need to redo it - tap a student to change (e.g. came late).' : ''}</Notice>}
       {st.state === 'partial' && <Notice tone="warn"><b>Only {st.marked} of {st.total_students} students are marked</b>{st.marked_by.length ? ` (by ${st.marked_by.join(', ')})` : ''}. The rest are new or were missed - save to mark everyone.</Notice>}
       {st.state === 'not_marked' && students.length > 0 && <Notice>Not marked yet. Everyone starts as <b>Absent</b> - tap a student to mark Present, then save.</Notice>}
-      {noRoll > 0 && students.length > 0 && <Notice tone="warn">{noRoll} student{noRoll === 1 ? ' has' : 's have'} no roll number.{goRolls && <> <button className="linkbtn" onClick={goRolls}>Assign roll numbers</button></>}</Notice>}
+      {noRoll > 0 && students.length > 0 && <Notice tone="warn">{noRoll} student{noRoll === 1 ? ' has' : 's have'} no roll number.{goRolls && <> <Button size="sm" kind="ghost" onClick={goRolls}>Assign roll numbers</Button></>}</Notice>}
 
-      {students.length === 0 ? <Empty>No active students in this class.</Empty> : (<>
+      {students.length === 0 ? <EmptyState icon="attendance">No active students in this class.</EmptyState> : (<>
         <div className="asum slim">
           {ORDER.map((k) => <Tile key={k} tone={k} n={counts[k]} label={ST[k].label} on={filter === k} onClick={() => setFilter(filter === k ? '' : k)} />)}
         </div>
 
-        <Toolbar>
-          <SearchInput value={q} onChange={setQ} placeholder="Search name or roll no." />
-          <button className="btn" onClick={() => setSort(sort === 'roll' ? 'name' : 'roll')}>{sort === 'roll' ? 'Roll no.' : 'Name'}</button>
-          {can && <button className="btn" onClick={() => setAll(counts.present === students.length ? 'absent' : 'present')}>{counts.present === students.length ? 'All absent' : 'All present'}</button>}
-        </Toolbar>
+        <FilterBar q={q} onQ={setQ} placeholder="Search name or roll no." count={rows.length}
+          filters={[{ key: 'st', label: 'Status', value: filter, onChange: setFilter, options: ORDER.map((k) => ({ value: k, label: ST[k].label })), all: 'Everyone' }]}
+          sort={{ value: sort, onChange: setSort, def: 'roll', options: [{ value: 'roll', label: 'Roll no.' }, { value: 'name', label: 'Name A-Z' }] }}
+          end={can && <Button onClick={() => setAll(counts.present === students.length ? 'absent' : 'present')}>{counts.present === students.length ? 'All absent' : 'All present'}</Button>} />
 
-        <div className="card alist">
-          {rows.length === 0 && <div className="empty">No student matches.</div>}
+        <Section flush className="alist">
+          {rows.length === 0 && <EmptyState icon="search" title="No student matches" />}
           {rows.map((s) => {
             const cur = marks[s.student_id]; const id = s.student_id;
             return (
@@ -217,13 +210,13 @@ function Sheet({ me, sid, classId, date, today, onBack, onSaved, goRolls }) {
                   <span className={`state ${cur}`}>{cur === 'present' && <Icon name="check" size={15} />}{ST[cur].label}</span>
                 </div>
                 {can && <button type="button" className="morebtn" aria-label="Late or leave" onClick={() => setMore(more === id ? null : id)}>&#8943;</button>}
-                {more === id && <div className="moreopts">{['late', 'leave'].map((k) => <button key={k} type="button" className={`btn ${cur === k ? 'primary' : ''}`} onClick={() => { set(id, cur === k ? 'present' : k); setMore(null); }}>{ST[k].label}</button>)}</div>}
+                {more === id && <div className="moreopts">{['late', 'leave'].map((k) => <Button key={k} size="sm" kind={cur === k ? 'primary' : 'secondary'} onClick={() => { set(id, cur === k ? 'present' : k); setMore(null); }}>{ST[k].label}</Button>)}</div>}
               </div>);
           })}
-        </div>
+        </Section>
 
       </>)}
-    </div>
+    </Page>
   );
 }
 
@@ -239,16 +232,16 @@ function RangeBar({ today, value, shown, shownDefault, onChange }) {
   ];
   const same = (a, b) => a.from === b.from && a.to === b.to;
   return (
-    <div className="row">
-      <div className="pills scroll">{presets.map(([l, v]) => <button key={l} className={`pill ${same(value, v) ? 'on' : ''}`} onClick={() => onChange(v)}>{l}</button>)}</div>
-      <input type="date" aria-label="From date" style={{ width: 'auto' }} max={today} value={value.from || shown?.from || ''} onChange={(e) => onChange({ from: e.target.value, to: value.to || shown?.to || today })} />
-      <span style={{ color: 'var(--mute)' }}>to</span>
-      <input type="date" aria-label="To date" style={{ width: 'auto' }} max={today} value={value.to || shown?.to || today} onChange={(e) => onChange({ from: value.from || shown?.from || '', to: e.target.value })} />
+    <div className="ds-inline">
+      <Tabs items={presets.map(([l]) => ({ key: l, label: l }))} value={presets.find(([, v]) => same(value, v))?.[0]} onChange={(k) => onChange(presets.find(([l]) => l === k)[1])} />
+      <input type="date" aria-label="From date" max={today} value={value.from || shown?.from || ''} onChange={(e) => onChange({ from: e.target.value, to: value.to || shown?.to || today })} />
+      <span className="ds-hint">to</span>
+      <input type="date" aria-label="To date" max={today} value={value.to || shown?.to || today} onChange={(e) => onChange({ from: value.from || shown?.from || '', to: e.target.value })} />
     </div>
   );
 }
 const ClassSelect = ({ classes, value, onChange, all }) => (
-  <select style={{ width: 'auto', minWidth: 150 }} value={value} onChange={(e) => onChange(e.target.value)} aria-label="Class">
+  <select className="ds-ctx-select" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Class">
     {all ? <option value="">All my classes</option> : <option value="" disabled>Choose a class</option>}
     {classes.map((c) => <option key={c.id} value={c.id}>{clsLabel(c)}</option>)}
   </select>
@@ -258,44 +251,51 @@ function DailyReport({ me, sid, today, onOpen }) {
   const [date, setDate] = useState(today);
   const { data, error, loading } = useGet(me, sid, '/reports/daily', { date });
   return (<>
-    <div className="row"><input type="date" style={{ width: 'auto' }} max={today} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Date" />{date !== today && <button className="btn" onClick={() => setDate(today)}>Today</button>}</div>
-    {error && <div className="err">{error}</div>}
+    <div className="ds-inline"><input type="date" max={today} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Date" />{date !== today && <Button onClick={() => setDate(today)}>Today</Button>}</div>
+    {error && <Notice tone="bad">{error}</Notice>}
     {!data ? (loading && <Loading />) : (<>
-      <div className="asum"><Tile n={`${data.totals.classes_marked}/${data.totals.classes}`} label="Classes marked" /><Tile tone="present" n={data.totals.present} label="Present" /><Tile tone="absent" n={data.totals.absent} label="Absent" /><Tile tone="late" n={data.totals.late} label="Late" /></div>
-      {data.classes.length === 0 ? <Empty>No classes to show.</Empty> : (
-        <div className="card" style={{ padding: 0 }}>{data.classes.map((c) => { const s = statusLine(c); return (
-          <button key={c.id} className="drow" onClick={() => onOpen(c.id, date)}>
-            <div style={{ flex: 1, minWidth: 0 }}><b>{clsLabel(c)}</b><small>{c.teachers.length ? c.teachers.join(', ') : 'No teacher assigned'}</small></div>
-            <div className="dstate"><span className={`cstate ${s.tone}`}>{s.text}</span>{c.marked > 0 && <small><span style={{ color: 'var(--ok)' }}>{c.present} present</span> - <span style={{ color: 'var(--bad)' }}>{c.absent} absent</span>{c.late > 0 ? ` - ${c.late} late` : ''}{c.leave > 0 ? ` - ${c.leave} leave` : ''}</small>}</div>
-          </button>); })}</div>)}
+      <KpiGrid><Kpi label="Classes marked" value={`${data.totals.classes_marked}/${data.totals.classes}`} /><Kpi label="Present" tone="ok" value={data.totals.present} /><Kpi label="Absent" tone="bad" value={data.totals.absent} /><Kpi label="Late" tone="warn" value={data.totals.late} /></KpiGrid>
+      {data.classes.length === 0 ? <EmptyState icon="attendance">No classes to show.</EmptyState> : (
+        <Section flush><List>{data.classes.map((c) => { const s = statusLine(c); return (
+          <ListRow key={c.id} onClick={() => onOpen(c.id, date)} title={clsLabel(c)} sub={c.teachers.length ? c.teachers.join(', ') : 'No teacher assigned'}
+            meta={<span className="ds-al-right"><span className={`cstate ${s.tone}`}>{s.text}</span>{c.marked > 0 && <span className="ds-subline">{c.present} present - {c.absent} absent{c.late > 0 ? ` - ${c.late} late` : ''}{c.leave > 0 ? ` - ${c.leave} leave` : ''}</span>}</span>} />); })}</List></Section>)}
     </>)}
   </>);
 }
+
+const Roll = ({ n }) => <span className="roll sm">{n ?? '-'}</span>;
+const CsvBtn = ({ onClick, disabled }) => <Button size="sm" icon="download" onClick={onClick} disabled={disabled}>Download CSV</Button>;
 
 function ClassReport({ me, sid, today, classes, onStudent }) {
   const [classId, setClassId] = useState(classes[0]?.id || '');
   const [range, setRange] = useState({ from: '', to: '' });
   const { data, error, loading } = useGet(me, sid, '/reports/class', { class_id: classId, ...range }, !!classId);
   const [below, setBelow] = useState(false);
-  if (!classes.length) return <Empty>No classes available.</Empty>;
+  if (!classes.length) return <EmptyState icon="attendance">No classes available.</EmptyState>;
   const rows = (data?.students || []).filter((s) => !below || (s.percent !== null && s.percent < 75));
   const download = () => csv(`attendance-${clsName(data.class).replace(/\s+/g, '')}-${data.range.from}-to-${data.range.to}.csv`,
     [['Roll no', 'Name', 'Present', 'Absent', 'Late', 'Leave', 'Days marked', 'Attendance %'], ...data.students.map((s) => [s.roll_no ?? '', s.full_name, s.present, s.absent, s.late, s.leave, s.total, s.percent ?? ''])]);
+  const columns = [
+    { key: 'roll', label: 'Roll', render: (s) => <Roll n={s.roll_no} /> },
+    { key: 'name', label: 'Name', primary: true, render: (s) => <>{s.full_name}{!s.current && <span className="ds-subline">moved</span>}</> },
+    { key: 'present', label: 'P', align: 'right' }, { key: 'absent', label: 'A', align: 'right' }, { key: 'late', label: 'L', align: 'right' }, { key: 'leave', label: 'Lv', align: 'right' },
+    { key: 'pct', label: 'Attendance', render: (s) => <><div className="bar"><i className={s.percent === null ? '' : s.percent >= 90 ? 'ok' : s.percent >= 75 ? 'mid' : 'low'} style={{ width: `${s.percent || 0}%` }} /></div><Pct v={s.percent} /></> },
+  ];
   return (<>
-    <div className="row"><ClassSelect classes={classes} value={classId} onChange={setClassId} /></div>
+    <div className="ds-inline"><ClassSelect classes={classes} value={classId} onChange={setClassId} /></div>
     <RangeBar today={today} value={range} shown={data?.range} onChange={setRange} />
-    {error && <div className="err">{error}</div>}
+    {error && <Notice tone="bad">{error}</Notice>}
     {!data ? (loading && <Loading />) : (<>
-      <div className="asum"><Tile n={data.working_days} label="Days marked" /><Tile n={data.summary.percent === null ? '-' : `${data.summary.percent}%`} label="Class average" tone="present" /><Tile n={data.students.filter((s) => s.percent !== null && s.percent < 75).length} label="Below 75%" tone="absent" onClick={() => setBelow(!below)} on={below} /></div>
-      <div className="row sp"><small style={{ color: 'var(--mute)' }}>{fmtDate(data.range.from)} to {fmtDate(data.range.to)}</small><button className="btn" onClick={download} disabled={!data.students.length}><Icon name="download" size={16} />Download CSV</button></div>
-      {rows.length === 0 ? <Empty>{below ? 'Nobody is below 75%.' : 'No students.'}</Empty> : (
-        <div className="card scrollx" style={{ padding: 0 }}><table className="rt"><thead><tr><th>Roll</th><th>Name</th><th className="n">P</th><th className="n">A</th><th className="n">L</th><th className="n">Lv</th><th>Attendance</th></tr></thead><tbody>
-          {rows.map((s) => <tr key={s.student_id} className="click" onClick={() => onStudent(s)}><td><span className="roll sm">{s.roll_no ?? '-'}</span></td><td>{s.full_name}{!s.current && <small className="muted"> (moved)</small>}</td>
-            <td className="n">{s.present}</td><td className="n">{s.absent}</td><td className="n">{s.late}</td><td className="n">{s.leave}</td>
-            <td><div className="bar"><i className={s.percent === null ? '' : s.percent >= 90 ? 'ok' : s.percent >= 75 ? 'mid' : 'low'} style={{ width: `${s.percent || 0}%` }} /></div><Pct v={s.percent} /></td></tr>)}
-        </tbody></table></div>)}
-      {data.days.length > 0 && <details className="card"><summary><b>Day by day</b> ({data.days.length} days)</summary>
-        <div className="days">{[...data.days].reverse().map((d) => <div key={d.date} className="dayrow"><span>{fmtDate(d.date, { weekday: 'short', day: 'numeric', month: 'short' })}</span><span className="muted">{d.present + d.late} here - {d.absent} absent{d.leave ? ` - ${d.leave} leave` : ''}</span><Pct v={d.percent} /></div>)}</div></details>}
+      <KpiGrid>
+        <Kpi label="Days marked" value={data.working_days} />
+        <Kpi label="Class average" tone="ok" value={data.summary.percent === null ? '-' : `${data.summary.percent}%`} />
+        <Kpi label="Below 75% (tap to filter)" tone="bad" value={data.students.filter((s) => s.percent !== null && s.percent < 75).length} onClick={() => setBelow(!below)} />
+      </KpiGrid>
+      <div className="ds-spread"><span className="ds-hint">{fmtDate(data.range.from)} to {fmtDate(data.range.to)}{below ? ' · only below 75%' : ''}</span><CsvBtn onClick={download} disabled={!data.students.length} /></div>
+      <Section flush><DataTable columns={columns} rows={rows} rowKey={(s) => s.student_id} onRowClick={onStudent} empty={<EmptyState icon="attendance">{below ? 'Nobody is below 75%.' : 'No students.'}</EmptyState>} /></Section>
+      {data.days.length > 0 && (
+        <details className="ds-section ds-details"><summary><b>Day by day</b> ({data.days.length} days)</summary>
+          <div className="days">{[...data.days].reverse().map((d) => <div key={d.date} className="dayrow"><span>{fmtDate(d.date, { weekday: 'short', day: 'numeric', month: 'short' })}</span><span className="ds-hint">{d.present + d.late} here - {d.absent} absent{d.leave ? ` - ${d.leave} leave` : ''}</span><Pct v={d.percent} /></div>)}</div></details>)}
     </>)}
   </>);
 }
@@ -307,28 +307,32 @@ function StudentReport({ me, sid, today, picked, setPicked }) {
   const found = useGet(me, sid, '/students', { q: dq }, !picked);
   const { data, error, loading } = useGet(me, sid, `/reports/student/${picked?.student_id || 'x'}`, range, !!picked);
   if (!picked) return (<>
-    <div style={{ position: 'relative', maxWidth: 420 }}><input autoFocus placeholder="Search student by name, ID or roll no." value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 36 }} /><span style={{ position: 'absolute', left: 11, top: 10, color: 'var(--mute)' }}><Icon name="search" size={18} /></span></div>
-    {found.error && <div className="err">{found.error}</div>}
-    {found.data && (found.data.length === 0 ? <Empty>No student found.</Empty> :
-      <div className="card" style={{ padding: 0 }}>{found.data.map((s) => <button key={s.student_id} className="drow" onClick={() => setPicked(s)}><span className="roll sm">{s.roll_no ?? '-'}</span><div style={{ flex: 1 }}><b>{s.full_name}</b><small>{s.class_label} - {s.login_id}</small></div></button>)}</div>)}
+    <label className="ds-search"><Icon name="search" size={18} /><input type="search" autoFocus placeholder="Search student by name, ID or roll no." value={q} onChange={(e) => setQ(e.target.value)} /></label>
+    {found.error && <Notice tone="bad">{found.error}</Notice>}
+    {found.data && (found.data.length === 0 ? <EmptyState icon="search">No student found.</EmptyState> : (
+      <Section flush><List>{found.data.map((s) => <ListRow key={s.student_id} onClick={() => setPicked(s)} lead={<Roll n={s.roll_no} />} title={s.full_name} sub={`${s.class_label} - ${s.login_id}`} />)}</List></Section>))}
   </>);
   return (<>
-    <div className="row"><button className="btn" onClick={() => setPicked(null)}><Icon name="back" size={16} />Students</button><b style={{ fontSize: 17 }}>{picked.full_name}</b></div>
+    <div className="ds-inline"><Button icon="back" onClick={() => setPicked(null)}>Students</Button><b>{picked.full_name}</b></div>
     <RangeBar today={today} value={range} shown={data?.range} onChange={setRange} />
-    {error && <div className="err">{error}</div>}
+    {error && <Notice tone="bad">{error}</Notice>}
     {!data ? (loading && <Loading />) : <StudentSummary data={data} />}
   </>);
 }
 
 function StudentSummary({ data }) {
   const s = data.summary;
+  const monthCols = [
+    { key: 'month', label: 'Month', primary: true, render: (m) => fmtMonth(m.month) },
+    { key: 'present', label: 'P', align: 'right' }, { key: 'absent', label: 'A', align: 'right' }, { key: 'late', label: 'L', align: 'right' }, { key: 'leave', label: 'Lv', align: 'right' },
+    { key: 'pct', label: '%', render: (m) => <Pct v={m.percent} /> },
+  ];
   return (<>
-    <div className="card row sp"><div><b style={{ fontSize: 17 }}>{data.student.full_name}</b><div className="muted">{data.student.class ? clsLabel(data.student.class) : 'No class'}{data.student.roll_no ? ` - Roll ${data.student.roll_no}` : ''}{data.student.admission_no ? ` - Adm. ${data.student.admission_no}` : ''}</div></div><div style={{ fontSize: 26 }}><Pct v={s.percent} /></div></div>
-    <div className="asum"><Tile tone="present" n={s.present} label="Present" /><Tile tone="absent" n={s.absent} label="Absent" /><Tile tone="late" n={s.late} label="Late" /><Tile tone="leave" n={s.leave} label="Leave" /></div>
-    <small className="muted">{fmtDate(data.range.from)} to {fmtDate(data.range.to)} - {s.total} day{s.total === 1 ? '' : 's'} marked</small>
-    {data.months.length > 0 && <div className="card scrollx" style={{ padding: 0 }}><table className="rt"><thead><tr><th>Month</th><th className="n">P</th><th className="n">A</th><th className="n">L</th><th className="n">Lv</th><th>%</th></tr></thead><tbody>
-      {data.months.map((m) => <tr key={m.month}><td>{fmtMonth(m.month)}</td><td className="n">{m.present}</td><td className="n">{m.absent}</td><td className="n">{m.late}</td><td className="n">{m.leave}</td><td><Pct v={m.percent} /></td></tr>)}</tbody></table></div>}
-    {data.absences.length > 0 && <div className="card"><b>Days not present</b><div className="pills" style={{ marginTop: 10 }}>{data.absences.map((a) => <span key={a.date} className={`chip ${a.status}`}>{fmtDate(a.date, { day: 'numeric', month: 'short' })} - {ST[a.status].label}</span>)}</div></div>}
+    <Section><div className="ds-spread"><div><b>{data.student.full_name}</b><span className="ds-subline">{data.student.class ? clsLabel(data.student.class) : 'No class'}{data.student.roll_no ? ` - Roll ${data.student.roll_no}` : ''}{data.student.admission_no ? ` - Adm. ${data.student.admission_no}` : ''}</span></div><Pct v={s.percent} /></div></Section>
+    <KpiGrid><Kpi tone="ok" label="Present" value={s.present} /><Kpi tone="bad" label="Absent" value={s.absent} /><Kpi tone="warn" label="Late" value={s.late} /><Kpi tone="info" label="Leave" value={s.leave} /></KpiGrid>
+    <p className="ds-hint">{fmtDate(data.range.from)} to {fmtDate(data.range.to)} - {s.total} day{s.total === 1 ? '' : 's'} marked</p>
+    {data.months.length > 0 && <Section title="By month" flush><DataTable columns={monthCols} rows={data.months} rowKey={(m) => m.month} /></Section>}
+    {data.absences.length > 0 && <Section title="Days not present"><div className="ds-chips">{data.absences.map((a) => <StatusBadge key={a.date} tone={a.status === 'absent' ? 'bad' : a.status === 'late' ? 'warn' : 'info'}>{fmtDate(a.date, { day: 'numeric', month: 'short' })} - {ST[a.status].label}</StatusBadge>)}</div></Section>}
   </>);
 }
 
@@ -336,14 +340,14 @@ function LowReport({ me, sid, today, classes, onStudent }) {
   const [classId, setClassId] = useState(''); const [limit, setLimit] = useState('75'); const [range, setRange] = useState({ from: '', to: '' });
   const { data, error, loading } = useGet(me, sid, '/reports/low', { class_id: classId, threshold: limit, ...range }, Number(limit) > 0);
   return (<>
-    <div className="row"><ClassSelect classes={classes} value={classId} onChange={setClassId} all />
-      <label className="row" style={{ gap: 6 }}><span className="muted">Below</span><input type="number" min="1" max="100" style={{ width: 80 }} value={limit} onChange={(e) => setLimit(e.target.value)} aria-label="Attendance limit in percent" /><span className="muted">%</span></label></div>
+    <div className="ds-inline"><ClassSelect classes={classes} value={classId} onChange={setClassId} all />
+      <label className="ds-inline"><span className="ds-hint">Below</span><input type="number" min="1" max="100" className="ds-input-sm" value={limit} onChange={(e) => setLimit(e.target.value)} aria-label="Attendance limit in percent" /><span className="ds-hint">%</span></label></div>
     <RangeBar today={today} value={range} shown={data?.range} onChange={setRange} />
-    {error && <div className="err">{error}</div>}
-    {!data ? (loading && <Loading />) : data.students.length === 0 ? <Empty>Nobody is below {data.threshold}% in this period.</Empty> : (<>
-      <div className="row sp"><small className="muted">{data.students.length} student{data.students.length === 1 ? '' : 's'} below {data.threshold}%</small>
-        <button className="btn" onClick={() => csv(`low-attendance-${data.range.from}-to-${data.range.to}.csv`, [['Class', 'Roll no', 'Name', 'Present', 'Absent', 'Late', 'Leave', 'Attendance %'], ...data.students.map((s) => [s.class_label, s.roll_no ?? '', s.full_name, s.present, s.absent, s.late, s.leave, s.percent])])}><Icon name="download" size={16} />Download CSV</button></div>
-      <div className="card" style={{ padding: 0 }}>{data.students.map((s) => <button key={`${s.student_id}${s.class_id}`} className="drow" onClick={() => onStudent(s)}><span className="roll sm">{s.roll_no ?? '-'}</span><div style={{ flex: 1 }}><b>{s.full_name}</b><small>{s.class_label} - {s.absent} absent of {s.total} days</small></div><Pct v={s.percent} /></button>)}</div>
+    {error && <Notice tone="bad">{error}</Notice>}
+    {!data ? (loading && <Loading />) : data.students.length === 0 ? <EmptyState icon="check">Nobody is below {data.threshold}% in this period.</EmptyState> : (<>
+      <div className="ds-spread"><span className="ds-hint">{data.students.length} student{data.students.length === 1 ? '' : 's'} below {data.threshold}%</span>
+        <CsvBtn onClick={() => csv(`low-attendance-${data.range.from}-to-${data.range.to}.csv`, [['Class', 'Roll no', 'Name', 'Present', 'Absent', 'Late', 'Leave', 'Attendance %'], ...data.students.map((s) => [s.class_label, s.roll_no ?? '', s.full_name, s.present, s.absent, s.late, s.leave, s.percent])])} /></div>
+      <Section flush><List>{data.students.map((s) => <ListRow key={`${s.student_id}${s.class_id}`} onClick={() => onStudent(s)} lead={<Roll n={s.roll_no} />} title={s.full_name} sub={`${s.class_label} - ${s.absent} absent of ${s.total} days`} meta={<Pct v={s.percent} />} />)}</List></Section>
     </>)}
   </>);
 }
@@ -351,16 +355,19 @@ function LowReport({ me, sid, today, classes, onStudent }) {
 export const AttendanceReports = scoped(function Reports({ me, sid, go }) {
   const [tab, setTab] = useState('daily'); const [picked, setPicked] = useState(null);
   const { data } = useClasses(me, sid);
-  if (!data) return <Loading />;
+  if (!data) return <Page><Loading /></Page>;
   const openStudent = (s) => { setPicked({ student_id: s.student_id, full_name: s.full_name }); setTab('student'); };
   const openClass = (class_id, date) => { jump = { class_id, date: date === data.today ? '' : date }; go('take'); };
-  return (<>
-    <div className="pills scroll">{[['daily', 'Daily overview'], ['class', 'Class report'], ['student', 'Student report'], ['low', 'Low attendance']].map(([k, l]) => <button key={k} className={`pill ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
-    {tab === 'daily' && <DailyReport me={me} sid={sid} today={data.today} onOpen={openClass} />}
-    {tab === 'class' && <ClassReport me={me} sid={sid} today={data.today} classes={data.classes} onStudent={openStudent} />}
-    {tab === 'student' && <StudentReport me={me} sid={sid} today={data.today} picked={picked} setPicked={setPicked} />}
-    {tab === 'low' && <LowReport me={me} sid={sid} today={data.today} classes={data.classes} onStudent={openStudent} />}
-  </>);
+  return (
+    <Page>
+      <PageBar title="Attendance reports" sub="Daily overview, class, student and low attendance" />
+      <Tabs value={tab} onChange={setTab} items={[{ key: 'daily', label: 'Daily overview' }, { key: 'class', label: 'Class report' }, { key: 'student', label: 'Student report' }, { key: 'low', label: 'Low attendance' }]} />
+      {tab === 'daily' && <DailyReport me={me} sid={sid} today={data.today} onOpen={openClass} />}
+      {tab === 'class' && <ClassReport me={me} sid={sid} today={data.today} classes={data.classes} onStudent={openStudent} />}
+      {tab === 'student' && <StudentReport me={me} sid={sid} today={data.today} picked={picked} setPicked={setPicked} />}
+      {tab === 'low' && <LowReport me={me} sid={sid} today={data.today} classes={data.classes} onStudent={openStudent} />}
+    </Page>
+  );
 });
 
 /* ===================================================================== ROLL NUMBERS */
@@ -390,24 +397,27 @@ export const RollNumbers = scoped(function Rolls({ me, sid }) {
   };
   const pickClass = async (id) => { if (dirty && !(await ask('Discard your unsaved edits?'))) return; setClassId(id); };
 
-  if (!cl) return <Loading />;
-  if (!cl.classes.length) return <Empty>No classes available.</Empty>;
-  return (<>
-    <div className="row"><ClassSelect classes={cl.classes} value={classId} onChange={pickClass} /></div>
-    <small className="muted hint">Roll numbers are 1 to 100 and unique inside one class (Roll 1 can exist in 1A and in 1B). They are cleared at year-end promotion, so assign them again for the new class.</small>
-    {err && <div className="err">{err}</div>}
-    {!d ? (err ? null : <Loading rows={3} />) : d.students.length === 0 ? <Empty>No active students in this class.</Empty> : (<>
-      <div className="row"><button className="btn sm" disabled={busy} onClick={() => auto('fill')}>Fill missing numbers</button><button className="btn sm" disabled={busy} onClick={() => auto('name')}>Number all A–Z</button></div>
-      <div className="card flush">{[...d.students].sort((a, b) => (Number(vals[a.student_id]) || 1e9) - (Number(vals[b.student_id]) || 1e9) || a.full_name.localeCompare(b.full_name)).map((s) => {
-        const v = vals[s.student_id]; const flagged = bad(v) || (v !== '' && dups.has(String(v)));
-        return (<div key={s.student_id} className="drow" style={{ cursor: 'default' }}>
-          <div style={{ flex: 1, minWidth: 0 }}><b>{s.full_name}</b><small>{s.admission_no ? `Adm. ${s.admission_no}` : s.login_id}</small></div>
-          <input type="number" min="1" max="100" inputMode="numeric" className={`rollin ${flagged ? 'bad' : ''}`} aria-label={`Roll no. of ${s.full_name}`} value={v} placeholder="-" onChange={(e) => setVals({ ...vals, [s.student_id]: e.target.value })} />
-        </div>); })}</div>
-      <SaveBar dirty={dirty} error={dups.size > 0 ? 'Duplicate roll numbers' : invalid ? 'Use whole numbers 1-100' : ''} summary={dirty ? 'Unsaved changes' : 'All saved'}
-        action={<button className="btn primary" disabled={busy || !dirty || invalid} onClick={save}>{busy ? 'Saving...' : 'Save roll numbers'}</button>} />
-    </>)}
-  </>);
+  if (!cl) return <Page><Loading /></Page>;
+  if (!cl.classes.length) return <Page><EmptyState icon="attendance">No classes available.</EmptyState></Page>;
+  return (
+    <Page>
+      <PageBar title="Roll numbers" sub="Roll numbers are 1 to 100 and unique inside one class. They are cleared at year-end promotion, so assign them again for the new class.">
+        <ClassSelect classes={cl.classes} value={classId} onChange={pickClass} />
+      </PageBar>
+      {err && <Notice tone="bad">{err}</Notice>}
+      {!d ? (err ? null : <Loading rows={3} />) : d.students.length === 0 ? <EmptyState icon="users">No active students in this class.</EmptyState> : (<>
+        <div className="ds-inline"><Button size="sm" disabled={busy} onClick={() => auto('fill')}>Fill missing numbers</Button><Button size="sm" disabled={busy} onClick={() => auto('name')}>Number all A–Z</Button></div>
+        <Section flush><List>{[...d.students].sort((a, b) => (Number(vals[a.student_id]) || 1e9) - (Number(vals[b.student_id]) || 1e9) || a.full_name.localeCompare(b.full_name)).map((s) => {
+          const v = vals[s.student_id]; const flagged = bad(v) || (v !== '' && dups.has(String(v)));
+          return (
+            <ListRow key={s.student_id} title={s.full_name} sub={s.admission_no ? `Adm. ${s.admission_no}` : s.login_id}
+              meta={<input type="number" min="1" max="100" inputMode="numeric" className={`rollin ${flagged ? 'bad' : ''}`} aria-label={`Roll no. of ${s.full_name}`} value={v} placeholder="-" onChange={(e) => setVals({ ...vals, [s.student_id]: e.target.value })} />} />);
+        })}</List></Section>
+        <SaveBar dirty={dirty} error={dups.size > 0 ? 'Duplicate roll numbers' : invalid ? 'Use whole numbers 1-100' : ''} summary={dirty ? 'Unsaved changes' : 'All saved'}
+          action={<Button kind="primary" loading={busy} disabled={!dirty || invalid} onClick={save}>Save roll numbers</Button>} />
+      </>)}
+    </Page>
+  );
 });
 
 /* ===================================================================== CLASS TEACHERS */
@@ -420,37 +430,35 @@ function AssignModal({ me, sid, cls, teachers, onClose, onSaved }) {
   const save = async () => {
     setBusy(true); setErr('');
     try { await send('put', me, sid, `/classes/${cls.id}/teachers`, { teacher_ids: [...sel], class_teacher_id: head || null }); toast('Teachers updated'); onSaved(); onClose(); }
-    catch (x) { setErr(x.message); } finally { setBusy(false); }
+    catch (x) { setErr(x.message); setBusy(false); }
   };
   return (
-    <Modal title={`Teachers - ${clsLabel(cls)}`} onClose={onClose}>
-      <input placeholder="Search staff" value={q} onChange={(e) => setQ(e.target.value)} />
-      {teachers.length === 0 && <Empty>No staff accounts yet. Create users with the role "Staff" first.</Empty>}
-      <div className="card" style={{ padding: 0 }}>{list.map((t) => (
-        <div key={t.user_id} className="drow" style={{ cursor: 'default' }}>
-          <label className="row" style={{ flex: 1, flexWrap: 'nowrap', cursor: 'pointer' }}><input type="checkbox" style={{ width: 20, height: 20 }} checked={sel.has(t.user_id)} onChange={() => toggle(t.user_id)} />
-            <span><b>{t.full_name}</b><small style={{ display: 'block', color: 'var(--mute)' }}>{t.designation || t.login_id}</small></span></label>
-          {sel.has(t.user_id) && <button type="button" className={`btn sm ${head === t.user_id ? 'primary' : ''}`} onClick={() => setHead(head === t.user_id ? '' : t.user_id)} title="Mark as the class teacher"><Icon name="star" size={14} />Class teacher</button>}
-        </div>))}</div>
-      {err && <div className="err">{err}</div>}
-      <button className="btn primary" style={{ justifyContent: 'center' }} disabled={busy} onClick={save}>Save ({sel.size} selected)</button>
-    </Modal>
+    <FormDialog title={`Teachers - ${clsLabel(cls)}`} onClose={onClose} onSubmit={save} busy={busy} error={err} submitLabel={`Save (${sel.size} selected)`}>
+      <input type="search" placeholder="Search staff" aria-label="Search staff" value={q} onChange={(e) => setQ(e.target.value)} />
+      {teachers.length === 0 && <EmptyState icon="users">No staff accounts yet. Create users with the role "Staff" first.</EmptyState>}
+      <Section flush><List>{list.map((t) => (
+        <ListRow key={t.user_id} lead={<input type="checkbox" aria-label={`Select ${t.full_name}`} checked={sel.has(t.user_id)} onChange={() => toggle(t.user_id)} />} title={t.full_name} sub={t.designation || t.login_id}>
+          {sel.has(t.user_id) && <Button size="sm" icon="star" kind={head === t.user_id ? 'primary' : 'secondary'} title="Mark as the class teacher" onClick={() => setHead(head === t.user_id ? '' : t.user_id)}>Class teacher</Button>}
+        </ListRow>))}</List></Section>
+    </FormDialog>
   );
 }
 
 export const ClassTeachers = scoped(function Teachers({ me, sid }) {
   const [edit, setEdit] = useState(null);
   const { data: d, error: err, refresh: reload } = useApi(`/attendance/teachers${qs(scopeQ(me, sid))}`);
-  if (err) return <div className="err">{err}</div>;
-  if (!d) return <Loading />;
-  return (<>
-    <small className="muted hint">Teachers only see the classes assigned to them in Take attendance. Staff with "Access every class" see all classes.</small>
-    {d.classes.length === 0 ? <Empty>No classes yet. Add them under Users &gt; Classes.</Empty> : (
-      <div className="cgrid">{d.classes.map((c) => (
-        <button key={c.id} type="button" className="ccard static" onClick={() => setEdit(c)} aria-label={`Edit teachers of ${clsLabel(c)}`}>
-          <div className="ccard-top"><b className="cname">{clsLabel(c)}</b><span className="ccard-go"><Icon name="edit" size={15} /></span></div>
-          {c.teachers.length === 0 ? <span className="muted">No teacher assigned</span> : <div className="pills">{c.teachers.map((t) => <span key={t.user_id} className={`chip ${t.is_class_teacher ? 'head' : ''}`}>{t.is_class_teacher && <Icon name="star" size={12} />}{t.full_name}</span>)}</div>}
-        </button>))}</div>)}
-    {edit && <AssignModal me={me} sid={sid} cls={edit} teachers={d.teachers} onClose={() => setEdit(null)} onSaved={reload} />}
-  </>);
+  if (err) return <Page><Notice tone="bad">{err}</Notice></Page>;
+  if (!d) return <Page><Loading /></Page>;
+  return (
+    <Page>
+      <PageBar title="Class teachers" sub='Teachers only see the classes assigned to them in Take attendance. Staff with "Access every class" see all classes.' />
+      {d.classes.length === 0 ? <EmptyState icon="users">No classes yet. Add them under Users &gt; Classes.</EmptyState> : (
+        <div className="cgrid">{d.classes.map((c) => (
+          <button key={c.id} type="button" className="ccard static" onClick={() => setEdit(c)} aria-label={`Edit teachers of ${clsLabel(c)}`}>
+            <div className="ccard-top"><b className="cname">{clsLabel(c)}</b><span className="ccard-go"><Icon name="edit" size={15} /></span></div>
+            {c.teachers.length === 0 ? <span className="ds-hint">No teacher assigned</span> : <div className="ds-chips">{c.teachers.map((t) => <StatusBadge key={t.user_id} tone={t.is_class_teacher ? 'info' : 'mute'} dot={false}>{t.is_class_teacher ? '★ ' : ''}{t.full_name}</StatusBadge>)}</div>}
+          </button>))}</div>)}
+      {edit && <AssignModal me={me} sid={sid} cls={edit} teachers={d.teachers} onClose={() => setEdit(null)} onSaved={reload} />}
+    </Page>
+  );
 });

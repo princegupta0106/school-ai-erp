@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApi } from '../cache.js';
-import { Icon, Empty, Loading, initials, groupByClass, ClassGroup } from '../ui.jsx';
+import { Icon, Loading, initials, groupByClass, ClassGroup, Page, PageBar, Button, KpiGrid, Kpi, Tabs, EmptyState, Notice } from '../ui.jsx';
+import { FilterBar } from '../FilterBar.jsx';
 import { scoped } from './AttendanceModule.jsx';
 import { Rides } from './TransportModule.jsx';
 
@@ -10,7 +11,7 @@ const fdate = (d, o = { day: 'numeric', month: 'short', year: 'numeric' }) => (d
 const mon = (m) => new Date(`${m}-01T00:00:00`).toLocaleDateString(undefined, { month: 'short' });
 const useDebounced = (v, ms = 250) => { const [d, setD] = useState(v); useEffect(() => { const t = setTimeout(() => setD(v), ms); return () => clearTimeout(t); }, [v, ms]); return d; };
 const tone = (p, hi = 85, mid = 60) => (p === null || p === undefined ? 'mute' : p >= hi ? 'ok' : p >= mid ? 'warn' : 'bad');
-const HUES = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#8b5cf6', '#ec4899', '#14b8a6'];
+const HUES = [7, 4, 8, 5, 2, 3, 5, 6].map((n) => `var(--cat-${n})`);
 const hueOf = (s) => HUES[[...String(s || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % HUES.length];
 const STATE = { checked: ['ok', 'Checked'], submitted: ['info', 'Submitted'], pending: ['warn', 'Pending'], overdue: ['bad', 'Overdue'], info: ['mute', 'For reading'] };
 
@@ -37,12 +38,6 @@ function Card({ id, title, icon, color, action, children, cls = '' }) {
     </section>
   );
 }
-const Kpi = ({ icon, color, label, value, sub, t }) => (
-  <div className={`sp-kpi ${t || ''}`} style={{ '--c': color }}>
-    <span className="sp-ic"><Icon name={icon} size={18} /></span>
-    <div><small>{label}</small><b>{value}</b>{sub && <em>{sub}</em>}</div>
-  </div>
-);
 const Fact = ({ label, value }) => (value ? <div className="sp-fact"><small>{label}</small><b>{value}</b></div> : null);
 const Soft = ({ children }) => <div className="sp-soft">{children}</div>;
 
@@ -169,7 +164,7 @@ function Personal({ s, parents }) {
       <div className="sp-fam">
         {guardians.map((g) => <div key={g.r} className="sp-person"><span className="sp-av" style={{ background: hueOf(g.n) }}>{initials(g.n)}</span><div><b>{g.n}</b><small>{g.r}{g.o ? ` · ${g.o}` : ''}</small></div>{g.p && <a className="icon-btn" href={`tel:${g.p}`} aria-label={`Call ${g.n}`}><Icon name="phone" size={17} /></a>}</div>)}
         {linked.map((p) => <div key={p.user_id} className="sp-person"><span className="sp-av" style={{ background: hueOf(p.full_name) }}>{initials(p.full_name)}</span><div><b>{p.full_name}</b><small>Parent account{p.phone ? ` · ${p.phone}` : ''}</small></div>{p.phone && <a className="icon-btn" href={`tel:${p.phone}`} aria-label="Call"><Icon name="phone" size={17} /></a>}</div>)}
-        {s.emergency_contact_name && <div className="sp-person emg"><span className="sp-av" style={{ background: '#ef4444' }}>!</span><div><b>{s.emergency_contact_name}</b><small>Emergency contact</small></div>{s.emergency_contact_phone && <a className="icon-btn" href={`tel:${s.emergency_contact_phone}`} aria-label="Call emergency contact"><Icon name="phone" size={17} /></a>}</div>}
+        {s.emergency_contact_name && <div className="sp-person emg"><span className="sp-av" style={{ background: 'var(--st-bad)' }}>!</span><div><b>{s.emergency_contact_name}</b><small>Emergency contact</small></div>{s.emergency_contact_phone && <a className="icon-btn" href={`tel:${s.emergency_contact_phone}`} aria-label="Call emergency contact"><Icon name="phone" size={17} /></a>}</div>}
       </div>
     </>
   );
@@ -189,7 +184,7 @@ function Profile({ me, studentId, sid, go, onBack }) {
   const q = new URLSearchParams({ ...(me.role === 'super_admin' ? { school_id: sid } : {}), ...(session ? { session_id: session } : {}) }).toString();
   const { data: d, error } = useApi(`/student-profile/${studentId}${q ? `?${q}` : ''}`, true, { keepPrevious: true });
   const root = useRef(null);
-  if (error) return <div className="stack">{onBack && <button className="btn" onClick={onBack}><Icon name="back" size={16} /> Back</button>}<div className="err">{error}</div></div>;
+  if (error) return <Page><PageBar title="Student profile" lead={onBack ? <Button size="sm" icon="back" onClick={onBack}>Back</Button> : undefined} /><Notice tone="bad">{error}</Notice></Page>;
   if (!d) return <Loading rows={6} />;
   const s = d.student; const att = d.attendance && !d.attendance.error ? d.attendance : null;
   const ac = d.academics && !d.academics.error ? d.academics : null; const fe = d.fees && !d.fees.error ? d.fees : d.fees;
@@ -201,11 +196,11 @@ function Profile({ me, studentId, sid, go, onBack }) {
   const bus = d.transport && !d.transport.error ? d.transport : null; const showBus = !!(d.viewer.can_transport && bus); // hidden if the school has not set up transport
 
   return (
-    <div className="sp-root" ref={root}>
-      {onBack && <button className="btn sp-back" onClick={onBack}><Icon name="back" size={16} /> All students</button>}
+    <div className="sp-root ds-page" ref={root}>
+      <PageBar title="Student profile" sub={s.full_name} lead={onBack ? <Button size="sm" icon="back" onClick={onBack}>All students</Button> : undefined} />
 
       <div className="sp-hero" style={{ '--c': col }}>
-        <div className="sp-avatar" style={{ background: `linear-gradient(135deg, ${col}, color-mix(in srgb, ${col} 55%, #000))` }}>{initials(s.full_name)}</div>
+        <div className="sp-avatar" style={{ background: col }}>{initials(s.full_name)}</div>
         <div className="sp-id">
           <h2>{s.full_name}</h2>
           <div className="sp-meta">
@@ -220,23 +215,23 @@ function Profile({ me, studentId, sid, go, onBack }) {
         )}
       </div>
 
-      <div className="sp-kpis">
-        <Kpi icon="attendance" color="#0ea5e9" label="Attendance" value={ap === null ? '–' : `${Math.round(ap)}%`} sub={att ? `${att.summary.absent} absent` : ''} t={tone(ap, 90, 75)} />
-        <Kpi icon="academics" color="#8b5cf6" label="Average marks" value={mp === null ? '–' : `${Math.round(mp)}%`} sub={ac?.summary?.overall?.grade ? `Grade ${ac.summary.overall.grade}` : ''} t={tone(mp)} />
-        {d.viewer.can_fees && <Kpi icon="rupee" color="#10b981" label="Fee balance" value={t ? rupees(t.pending) : '–'} sub={t ? (t.pending <= 0 ? 'All paid' : t.due_till_date > 0 ? `${rupees(t.due_till_date)} due now` : 'Not yet due') : ''} t={t ? (t.pending <= 0 ? 'ok' : t.due_till_date > 0 ? 'bad' : 'warn') : ''} />}
-        <Kpi icon="file" color="#f59e0b" label="Homework" value={hw ? `${hw.submitted}/${hw.submitted + hw.pending + hw.overdue}` : '–'} sub={hw ? (hw.overdue ? `${hw.overdue} overdue` : hw.pending ? `${hw.pending} pending` : 'Up to date') : ''} t={hw ? (hw.overdue ? 'bad' : hw.pending ? 'warn' : 'ok') : ''} />
-      </div>
+      <KpiGrid>
+        <Kpi icon="attendance" label="Attendance" value={ap === null ? '–' : `${Math.round(ap)}%`} sub={att ? `${att.summary.absent} absent` : ''} tone={tone(ap, 90, 75)} />
+        <Kpi icon="academics" label="Average marks" value={mp === null ? '–' : `${Math.round(mp)}%`} sub={ac?.summary?.overall?.grade ? `Grade ${ac.summary.overall.grade}` : ''} tone={tone(mp)} />
+        {d.viewer.can_fees && <Kpi icon="rupee" label="Fee balance" value={t ? rupees(t.pending) : '–'} sub={t ? (t.pending <= 0 ? 'All paid' : t.due_till_date > 0 ? `${rupees(t.due_till_date)} due now` : 'Not yet due') : ''} tone={t ? (t.pending <= 0 ? 'ok' : t.due_till_date > 0 ? 'bad' : 'warn') : ''} />}
+        <Kpi icon="file" label="Homework" value={hw ? `${hw.submitted}/${hw.submitted + hw.pending + hw.overdue}` : '–'} sub={hw ? (hw.overdue ? `${hw.overdue} overdue` : hw.pending ? `${hw.pending} pending` : 'Up to date') : ''} tone={hw ? (hw.overdue ? 'bad' : hw.pending ? 'warn' : 'ok') : ''} />
+      </KpiGrid>
 
-      <nav className="sp-nav" aria-label="Profile sections">{NAV.filter(([id]) => (id !== 'sp-fees' || d.viewer.can_fees) && (id !== 'sp-bus' || showBus)).map(([id, l]) => <button key={id} className="pill" onClick={() => jump(id)}>{l}</button>)}</nav>
+      <Tabs className="sp-nav" value="" onChange={jump} items={NAV.filter(([id]) => (id !== 'sp-fees' || d.viewer.can_fees) && (id !== 'sp-bus' || showBus)).map(([id, l]) => ({ key: id, label: l }))} />
 
       <div className="sp-grid">
-        <Card id="sp-att" title="Attendance" icon="attendance" color="#0ea5e9" cls="w5"><Attendance a={att} /></Card>
-        <Card id="sp-acad" title="Marks & performance" icon="academics" color="#8b5cf6" cls="w7"><Academics ac={ac} /></Card>
-        {d.viewer.can_fees && <Card id="sp-fees" title="Fees" icon="rupee" color="#10b981" cls="w7"><Fees f={fe} go={go} staff={!d.viewer.family && me.features.some((f) => ['view_student_fees', 'collect_fees'].includes(f))} /></Card>}
-        <Card id="sp-hw" title="Homework" icon="file" color="#f59e0b" cls={d.viewer.can_fees ? 'w5' : 'w12'}><Homework h={hw} /></Card>
-        <Card id="sp-info" title="Personal & family" icon="users" color="#ec4899" cls="w7"><Personal s={s} parents={Array.isArray(d.parents) ? d.parents : []} /></Card>
-        <Card id="sp-docs" title="Certificates & report cards" icon="doc" color="#65a30d" cls="w5"><Documents docs={docs} /></Card>
-        {showBus && <Card id="sp-bus" title="Transport" icon="bus" color="#f97316" cls="w12">{bus.assigned ? <Rides rides={bus.rides} /> : <Soft>No school bus is assigned.</Soft>}</Card>}
+        <Card id="sp-att" title="Attendance" icon="attendance" color="var(--cat-2)" cls="w5"><Attendance a={att} /></Card>
+        <Card id="sp-acad" title="Marks & performance" icon="academics" color="var(--cat-3)" cls="w7"><Academics ac={ac} /></Card>
+        {d.viewer.can_fees && <Card id="sp-fees" title="Fees" icon="rupee" color="var(--cat-4)" cls="w7"><Fees f={fe} go={go} staff={!d.viewer.family && me.features.some((f) => ['view_student_fees', 'collect_fees'].includes(f))} /></Card>}
+        <Card id="sp-hw" title="Homework" icon="file" color="var(--st-warn)" cls={d.viewer.can_fees ? 'w5' : 'w12'}><Homework h={hw} /></Card>
+        <Card id="sp-info" title="Personal & family" icon="users" color="var(--cat-5)" cls="w7"><Personal s={s} parents={Array.isArray(d.parents) ? d.parents : []} /></Card>
+        <Card id="sp-docs" title="Certificates & report cards" icon="doc" color="var(--st-ok)" cls="w5"><Documents docs={docs} /></Card>
+        {showBus && <Card id="sp-bus" title="Transport" icon="bus" color="var(--cat-1)" cls="w12">{bus.assigned ? <Rides rides={bus.rides} /> : <Soft>No school bus is assigned.</Soft>}</Card>}
       </div>
     </div>
   );
@@ -253,11 +248,12 @@ export const StudentProfile = scoped(function StaffProfile({ me, sid, go }) {
   const close = () => { setPick(''); try { sessionStorage.removeItem('sp:last'); } catch { /* ignore */ } };
   if (pick) return <Profile key={pick} me={me} sid={sid} studentId={pick} onBack={close} go={(m, v) => { location.hash = `${m}/${v}`; }} />;
   return (
-    <div className="stack">
-      <div className="sp-search"><Icon name="search" size={18} /><input autoFocus placeholder="Search by name, roll no. or ID…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      {error && <div className="err">{error}</div>}
+    <Page>
+      <PageBar title="Student profile" sub="Search a student to see attendance, marks, fees and more in one place" />
+      <FilterBar q={q} onQ={setQ} placeholder="Search by name, roll no. or ID…" />
+      {error && <Notice tone="bad">{error}</Notice>}
       {!list && loading && <Loading />}
-      {list && !list.length && <Empty>{q ? 'No student matches that search.' : 'No students found in the classes you can use.'}</Empty>}
+      {list && !list.length && <EmptyState icon="users" title={q ? 'No student matches' : 'No students found'}>{q ? 'No student matches that search.' : 'No students found in the classes you can use.'}</EmptyState>}
       {groupByClass(list || [], (x) => x.class_label).map((g) => (
         <ClassGroup key={g.label} label={g.label} count={g.items.length} open={!!q}>
           <div className="sp-list">
@@ -271,7 +267,7 @@ export const StudentProfile = scoped(function StaffProfile({ me, sid, go }) {
           </div>
         </ClassGroup>
       ))}
-    </div>
+    </Page>
   );
 });
 
@@ -280,13 +276,13 @@ export function MyStudentProfile({ me }) {
   const { data: kids, error } = useApi('/student-profile/my', true);
   const [pick, setPick] = useState('');
   const cur = pick || kids?.[0]?.student_id;
-  if (error) return <div className="err">{error}</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
   if (!kids) return <Loading rows={6} />;
-  if (!kids.length) return <Empty>No student is linked to your account yet. Ask the school office.</Empty>;
+  if (!kids.length) return <EmptyState icon="users" title="No student linked">No student is linked to your account yet. Ask the school office.</EmptyState>;
   return (
-    <div className="stack sp-wrap">
-      {kids.length > 1 && <div className="pills scroll">{kids.map((k) => <button key={k.student_id} className={`pill ${cur === k.student_id ? 'on' : ''}`} onClick={() => setPick(k.student_id)}>{k.full_name}</button>)}</div>}
+    <Page className="sp-wrap">
+      {kids.length > 1 && <Tabs value={cur} onChange={setPick} items={kids.map((k) => ({ key: k.student_id, label: k.full_name }))} />}
       <Profile key={cur} me={me} studentId={cur} sid={me.school_id} go={null} />
-    </div>
+    </Page>
   );
 }
